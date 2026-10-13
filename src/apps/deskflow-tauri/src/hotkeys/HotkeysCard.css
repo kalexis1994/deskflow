@@ -1,0 +1,254 @@
+.hk {
+  gap: 12px;
+}
+
+.hk__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hk__head h3 {
+  font-size: 15px;
+}
+
+.hk__empty {
+  margin: 0;
+}
+
+.hk__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hk__item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.hk__item--open {
+  border-color: var(--accent);
+}
+
+.hk__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 6px;
+}
+
+.hk__summary {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hk__arrow {
+  color: var(--text-2);
+}
+
+.hk__actions-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.hk__combo {
+  display: inline-flex;
+  gap: 4px;
+  flex: none;
+}
+
+.hk__combo kbd {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.hk__icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.hk__icon:hover {
+  background: var(--surface-2);
+  color: var(--danger);
+}
+
+.hk__problems {
+  margin: -4px 0 0;
+  padding: 0 12px 8px 30px;
+  color: var(--warn);
+  font-size: 12.5px;
+}
+
+.hk__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 12px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.hk__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.hk__recorder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px dashed var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.hk__recorder:hover {
+  border-color: var(--accent);
+}
+
+.hk__recorder--on {
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.hk__recorder:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.hk__change {
+  flex: none;
+}
+
+.hk__action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.hk__action-row {
+  display: flex;
+  gap: 6px;
+}
+
+.hk__action select {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.hk__segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.hk__segmented button {
+  min-width: 38px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.hk__segmented .hk__seg--on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.hk__targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.hk__release {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.hk__editor-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hk__presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hk__preset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px dashed var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+
+.hk__preset:hover {
+  border-color: var(--accent);
+  border-style: solid;
+}

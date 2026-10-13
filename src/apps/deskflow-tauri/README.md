@@ -60,8 +60,19 @@ Tests: `pnpm test` (layout geometry) and `cargo test` in `src-tauri`.
   Scroll Lock locking / start locked / relative moves, heartbeat, Synergy/Barrier
   compatibility and keeping the foreground window on Windows. Saving restarts a
   running server so the core picks them up.
+- Hotkeys (server mode): record a combination, then pick what it does (go to a
+  computer, move in a direction, next computer, lock the cursor, send keys to all
+  or some computers, reconnect everything), optionally on release. One-click
+  suggestions (Ctrl+Alt+arrows, Ctrl+Alt+1..9, Ctrl+Alt+L) and warnings for
+  duplicates or broken targets. Stored in `internalConfig/hotkeys` exactly like the
+  Qt GUI (Qt key codes), and written to the server config in core syntax. Unlike
+  the Qt GUI, on-release actions are written after `;` so they actually run on
+  release, punctuation keys are written by name, and actions pointing at computers
+  that no longer exist are dropped (the core would reject the whole config);
+  renaming or removing a computer in the layout updates the hotkeys too.
+  Mouse-button hotkeys from the Qt GUI are kept but flagged: the core currently
+  skips them (it looks for `mousepress` instead of `mousebutton`).
 
 ## Not yet
 
-- Hotkey editing (existing hotkeys are preserved).
 - Accepting fingerprints, settings dialog, tray icon, autostart.

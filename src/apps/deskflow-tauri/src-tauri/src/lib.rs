@@ -1,5 +1,6 @@
 mod computer;
 mod engine;
+mod hotkeys;
 mod ipc;
 mod layout;
 mod paths;
@@ -111,6 +112,58 @@ async fn save_server_options(
     Ok(saved)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HotkeysView {
+    hotkeys: Vec<hotkeys::Hotkey>,
+    /// Computers of the layout, for actions that target one.
+    computers: Vec<String>,
+}
+
+fn hotkeys_view() -> Result<HotkeysView, String> {
+    let ini = settings::IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
+    Ok(HotkeysView {
+        hotkeys: hotkeys::read(&ini),
+        computers: layout::load()?
+            .screens
+            .into_iter()
+            .map(|s| s.name)
+            .collect(),
+    })
+}
+
+#[tauri::command]
+fn get_hotkeys() -> Result<HotkeysView, String> {
+    hotkeys_view()
+}
+
+/// Saves the hotkeys, regenerates the server config and restarts a running server.
+#[tauri::command]
+async fn save_hotkeys(
+    hub: State<'_, Arc<Hub>>,
+    hotkeys: Vec<hotkeys::Hotkey>,
+) -> Result<HotkeysView, String> {
+    let known: std::collections::HashSet<String> = layout::load()?
+        .screens
+        .into_iter()
+        .flat_map(|s| {
+            std::iter::once(s.name).chain(s.options.map(|o| o.aliases).unwrap_or_default())
+        })
+        .collect();
+    hotkeys::validate(&hotkeys, &known)?;
+    let mut ini = settings::IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
+    hotkeys::write(&mut ini, &hotkeys);
+    ini.save()
+        .map_err(|e| format!("No se pudieron guardar los atajos: {e}"))?;
+    layout::regenerate()?;
+    let serving =
+        settings::read_overview().is_ok_and(|o| o.core_mode == settings::CoreMode::Server);
+    if serving && hub.snapshot().process != engine::ProcessStatus::Stopped {
+        hub.inner().restart().await?;
+    }
+    hotkeys_view()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -137,7 +190,9 @@ pub fn run() {
             get_layout,
             save_layout,
             get_server_options,
-            save_server_options
+            save_server_options,
+            get_hotkeys,
+            save_hotkeys
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::computer::{self, ComputerOptions};
+use crate::hotkeys;
 use crate::paths;
 use crate::settings::{self, IniFile};
 
@@ -57,9 +58,6 @@ struct LayoutFile {
     /// Name of the server when the layout was saved, to follow renames of this computer.
     server: String,
     screens: Vec<Screen>,
-    /// Copy of `section: options` (hotkeys), in case the generated config goes missing.
-    #[serde(default)]
-    options: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -263,25 +261,6 @@ pub fn config_text(screens: &[Screen], options: &str) -> String {
     out
 }
 
-/// Body of `section: options` in an existing config (hotkeys written by the Qt GUI).
-fn options_body(config: &str) -> String {
-    let mut body = String::new();
-    let mut inside = false;
-    for line in config.lines() {
-        let t = line.trim();
-        if inside {
-            if t == "end" {
-                break;
-            }
-            body.push_str(line);
-            body.push('\n');
-        } else if t == "section: options" {
-            inside = true;
-        }
-    }
-    body
-}
-
 // ---- files -----------------------------------------------------------------------------
 
 pub fn layout_file() -> PathBuf {
@@ -427,17 +406,25 @@ pub fn load() -> Result<LayoutView, String> {
     })
 }
 
-/// Writes the server config the core will read, keeping existing hotkeys.
-/// Hotkeys to keep: those of the config the core uses now, else our saved copy.
-fn current_options(ini: &IniFile, saved: Option<&LayoutFile>) -> String {
-    match std::fs::read_to_string(server_config_file(ini)) {
-        Ok(text) => options_body(&text),
-        Err(_) => saved.map(|f| f.options.clone()).unwrap_or_default(),
+/// Every name the core accepts for a computer: canonical names plus aliases.
+fn known_names(ini: &IniFile, screens: &[Screen]) -> HashSet<String> {
+    let mut known = HashSet::new();
+    for s in screens {
+        known.insert(s.name.clone());
+        let options = s
+            .options
+            .clone()
+            .unwrap_or_else(|| computer::read(ini, &s.name));
+        known.extend(options.aliases);
     }
+    known
 }
 
-fn write_config(screens: &[Screen], options: &str) -> std::io::Result<PathBuf> {
-    let text = config_text(screens, options);
+/// Writes the server config the core will read. Hotkeys come from the settings
+/// file (`internalConfig/hotkeys`), shared with the Qt GUI.
+fn write_config(ini: &IniFile, screens: &[Screen]) -> std::io::Result<PathBuf> {
+    let options = hotkeys::options_text(&hotkeys::read(ini), &known_names(ini, screens));
+    let text = config_text(screens, &options);
     let primary = generated_config_file();
     let write = |path: &Path| -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
@@ -551,9 +538,19 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
         }
     }
 
+    // hotkeys must follow renames, and must not name computers that are gone:
+    // the core rejects the whole config over a single unknown name
+    let mut keys = hotkeys::read(&ini);
+    let renamed: Vec<(String, String)> = renames
+        .iter()
+        .map(|r| (r.from.clone(), r.to.clone()))
+        .collect();
+    if hotkeys::retarget(&mut keys, &renamed, &known_names(&ini, &screens)) {
+        hotkeys::write(&mut ini, &keys);
+    }
+
     write_grid_projection(&mut ini, &screens, &new_server);
-    let options = current_options(&ini, read_layout_file().as_ref());
-    let config = write_config(&screens, &options).map_err(io)?;
+    let config = write_config(&ini, &screens).map_err(io)?;
     ini.set("server", "externalConfig", "true");
     ini.set("server", "externalConfigFile", &qt_path(&config));
     ini.save().map_err(io)?;
@@ -566,7 +563,6 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
         version: 1,
         server: new_server,
         screens,
-        options,
     };
     let json = serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?;
     std::fs::write(layout_file(), json).map_err(io)?;
@@ -576,17 +572,27 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
 /// Regenerates the server config from the saved layout before the core starts,
 /// as the Qt GUI does with its grid. No-op if the editor was never used or the
 /// user points the core at a config of their own.
+/// Makes the core pick up settings that live in the server config (hotkeys):
+/// regenerates it, or adopts the current layout if the editor was never used.
+pub fn regenerate() -> Result<(), String> {
+    let view = load()?;
+    if read_layout_file().is_some() && view.foreign_config.is_none() {
+        persist()
+    } else {
+        save(view.screens, &[]).map(|_| ())
+    }
+}
+
 pub fn persist() -> Result<(), String> {
-    let Some(saved) = read_layout_file() else {
+    if read_layout_file().is_none() {
         return Ok(());
-    };
+    }
     let view = load()?;
     if view.foreign_config.is_some() {
         return Ok(());
     }
     let mut ini = IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
-    let options = current_options(&ini, Some(&saved));
-    let config = write_config(&view.screens, &options).map_err(|e| e.to_string())?;
+    let config = write_config(&ini, &view.screens).map_err(|e| e.to_string())?;
     if ini.get("server", "externalConfigFile").map(PathBuf::from) != Some(config.clone()) {
         ini.set("server", "externalConfig", "true");
         ini.set("server", "externalConfigFile", &qt_path(&config));
@@ -738,7 +744,11 @@ mod tests {
         std::fs::write(
             settings_dir.join("Deskflow.conf"),
             "[core]\ncomputerName=srv\ncoreMode=2\n\n[computer_old]\nname=old\nmodifierAlt=Meta\n\n\
-             [computer_gone]\nname=gone\n\n[internalConfig]\nhotkeys\\size=0\nscreens\\8\\name=srv\n\
+             [computer_gone]\nname=gone\n\n[internalConfig]\n\
+             hotkeys\\1\\keys\\1\\key=16777264\nhotkeys\\1\\keys\\size=1\n\
+             hotkeys\\1\\actions\\1\\type=3\nhotkeys\\1\\actions\\1\\switchScreenName=old\n\
+             hotkeys\\1\\actions\\2\\type=3\nhotkeys\\1\\actions\\2\\switchScreenName=gone\n\
+             hotkeys\\1\\actions\\size=2\nhotkeys\\size=1\nscreens\\8\\name=srv\n\
              screens\\9\\name=old\nscreens\\size=15\n\n[server]\ngridWidth=5\ngridHeight=3\n",
         )
         .unwrap();
@@ -820,9 +830,15 @@ mod tests {
                 .any(|s| s == "computer_old" || s == "computer_gone")
         );
         assert_eq!(ini.get("server", "externalConfig").as_deref(), Some("true"));
+        let keys = hotkeys::read(&ini);
         assert_eq!(
-            ini.get("internalConfig", "hotkeys\\size").as_deref(),
-            Some("0")
+            keys[0].actions.len(),
+            1,
+            "the action for the removed computer is gone"
+        );
+        assert_eq!(
+            keys[0].actions[0].target, "new",
+            "hotkeys follow the rename"
         );
         assert_eq!(
             ini.get("internalConfig", "screens\\8\\name").as_deref(),
@@ -841,8 +857,8 @@ mod tests {
             "{config}"
         );
         assert!(
-            config.contains("keystroke(F1) = lockCursorToScreen(toggle)"),
-            "hotkeys kept: {config}"
+            config.contains("section: options\n\tkeystroke(F1) = switchToScreen(new)\nend"),
+            "hotkeys come from the settings file: {config}"
         );
 
         // regenerating before a start keeps the same content
@@ -852,14 +868,5 @@ mod tests {
 
         unsafe { std::env::remove_var("DESKFLOW_DIR") };
         let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn keeps_hotkeys_from_previous_config() {
-        let prev = "section: links\n\ta:\nend\n\nsection: options\n\tkeystroke(F1) = lockCursorToScreen(toggle)\nend\n\n";
-        assert_eq!(
-            options_body(prev),
-            "\tkeystroke(F1) = lockCursorToScreen(toggle)\n"
-        );
     }
 }

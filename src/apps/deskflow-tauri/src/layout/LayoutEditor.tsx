@@ -302,7 +302,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
   const onKeyDown = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     // never steal keys while the person is typing in a field
-    if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+    if (target?.closest("input, textarea, select, [contenteditable='true'], [data-keycapture]")) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "z") {
       e.preventDefault();

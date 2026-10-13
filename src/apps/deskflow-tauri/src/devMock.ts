@@ -8,6 +8,14 @@ import type { AppInfo, CoreState } from "./types";
 import type { Screen } from "./layout/geometry";
 import { defaultOptions, toggleMacSwap, type ComputerOptions } from "./layout/options";
 import { DEFAULT_SERVER_OPTIONS, type ServerOptions } from "./ServerOptionsCard";
+import type { Hotkey } from "./hotkeys/model";
+
+let hotkeys: Hotkey[] = [
+  {
+    keys: [0x04000000, 0x08000000, 0x01000014],
+    actions: [{ kind: "switchInDirection", keys: [], computers: [], target: "", direction: "right", lockMode: "toggle", onRelease: false }],
+  },
+];
 
 let serverOptions: ServerOptions = { ...DEFAULT_SERVER_OPTIONS, win32KeepForeground: false };
 
@@ -84,6 +92,12 @@ mockIPC(
         await new Promise((r) => setTimeout(r, 300));
         serverOptions = a!.options as ServerOptions;
         return serverOptions;
+      case "get_hotkeys":
+        return { hotkeys, computers: screens.map((x) => x.name) };
+      case "save_hotkeys":
+        await new Promise((r) => setTimeout(r, 300));
+        hotkeys = a!.hotkeys as Hotkey[];
+        return { hotkeys, computers: screens.map((x) => x.name) };
       case "start_core":
       case "stop_core":
         return null;

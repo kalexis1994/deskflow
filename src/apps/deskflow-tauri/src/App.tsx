@@ -4,11 +4,13 @@ import { useCountdown, useDeskflow } from "./useDeskflow";
 import { describeRefusal, describeStatus, parseLogLine } from "./status";
 import { LayoutEditor } from "./layout/LayoutEditor";
 import { ServerOptionsCard } from "./ServerOptionsCard";
+import { HotkeysCard } from "./hotkeys/HotkeysCard";
 import type { CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
   const df = useDeskflow();
   const retryIn = useCountdown(df.core?.retryAt ?? null);
+  const [layoutVersion, setLayoutVersion] = useState(0);
 
   if (!df.info || !df.core) {
     return (
@@ -51,7 +53,16 @@ export default function App() {
       )}
       {ov.coreMode === "server" && (
         <>
-          <LayoutEditor core={core} address={df.address} port={ov.port} onSaved={df.refresh} />
+          <LayoutEditor
+            core={core}
+            address={df.address}
+            port={ov.port}
+            onSaved={() => {
+              df.refresh();
+              setLayoutVersion((v) => v + 1);
+            }}
+          />
+          <HotkeysCard running={core.process === "running"} layoutVersion={layoutVersion} />
           <ServerOptionsCard running={core.process === "running"} />
         </>
       )}
