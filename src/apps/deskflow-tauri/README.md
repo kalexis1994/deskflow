@@ -49,8 +49,14 @@ Tests: `pnpm test` (layout geometry) and `cargo test` in `src-tauri`.
     core gets a generated `deskflow-server-layout.conf` (set as external config,
     keeping existing hotkeys) and one `[computer_<name>]` group per computer;
     the Qt GUI grid is kept roughly in sync
+- Per-computer options in the editor's inspector (Keyboard / Advanced tabs),
+  written to `[computer_<name>]` exactly as the Qt GUI does and read by the core:
+  modifier remapping (with a one-click Ctrl ⇄ ⌘ swap for Macs), lock-key fixes,
+  aliases (validated to be unique across all names and aliases), dead corners
+  with their size, and the two X11 options. Changes are part of undo/redo and
+  are applied together with the layout.
 
 ## Not yet
 
-- Per-computer options (aliases, modifiers, switch corners) and hotkey editing.
+- Hotkey editing (existing hotkeys are preserved).
 - Accepting fingerprints, settings dialog, tray icon, autostart.

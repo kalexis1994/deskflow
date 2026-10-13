@@ -6,11 +6,13 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 import type { AppInfo, CoreState } from "./types";
 import type { Screen } from "./layout/geometry";
+import { defaultOptions, toggleMacSwap, type ComputerOptions } from "./layout/options";
 
 const params = new URLSearchParams(location.search);
-let screens: Screen[] = [
-  { name: "escritorio", x: 0, y: 0, w: 192, h: 108 },
-  { name: "laptop", x: 192, y: 40, w: 128, h: 80 },
+type MockScreen = Screen & { options: ComputerOptions };
+let screens: MockScreen[] = [
+  { name: "escritorio", x: 0, y: 0, w: 192, h: 108, options: defaultOptions() },
+  { name: "laptop", x: 192, y: 40, w: 128, h: 80, options: { ...toggleMacSwap(defaultOptions()), aliases: ["macbook"] } },
 ];
 
 const info: AppInfo = {
@@ -61,7 +63,7 @@ mockIPC(
       case "get_layout":
         return { screens, serverName: info.overview.computerName, foreignConfig: null, imported: false };
       case "save_layout": {
-        screens = a!.screens as Screen[];
+        screens = a!.screens as MockScreen[];
         for (const r of a!.renames as { from: string; to: string }[]) {
           if (r.from === info.overview.computerName) info.overview.computerName = r.to;
         }

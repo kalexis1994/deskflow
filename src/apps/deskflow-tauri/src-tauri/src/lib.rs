@@ -1,3 +1,4 @@
+mod computer;
 mod engine;
 mod ipc;
 mod layout;

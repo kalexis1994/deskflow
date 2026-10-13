@@ -11,10 +11,12 @@ import { invoke } from "@tauri-apps/api/core";
 import * as g from "./geometry";
 import { useLayoutHistory, type EditScreen } from "./useLayoutHistory";
 import type { CoreState } from "../types";
+import { AdvancedPanel, KeyboardPanel } from "./OptionPanels";
+import { advancedCustomized, defaultOptions, keyboardCustomized, optionsSummary, type ComputerOptions } from "./options";
 import "./LayoutEditor.css";
 
 interface LayoutView {
-  screens: g.Screen[];
+  screens: (g.Screen & { options?: ComputerOptions })[];
   serverName: string;
   foreignConfig: string | null;
   imported: boolean;
@@ -55,7 +57,8 @@ const ASPECTS: [string, number][] = [
 let idSeq = 0;
 const newId = () => `s${++idSeq}`;
 const rectOf = (s: g.Rect): g.Rect => ({ x: s.x, y: s.y, w: s.w, h: s.h });
-const toEdit = (screens: g.Screen[]): EditScreen[] => screens.map((s) => ({ ...s, id: newId(), orig: s.name }));
+const toEdit = (screens: LayoutView["screens"]): EditScreen[] =>
+  screens.map((s) => ({ ...s, id: newId(), orig: s.name, options: s.options ?? defaultOptions() }));
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export function LayoutEditor({ core, address, port, onSaved }: Props) {
@@ -170,7 +173,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
     const anchor = sel ?? screens.find((s) => s.name === serverName) ?? null;
     const size = anchor ? { w: anchor.w, h: anchor.h } : { w: g.DEFAULT_W, h: g.DEFAULT_H };
     const rect = g.placeNear(anchor, size, screens);
-    const screen: EditScreen = { ...rect, name: name ?? g.nextFreeName(screens), id: newId(), orig: null };
+    const screen: EditScreen = { ...rect, name: name ?? g.nextFreeName(screens), id: newId(), orig: null, options: defaultOptions() };
     hist.commit([...screens, screen]);
     setSelected(screen.id);
     if (!name) setRenameFocus((n) => n + 1);
@@ -186,7 +189,10 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
 
   const rename = (id: string, name: string): string | null => {
     if (!g.isValidName(name)) return "Usá letras, números, punto, guion o guion bajo, sin espacios.";
-    if (screens.some((s) => s.id !== id && s.name.toLowerCase() === name.toLowerCase())) return "Ya hay una computadora con ese nombre.";
+    const lower = name.toLowerCase();
+    if (screens.some((s) => s.id !== id && s.name.toLowerCase() === lower)) return "Ya hay una computadora con ese nombre.";
+    const owner = screens.find((s) => s.options.aliases.some((a) => a.toLowerCase() === lower));
+    if (owner) return owner.id === id ? "Ya es un alias de esta computadora: quitalo primero." : `Ya es un alias de ${owner.name}.`;
     const s = screens.find((x) => x.id === id);
     if (s && s.name === serverName) setMeta((m) => (m ? { ...m, serverName: name } : m));
     replace(id, { name });
@@ -200,7 +206,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
       const renames = screens.filter((s) => s.orig && s.orig !== s.name).map((s) => ({ from: s.orig!, to: s.name }));
       const selName = sel?.name;
       const v = await invoke<LayoutView>("save_layout", {
-        screens: screens.map(({ name, x, y, w, h }) => ({ name, x, y, w, h })),
+        screens: screens.map(({ name, x, y, w, h, options }) => ({ name, x, y, w, h, options })),
         renames,
       });
       const fresh = toEdit(v.screens);
@@ -437,6 +443,13 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
                     {isServer ? "Esta computadora" : running ? (connected ? "Conectada" : "Sin conectar") : ""}
                   </span>
                   {(isSel || active) && <span className="le__aspect">{g.aspectLabel(s.w, s.h)}</span>}
+                  {optionsSummary(s.options).length > 0 && (
+                    <span className="le__badge" title={optionsSummary(s.options).join(" · ")}>
+                      <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M2 4h7M12 4h2M2 12h2M7 12h7M9 2v4M4 10v4" />
+                      </svg>
+                    </span>
+                  )}
                 </div>
                 {isSel &&
                   HANDLES.map((h) => (
@@ -480,6 +493,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
               renameFocus={renameFocus}
               onRename={(name) => rename(sel.id, name)}
               onRect={(r) => applyRect(sel.id, r)}
+              onOptions={(options) => replace(sel.id, { options })}
               onRemove={() => removeScreen(sel.id)}
             />
           ) : (
@@ -523,10 +537,45 @@ interface InspectorProps {
   renameFocus: number;
   onRename: (name: string) => string | null;
   onRect: (r: g.Rect) => boolean;
+  onOptions: (o: ComputerOptions) => void;
   onRemove: () => void;
 }
 
-function Inspector({ screen, isServer, screens, lost, renameFocus, onRename, onRect, onRemove }: InspectorProps) {
+type Tab = "screen" | "keyboard" | "advanced";
+
+function Inspector(props: InspectorProps) {
+  const { screen, screens, onOptions } = props;
+  const [tab, setTab] = useState<Tab>("screen");
+  const tabs: { id: Tab; label: string; dot: boolean }[] = [
+    { id: "screen", label: "Pantalla", dot: false },
+    { id: "keyboard", label: "Teclado", dot: keyboardCustomized(screen.options) },
+    { id: "advanced", label: "Avanzado", dot: advancedCustomized(screen.options) },
+  ];
+  return (
+    <div className="le__panel">
+      <div className="le__tabs" role="tablist">
+        {tabs.map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} className={`le__tab ${tab === t.id ? "le__tab--on" : ""}`} onClick={() => setTab(t.id)}>
+            {t.label}
+            {t.dot && <span className="le__tab-dot" aria-label="(personalizado)" />}
+          </button>
+        ))}
+      </div>
+      {tab === "screen" && <ScreenPanel {...props} />}
+      {tab === "keyboard" && <KeyboardPanel options={screen.options} onChange={onOptions} />}
+      {tab === "advanced" && (
+        <AdvancedPanel
+          options={screen.options}
+          onChange={onOptions}
+          name={screen.name}
+          taken={screens.map((s) => ({ name: s.name, aliases: s.options.aliases }))}
+        />
+      )}
+    </div>
+  );
+}
+
+function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, onRect, onRemove }: InspectorProps) {
   const [name, setName] = useState(screen.name);
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -550,7 +599,7 @@ function Inspector({ screen, isServer, screens, lost, renameFocus, onRename, onR
   const ratio = screen.w / screen.h;
 
   return (
-    <div className="le__panel">
+    <>
       <label className="field">
         <span className="field__label">{isServer ? "Nombre de esta computadora" : "Nombre de la computadora"}</span>
         <input
@@ -612,7 +661,7 @@ function Inspector({ screen, isServer, screens, lost, renameFocus, onRename, onR
           Quitar del diseño
         </button>
       )}
-    </div>
+    </>
   );
 }
 

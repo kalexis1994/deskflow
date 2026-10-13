@@ -1,11 +1,13 @@
 import { useCallback, useReducer } from "react";
 import type { Screen } from "./geometry";
+import type { ComputerOptions } from "./options";
 
 export interface EditScreen extends Screen {
   /** Stable id while editing; names can change. */
   id: string;
   /** Name when loaded from disk, to report renames on save. null for new screens. */
   orig: string | null;
+  options: ComputerOptions;
 }
 
 interface History {
@@ -46,7 +48,15 @@ function reducer(h: History, a: Action): History {
 function same(a: EditScreen[], b: EditScreen[]): boolean {
   return a.length === b.length && a.every((s, i) => {
     const t = b[i];
-    return s.id === t.id && s.name === t.name && s.x === t.x && s.y === t.y && s.w === t.w && s.h === t.h;
+    return (
+      s.id === t.id &&
+      s.name === t.name &&
+      s.x === t.x &&
+      s.y === t.y &&
+      s.w === t.w &&
+      s.h === t.h &&
+      (s.options === t.options || JSON.stringify(s.options) === JSON.stringify(t.options))
+    );
   });
 }
 

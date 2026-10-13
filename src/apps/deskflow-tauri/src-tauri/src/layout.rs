@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::computer::{self, ComputerOptions};
 use crate::paths;
 use crate::settings::{self, IniFile};
 
@@ -29,6 +30,10 @@ pub struct Screen {
     pub y: f64,
     pub w: f64,
     pub h: f64,
+    /// Per-computer options. Live in the settings file, not in the layout file:
+    /// filled in on load, written to `[computer_<name>]` on save.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options: Option<ComputerOptions>,
 }
 
 impl Screen {
@@ -289,6 +294,7 @@ fn import_grid(ini: &IniFile, server: &str) -> Vec<Screen> {
         let Some(name) = ini.get("internalConfig", &key).filter(|n| !n.is_empty()) else { continue };
         let i = index - 1;
         screens.push(Screen {
+            options: None,
             name,
             x: (i % width) as f64 * DEFAULT_W,
             y: (i / width) as f64 * DEFAULT_H,
@@ -306,7 +312,7 @@ fn import_grid(ini: &IniFile, server: &str) -> Vec<Screen> {
 fn place_new(screens: &mut Vec<Screen>, name: &str) {
     let x = screens.iter().map(Screen::right).fold(0.0, f64::max);
     let y = screens.first().map_or(0.0, |s| s.y);
-    screens.push(Screen { name: name.to_owned(), x, y, w: DEFAULT_W, h: DEFAULT_H });
+    screens.push(Screen { name: name.to_owned(), x, y, w: DEFAULT_W, h: DEFAULT_H, options: None });
 }
 
 pub fn load() -> Result<LayoutView, String> {
@@ -333,6 +339,9 @@ pub fn load() -> Result<LayoutView, String> {
     let current = server_config_file(&ini);
     let external = ini.get("server", "externalConfig").is_some_and(|v| v == "true");
     let foreign_config = (external && !is_our_config(&current)).then(|| current.to_string_lossy().into_owned());
+    for s in &mut screens {
+        s.options = Some(computer::read(&ini, &s.name));
+    }
     Ok(LayoutView { screens, server_name: server, foreign_config, imported })
 }
 
@@ -404,6 +413,9 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
     let old_server = settings::read_overview().map_err(io)?.computer_name;
     let new_server = renames.iter().find(|r| r.from == old_server).map_or(old_server.clone(), |r| r.to.clone());
     validate(&screens, &new_server)?;
+    let options: Vec<(&str, &ComputerOptions)> =
+        screens.iter().filter_map(|s| s.options.as_ref().map(|o| (s.name.as_str(), o))).collect();
+    computer::validate(&options)?;
 
     let mut ini = IniFile::load(&paths::settings_file()).map_err(io)?;
 
@@ -430,6 +442,9 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
     }
     for s in &screens {
         ini.set(&format!("computer_{}", s.name), "name", &s.name);
+        if let Some(o) = &s.options {
+            computer::write(&mut ini, &s.name, o);
+        }
     }
 
     write_grid_projection(&mut ini, &screens, &new_server);
@@ -439,6 +454,7 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
     ini.set("server", "externalConfigFile", &qt_path(&config));
     ini.save().map_err(io)?;
 
+    let screens = screens.into_iter().map(|s| Screen { options: None, ..s }).collect();
     let file = LayoutFile { version: 1, server: new_server, screens, options };
     let json = serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?;
     std::fs::write(layout_file(), json).map_err(io)?;
@@ -472,7 +488,7 @@ mod tests {
     use super::*;
 
     fn s(name: &str, x: f64, y: f64, w: f64, h: f64) -> Screen {
-        Screen { name: name.into(), x, y, w, h }
+        Screen { name: name.into(), x, y, w, h, options: None }
     }
 
     #[test]
@@ -559,9 +575,15 @@ mod tests {
 
         let view = load().unwrap();
         assert!(view.imported);
-        assert_eq!(view.screens, [s("srv", 320.0, 90.0, DEFAULT_W, DEFAULT_H), s("old", 480.0, 90.0, DEFAULT_W, DEFAULT_H)]);
+        let geometry: Vec<Screen> = view.screens.iter().map(|x| Screen { options: None, ..x.clone() }).collect();
+        assert_eq!(geometry, [s("srv", 320.0, 90.0, DEFAULT_W, DEFAULT_H), s("old", 480.0, 90.0, DEFAULT_W, DEFAULT_H)]);
+        assert_eq!(view.screens[1].options.as_ref().unwrap().modifiers.alt, "meta", "options are loaded");
 
-        let screens = vec![s("srv", 0.0, 0.0, 200.0, 100.0), s("new", 200.0, 50.0, 100.0, 50.0), s("lap", 0.0, 100.0, 100.0, 60.0)];
+        let mut lap = s("lap", 0.0, 100.0, 100.0, 60.0);
+        let mut lap_options = ComputerOptions { aliases: vec!["lap.local".into()], ..Default::default() };
+        lap_options.corners.top_left = true;
+        lap.options = Some(lap_options.clone());
+        let screens = vec![s("srv", 0.0, 0.0, 200.0, 100.0), s("new", 200.0, 50.0, 100.0, 50.0), lap];
         let view = save(screens, &[Rename { from: "old".into(), to: "new".into() }]).unwrap();
         assert!(!view.imported);
         assert_eq!(view.screens.len(), 3);
@@ -569,6 +591,10 @@ mod tests {
         let ini = IniFile::load(&settings_dir.join("Deskflow.conf")).unwrap();
         assert_eq!(ini.get("computer_new", "modifierAlt").as_deref(), Some("Meta"), "options follow the rename");
         assert_eq!(ini.get("computer_lap", "name").as_deref(), Some("lap"));
+        assert_eq!(computer::read(&ini, "lap"), lap_options);
+        assert_eq!(view.screens[2].options.as_ref(), Some(&lap_options), "options come back on load");
+        let json = std::fs::read_to_string(layout_file()).unwrap();
+        assert!(!json.contains("aliases"), "options live in the settings file only: {json}");
         assert!(!ini.sections().iter().any(|s| s == "computer_old" || s == "computer_gone"));
         assert_eq!(ini.get("server", "externalConfig").as_deref(), Some("true"));
         assert_eq!(ini.get("internalConfig", "hotkeys\\size").as_deref(), Some("0"));
