@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "Deskflow",
-        "width": 880,
-        "height": 760,
+        "width": 1100,
+        "height": 860,
         "minWidth": 560,
         "minHeight": 520
       }

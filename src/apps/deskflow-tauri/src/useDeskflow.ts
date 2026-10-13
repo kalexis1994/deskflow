@@ -65,7 +65,13 @@ export function useDeskflow() {
     [run],
   );
 
-  return { info, core, log, address, busy, error, dismissError: () => setError(null), start, stop, save };
+  const refresh = useCallback(() => {
+    invoke<AppInfo>("app_info")
+      .then(setInfo)
+      .catch((e) => setError(String(e)));
+  }, []);
+
+  return { info, core, log, address, busy, error, dismissError: () => setError(null), start, stop, save, refresh };
 }
 
 /** Seconds left until `deadline` (ms since epoch), refreshed every second. */

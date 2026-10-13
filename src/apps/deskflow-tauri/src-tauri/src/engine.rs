@@ -13,6 +13,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
 use crate::ipc::{self, Connection, Handshake};
+use crate::layout;
 use crate::paths;
 use crate::settings::{self, CoreMode, ProcessMode};
 
@@ -312,11 +313,11 @@ impl Hub {
         if ov.core_mode == CoreMode::Client && ov.remote_host.trim().is_empty() {
             return Err("Falta la dirección de la computadora que comparte el teclado.".into());
         }
-        if ov.core_mode == CoreMode::Server && !server_config_file().is_file() {
-            return Err(format!(
-                "Todavía no hay un diseño de pantallas ({}). Por ahora armalo con la app clásica.",
-                server_config_file().display()
-            ));
+        if ov.core_mode == CoreMode::Server {
+            layout::persist()?;
+            if !server_config_file().is_file() {
+                return Err("Todavía no hay un diseño de pantallas. Guardalo una vez desde el editor.".into());
+            }
         }
 
         self.update(|s| {
@@ -438,11 +439,9 @@ fn default_daemon_log() -> PathBuf {
 }
 
 fn server_config_file() -> PathBuf {
-    let ini = settings::IniFile::load(&paths::settings_file()).ok();
-    let external = ini.as_ref().and_then(|i| i.get("server", "externalConfig")).is_some_and(|v| v == "true");
-    match ini.and_then(|i| i.get("server", "externalConfigFile")) {
-        Some(f) if external && !f.is_empty() => PathBuf::from(f),
-        _ => paths::settings_dir().join("deskflow-server.conf"),
+    match settings::IniFile::load(&paths::settings_file()) {
+        Ok(ini) => layout::server_config_file(&ini),
+        Err(_) => paths::settings_dir().join("deskflow-server.conf"),
     }
 }
 

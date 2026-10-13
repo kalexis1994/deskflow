@@ -1,5 +1,6 @@
 mod engine;
 mod ipc;
+mod layout;
 mod paths;
 mod settings;
 
@@ -67,6 +68,26 @@ async fn save_settings(hub: State<'_, Arc<Hub>>, changes: Changes) -> Result<Ove
     settings::read_overview().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn get_layout() -> Result<layout::LayoutView, String> {
+    layout::load()
+}
+
+/// Saves the layout and, if this computer is serving, restarts the core to apply it.
+#[tauri::command]
+async fn save_layout(
+    hub: State<'_, Arc<Hub>>,
+    screens: Vec<layout::Screen>,
+    renames: Vec<layout::Rename>,
+) -> Result<layout::LayoutView, String> {
+    let view = layout::save(screens, &renames)?;
+    let serving = settings::read_overview().is_ok_and(|o| o.core_mode == settings::CoreMode::Server);
+    if serving && hub.snapshot().process != engine::ProcessStatus::Stopped {
+        hub.inner().restart().await?;
+    }
+    Ok(view)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -81,7 +102,17 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_info, local_address, core_state, core_log, start_core, stop_core, save_settings])
+        .invoke_handler(tauri::generate_handler![
+            app_info,
+            local_address,
+            core_state,
+            core_log,
+            start_core,
+            stop_core,
+            save_settings,
+            get_layout,
+            save_layout
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -68,6 +68,50 @@ impl IniFile {
         }
     }
 
+    /// Names of all `[sections]`, in file order.
+    pub fn sections(&self) -> Vec<String> {
+        self.lines
+            .iter()
+            .filter_map(|l| l.trim().strip_prefix('[').and_then(|s| s.strip_suffix(']')).map(str::to_owned))
+            .collect()
+    }
+
+    /// Raw `key=value` lines of a section, without unquoting.
+    pub fn entries(&self, section: &str) -> Vec<(String, String)> {
+        let Some((start, end)) = self.section_range(section) else { return Vec::new() };
+        self.lines[start..end]
+            .iter()
+            .filter_map(|l| l.split_once('=').map(|(k, v)| (k.trim().to_owned(), v.trim().to_owned())))
+            .collect()
+    }
+
+    /// Like `set`, but writes `value` exactly as given (already quoted if needed).
+    pub fn set_raw(&mut self, section: &str, key: &str, value: &str) {
+        self.set(section, key, "");
+        let i = self.find_key(section, key).expect("key was just set");
+        self.lines[i] = format!("{key}={value}");
+    }
+
+    pub fn remove_section(&mut self, section: &str) {
+        let Some((start, end)) = self.section_range(section) else { return };
+        // the body includes the blank line separating it from the next section
+        self.lines.drain(start - 1..end);
+        while self.lines.last().is_some_and(|l| l.trim().is_empty()) {
+            self.lines.pop();
+        }
+    }
+
+    pub fn remove_keys(&mut self, section: &str, mut matches: impl FnMut(&str) -> bool) {
+        let Some((start, end)) = self.section_range(section) else { return };
+        let mut i = end;
+        while i > start {
+            i -= 1;
+            if self.lines[i].split_once('=').is_some_and(|(k, _)| matches(k.trim())) {
+                self.lines.remove(i);
+            }
+        }
+    }
+
     pub fn save(&self) -> std::io::Result<()> {
         if let Some(dir) = self.path.parent() {
             std::fs::create_dir_all(dir)?;
@@ -212,5 +256,16 @@ mod tests {
             f.lines.join("\n"),
             "[core]\ncomputerName=a\ncoreMode=2\nport=24801\n\n[client]\nremoteHost=pc.local\n\n[server]\nx=\"a, b\"\n\n[security]\ntlsEnabled=true"
         );
+    }
+
+    #[test]
+    fn removes_sections_and_keys() {
+        let mut f = ini("[core]\na=1\n\n[computer_x]\nname=x\n\n[internalConfig]\nscreens\\1\\name=x\nscreens\\size=1\nhotkeys\\size=0");
+        assert_eq!(f.sections(), ["core", "computer_x", "internalConfig"]);
+        f.remove_section("computer_x");
+        f.remove_keys("internalConfig", |k| k.starts_with("screens\\"));
+        f.set_raw("internalConfig", "screens\\size", "0");
+        assert_eq!(f.lines.join("\n"), "[core]\na=1\n\n[internalConfig]\nhotkeys\\size=0\nscreens\\size=0");
+        assert_eq!(f.entries("internalConfig"), [("hotkeys\\size".to_owned(), "0".to_owned()), ("screens\\size".to_owned(), "0".to_owned())]);
     }
 }

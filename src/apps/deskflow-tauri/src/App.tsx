@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "./App.css";
 import { useCountdown, useDeskflow } from "./useDeskflow";
 import { describeRefusal, describeStatus, parseLogLine } from "./status";
+import { LayoutEditor } from "./layout/LayoutEditor";
 import type { CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
@@ -47,7 +48,7 @@ export default function App() {
       {ov.coreMode === "client" && (
         <ClientCard host={ov.remoteHost} port={ov.port} running={running} busy={df.busy} onSave={(remoteHost) => df.save({ remoteHost })} />
       )}
-      {ov.coreMode === "server" && <ServerCard core={core} address={df.address} port={ov.port} />}
+      {ov.coreMode === "server" && <LayoutEditor core={core} address={df.address} port={ov.port} onSaved={df.refresh} />}
 
       <ActivityLog lines={df.log} />
 
@@ -206,16 +207,6 @@ function Alerts({ core, ov, error, onDismissError }: { core: CoreState; ov: Over
   if (error) items.push({ tone: "danger", text: error, onClose: onDismissError });
   else if (core.lastError) items.push({ tone: "danger", text: core.lastError });
   if (core.refusal && core.connection !== "Connected") items.push({ tone: "warn", text: describeRefusal(core.refusal, ov.computerName) });
-  if (core.unrecognisedClient && ov.coreMode === "server") {
-    items.push({
-      tone: "warn",
-      text: (
-        <>
-          <strong>{core.unrecognisedClient}</strong> intentó conectarse, pero no está en tu diseño de pantallas.
-        </>
-      ),
-    });
-  }
   if (core.missingLayouts) items.push({ tone: "info", text: `Faltan distribuciones de teclado en esta computadora: ${core.missingLayouts}.` });
   if (core.ipc === "versionMismatch") {
     items.push({ tone: "info", text: "El Deskflow que está corriendo es de otra versión que el instalado. Algunos datos pueden faltar." });
@@ -272,30 +263,6 @@ function ClientCard({ host, port, running, busy, onSave }: { host: string; port:
         </button>
       </form>
       <p className="muted small">Puerto {port}. Lo encontrás en la pantalla principal de Deskflow en la otra computadora.</p>
-    </section>
-  );
-}
-
-function ServerCard({ core, address, port }: { core: CoreState; address: string | null; port: number }) {
-  return (
-    <section className="card">
-      <h3>Computadoras conectadas</h3>
-      {core.clients.length > 0 ? (
-        <ul className="chips">
-          {core.clients.map((c) => (
-            <li key={c} className="chip">
-              <span className="dot dot--ok" /> {c}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted">Ninguna todavía.</p>
-      )}
-      {address && (
-        <p className="muted small">
-          Las demás se conectan a <code>{address}</code> (puerto {port}).
-        </p>
-      )}
     </section>
   );
 }
