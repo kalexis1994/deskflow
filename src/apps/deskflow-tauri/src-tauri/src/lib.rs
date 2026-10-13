@@ -6,6 +6,7 @@ mod layout;
 mod paths;
 mod server_options;
 mod settings;
+mod tls;
 
 use std::sync::Arc;
 
@@ -164,6 +165,58 @@ async fn save_hotkeys(
     hotkeys_view()
 }
 
+#[tauri::command]
+fn tls_info() -> Result<tls::TlsInfo, String> {
+    tls::info()
+}
+
+/// Trusts the fingerprint the core just reported. The core keeps retrying, so the
+/// next attempt connects without a restart; a client that was stopped is started.
+#[tauri::command]
+async fn trust_fingerprint(
+    hub: State<'_, Arc<Hub>>,
+    fingerprint: String,
+) -> Result<tls::TlsInfo, String> {
+    let mode = settings::read_overview()
+        .map_err(|e| e.to_string())?
+        .core_mode;
+    tls::trust(mode, &fingerprint)?;
+    hub.clear_fingerprint_prompt();
+    if mode == settings::CoreMode::Client
+        && hub.snapshot().process == engine::ProcessStatus::Stopped
+    {
+        hub.inner().start().await?;
+    }
+    tls::info()
+}
+
+/// Rejects it for this session. A client stops, instead of retrying an untrusted server.
+#[tauri::command]
+async fn reject_fingerprint(hub: State<'_, Arc<Hub>>, fingerprint: String) -> Result<(), String> {
+    hub.dismiss_fingerprint(&fingerprint);
+    let mode = settings::read_overview()
+        .map_err(|e| e.to_string())?
+        .core_mode;
+    if mode == settings::CoreMode::Client
+        && hub.snapshot().process != engine::ProcessStatus::Stopped
+    {
+        hub.inner().stop().await?;
+    }
+    Ok(())
+}
+
+/// Removes a computer from a trusted list ("servers" or "clients").
+#[tauri::command]
+fn forget_fingerprint(list: String, kind: String, hex: String) -> Result<tls::TlsInfo, String> {
+    let mode = if list == "clients" {
+        settings::CoreMode::Server
+    } else {
+        settings::CoreMode::Client
+    };
+    tls::forget(mode, &kind, &hex)?;
+    tls::info()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -192,7 +245,11 @@ pub fn run() {
             get_server_options,
             save_server_options,
             get_hotkeys,
-            save_hotkeys
+            save_hotkeys,
+            tls_info,
+            trust_fingerprint,
+            reject_fingerprint,
+            forget_fingerprint
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

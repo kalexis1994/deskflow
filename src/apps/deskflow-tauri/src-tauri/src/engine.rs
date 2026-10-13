@@ -1,6 +1,6 @@
 //! Tracks the running Deskflow core: live state over IPC, its log, and start/stop.
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -16,6 +16,7 @@ use crate::ipc::{self, Connection, Handshake};
 use crate::layout;
 use crate::paths;
 use crate::settings::{self, CoreMode, ProcessMode};
+use crate::tls;
 
 const LOG_CAPACITY: usize = 2000;
 const LOG_HISTORY_BYTES: u64 = 256 * 1024;
@@ -54,6 +55,8 @@ pub struct CoreState {
     pub clients: Vec<String>,
     pub tls: Option<String>,
     pub peer_fingerprint: Option<String>,
+    /// A peer presented a fingerprint we do not trust yet; the person must decide.
+    pub fingerprint_prompt: Option<FingerprintPrompt>,
     pub unrecognised_client: Option<String>,
     pub refusal: Option<String>,
     /// Unix time in ms at which the client will retry the connection.
@@ -61,6 +64,15 @@ pub struct CoreState {
     pub missing_layouts: Option<String>,
     pub core_version: Option<String>,
     pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FingerprintPrompt {
+    /// Lower-case hex SHA-256.
+    pub fingerprint: String,
+    /// Which side asks: a client meeting a new server, or a server meeting a new client.
+    pub mode: CoreMode,
 }
 
 pub struct Hub {
@@ -71,6 +83,8 @@ pub struct Hub {
     log: Mutex<VecDeque<String>>,
     core_writer: tokio::sync::Mutex<Option<ipc::Writer>>,
     child: tokio::sync::Mutex<Option<Child>>,
+    /// Fingerprints rejected in this session, so they are not asked about again.
+    dismissed: Mutex<HashSet<String>>,
 }
 
 fn now_ms() -> u64 {
@@ -127,6 +141,7 @@ impl Hub {
             log: Mutex::new(VecDeque::with_capacity(LOG_CAPACITY)),
             core_writer: tokio::sync::Mutex::new(None),
             child: tokio::sync::Mutex::new(None),
+            dismissed: Mutex::new(HashSet::new()),
         })
     }
 
@@ -244,8 +259,40 @@ impl Hub {
         });
     }
 
+    /// Decides whether a fingerprint the core just checked needs the person's approval.
+    fn fingerprint_prompt(&self, fingerprint: &str) -> Option<FingerprintPrompt> {
+        let fingerprint = tls::normalize(fingerprint)?;
+        let ov = settings::read_overview().ok()?;
+        let tls = tls::info().ok()?;
+        // a server only checks its clients when peer checking is on
+        let checked = ov.core_mode == CoreMode::Client
+            || (ov.core_mode == CoreMode::Server && tls.check_peers);
+        if !tls.enabled || !checked || tls::is_trusted(ov.core_mode, &fingerprint) {
+            return None;
+        }
+        if self.dismissed.lock().unwrap().contains(&fingerprint) {
+            return None;
+        }
+        Some(FingerprintPrompt {
+            fingerprint,
+            mode: ov.core_mode,
+        })
+    }
+
+    pub fn clear_fingerprint_prompt(&self) {
+        self.update(|s| s.fingerprint_prompt = None);
+    }
+
+    pub fn dismiss_fingerprint(&self, fingerprint: &str) {
+        if let Some(f) = tls::normalize(fingerprint) {
+            self.dismissed.lock().unwrap().insert(f);
+        }
+        self.clear_fingerprint_prompt();
+    }
+
     fn apply_event(&self, command: &str, args: &str) {
         let args = args.to_owned();
+        let prompt = (command == "peerFingerprint").then(|| self.fingerprint_prompt(&args));
         self.update(|s| match command {
             "connectionState" => {
                 if args != "Connecting" {
@@ -268,7 +315,12 @@ impl Hub {
             "unrecognisedClient" => s.unrecognised_client = Some(args),
             "connectionRefused" => s.refusal = Some(args),
             "retryIn" => s.retry_at = args.parse::<u64>().ok().map(|secs| now_ms() + secs * 1000),
-            "peerFingerprint" => s.peer_fingerprint = Some(args),
+            "peerFingerprint" => {
+                s.peer_fingerprint = Some(args);
+                if let Some(p) = prompt {
+                    s.fingerprint_prompt = p;
+                }
+            }
             "missingKeyboardLayouts" => s.missing_layouts = Some(args),
             _ => {}
         });
@@ -363,6 +415,7 @@ impl Hub {
             s.last_error = None;
             s.refusal = None;
             s.peer_fingerprint = None;
+            s.fingerprint_prompt = None;
             s.unrecognised_client = None;
             s.missing_layouts = None;
         });

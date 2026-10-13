@@ -73,6 +73,15 @@ Tests: `pnpm test` (layout geometry) and `cargo test` in `src-tauri`.
   Mouse-button hotkeys from the Qt GUI are kept but flagged: the core currently
   skips them (it looks for `mousepress` instead of `mousebutton`).
 
+- TLS fingerprints: when the core reports a peer whose SHA-256 fingerprint is not
+  in `trusted-servers` (client) or `trusted-clients` (server, if peer checking is
+  on), a prompt shows it as the same "random art" picture the Qt GUI draws, next
+  to this computer's own, so the person can compare them on both screens. Trusting
+  writes a `v2:sha256:` line to the same database the core reads; the core keeps
+  retrying, so the next attempt connects without a restart. Rejecting skips it for
+  the session (a client stops instead of retrying). A Security card shows this
+  computer's fingerprint and the trusted computers, which can be forgotten.
+
 ## Not yet
 
-- Accepting fingerprints, settings dialog, tray icon, autostart.
+- Settings dialog (TLS on/off, key size, regenerating the certificate), tray icon, autostart.

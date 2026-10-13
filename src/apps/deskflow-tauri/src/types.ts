@@ -33,12 +33,20 @@ export interface CoreState {
   clients: string[];
   tls: string | null;
   peerFingerprint: string | null;
+  fingerprintPrompt: FingerprintPrompt | null;
   unrecognisedClient: string | null;
   refusal: ConnectionRefusal | null;
   retryAt: number | null;
   missingLayouts: string | null;
   coreVersion: string | null;
   lastError: string | null;
+}
+
+export interface FingerprintPrompt {
+  /** Lower-case hex SHA-256. */
+  fingerprint: string;
+  /** Who is asking: a client meeting a new server, or a server meeting a new client. */
+  mode: CoreMode;
 }
 
 export interface Changes {

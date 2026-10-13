@@ -5,6 +5,7 @@ import { describeRefusal, describeStatus, parseLogLine } from "./status";
 import { LayoutEditor } from "./layout/LayoutEditor";
 import { ServerOptionsCard } from "./ServerOptionsCard";
 import { HotkeysCard } from "./hotkeys/HotkeysCard";
+import { FingerprintPromptCard, SecurityCard } from "./tls/Security";
 import type { CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
@@ -46,6 +47,8 @@ export default function App() {
         onStop={df.stop}
       />
 
+      {core.fingerprintPrompt && <FingerprintPromptCard key={core.fingerprintPrompt.fingerprint} prompt={core.fingerprintPrompt} onDone={() => {}} />}
+
       <Alerts core={core} ov={ov} error={df.error} onDismissError={df.dismissError} />
 
       {ov.coreMode === "client" && (
@@ -66,6 +69,8 @@ export default function App() {
           <ServerOptionsCard running={core.process === "running"} />
         </>
       )}
+
+      <SecurityCard mode={ov.coreMode} refreshKey={core.fingerprintPrompt?.fingerprint ?? ""} />
 
       <ActivityLog lines={df.log} />
 
@@ -227,16 +232,6 @@ function Alerts({ core, ov, error, onDismissError }: { core: CoreState; ov: Over
   if (core.missingLayouts) items.push({ tone: "info", text: `Faltan distribuciones de teclado en esta computadora: ${core.missingLayouts}.` });
   if (core.ipc === "versionMismatch") {
     items.push({ tone: "info", text: "El Deskflow que está corriendo es de otra versión que el instalado. Algunos datos pueden faltar." });
-  }
-  if (core.peerFingerprint && core.connection !== "Connected") {
-    items.push({
-      tone: "info",
-      text: (
-        <>
-          Huella de la otra computadora: <code className="fingerprint">{core.peerFingerprint}</code>
-        </>
-      ),
-    });
   }
   if (items.length === 0) return null;
 

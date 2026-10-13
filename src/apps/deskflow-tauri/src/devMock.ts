@@ -9,6 +9,16 @@ import type { Screen } from "./layout/geometry";
 import { defaultOptions, toggleMacSwap, type ComputerOptions } from "./layout/options";
 import { DEFAULT_SERVER_OPTIONS, type ServerOptions } from "./ServerOptionsCard";
 import type { Hotkey } from "./hotkeys/model";
+import type { TlsInfo } from "./tls/Security";
+
+let tlsInfo: TlsInfo = {
+  enabled: true,
+  checkPeers: true,
+  localFingerprint: "a89ec7e43bd8aede07834acac760d9f8dcdf891c08745b3dc08ffe9319aa9fb5",
+  certificate: "C:/ProgramData/Deskflow/tls/deskflow.pem",
+  trustedServers: [],
+  trustedClients: [{ kind: "sha256", hex: "1f0e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0" }],
+};
 
 let hotkeys: Hotkey[] = [
   {
@@ -49,6 +59,9 @@ const core: CoreState = {
   clients: ["laptop"],
   tls: "TLSv1.3",
   peerFingerprint: null,
+  fingerprintPrompt: params.get("fingerprint")
+    ? { fingerprint: "4577ebbf2317c8d371fc408d2b72810c237473f774260d158bbb9eb6fe549dc1", mode: params.get("mode") === "client" ? "client" : "server" }
+    : null,
   unrecognisedClient: params.get("pending") ?? null,
   refusal: null,
   retryAt: null,
@@ -98,6 +111,28 @@ mockIPC(
         await new Promise((r) => setTimeout(r, 300));
         hotkeys = a!.hotkeys as Hotkey[];
         return { hotkeys, computers: screens.map((x) => x.name) };
+      case "tls_info":
+        return tlsInfo;
+      case "trust_fingerprint":
+        tlsInfo = {
+          ...tlsInfo,
+          [info.overview.coreMode === "server" ? "trustedClients" : "trustedServers"]: [
+            ...(info.overview.coreMode === "server" ? tlsInfo.trustedClients : tlsInfo.trustedServers),
+            { kind: "sha256", hex: a!.fingerprint as string },
+          ],
+        };
+        core.fingerprintPrompt = null;
+        emit("core-state", { ...core });
+        return tlsInfo;
+      case "reject_fingerprint":
+        core.fingerprintPrompt = null;
+        emit("core-state", { ...core });
+        return null;
+      case "forget_fingerprint": {
+        const key = a!.list === "clients" ? "trustedClients" : "trustedServers";
+        tlsInfo = { ...tlsInfo, [key]: tlsInfo[key].filter((t) => t.hex !== a!.hex) };
+        return tlsInfo;
+      }
       case "start_core":
       case "stop_core":
         return null;
