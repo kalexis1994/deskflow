@@ -76,7 +76,11 @@ fn parse_list(raw: &str) -> Vec<String> {
 }
 
 fn format_list(items: &[String]) -> String {
-    if items.is_empty() { "@Invalid()".into() } else { items.join(", ") }
+    if items.is_empty() {
+        "@Invalid()".into()
+    } else {
+        items.join(", ")
+    }
 }
 
 fn modifier(ini: &IniFile, sec: &str, key: &str, default: &str) -> String {
@@ -111,7 +115,10 @@ pub fn read(ini: &IniFile, name: &str) -> ComputerOptions {
             bottom_left: flag("switchCornerBottomLeft"),
             bottom_right: flag("switchCornerBottomRight"),
         },
-        corner_size: ini.get(&sec, "switchCornerSize").and_then(|v| v.parse().ok()).unwrap_or(0),
+        corner_size: ini
+            .get(&sec, "switchCornerSize")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0),
         fix_caps_lock: flag("halfDuplexCapsLock"),
         fix_num_lock: flag("halfDuplexNumLock"),
         fix_scroll_lock: flag("halfDuplexScrollLock"),
@@ -149,8 +156,10 @@ fn looks_like_ip(s: &str) -> bool {
 
 /// Checks the options of every computer together, since aliases must be unique overall.
 pub fn validate(computers: &[(&str, &ComputerOptions)]) -> Result<(), String> {
-    let mut taken: std::collections::HashMap<String, &str> =
-        computers.iter().map(|(n, _)| (n.to_lowercase(), *n)).collect();
+    let mut taken: std::collections::HashMap<String, &str> = computers
+        .iter()
+        .map(|(n, _)| (n.to_lowercase(), *n))
+        .collect();
     for (name, o) in computers {
         let m = &o.modifiers;
         for v in [&m.shift, &m.ctrl, &m.alt, &m.altgr, &m.meta, &m.super_] {
@@ -159,11 +168,15 @@ pub fn validate(computers: &[(&str, &ComputerOptions)]) -> Result<(), String> {
             }
         }
         if o.corner_size > 1000 {
-            return Err(format!("El tamaño de las esquinas de “{name}” es demasiado grande."));
+            return Err(format!(
+                "El tamaño de las esquinas de “{name}” es demasiado grande."
+            ));
         }
         for alias in &o.aliases {
             if !is_valid_name(alias) || looks_like_ip(alias) {
-                return Err(format!("“{alias}” no sirve como alias: usá un nombre sin espacios, no una dirección IP."));
+                return Err(format!(
+                    "“{alias}” no sirve como alias: usá un nombre sin espacios, no una dirección IP."
+                ));
             }
             if let Some(owner) = taken.insert(alias.to_lowercase(), name) {
                 return Err(if owner == *name {
@@ -183,7 +196,11 @@ mod tests {
     use std::path::PathBuf;
 
     fn ini(text: &str) -> IniFile {
-        let path = std::env::temp_dir().join(format!("computer-test-{}-{}.conf", std::process::id(), text.len()));
+        let path = std::env::temp_dir().join(format!(
+            "computer-test-{}-{}.conf",
+            std::process::id(),
+            text.len()
+        ));
         std::fs::write(&path, text).unwrap();
         let f = IniFile::load(&path).unwrap();
         let _ = std::fs::remove_file(PathBuf::from(&path));
@@ -205,16 +222,31 @@ mod tests {
         let o = read(&f, "mac");
         assert_eq!(o.aliases, ["mac.local", "macbook"]);
         assert!(o.fix_caps_lock && !o.fix_num_lock);
-        assert_eq!((o.modifiers.ctrl.as_str(), o.modifiers.super_.as_str(), o.modifiers.alt.as_str()), ("super", "ctrl", "alt"));
+        assert_eq!(
+            (
+                o.modifiers.ctrl.as_str(),
+                o.modifiers.super_.as_str(),
+                o.modifiers.alt.as_str()
+            ),
+            ("super", "ctrl", "alt")
+        );
         assert_eq!(o.corner_size, 12);
         assert!(o.corners.top_left && !o.corners.bottom_right);
-        assert!(read(&ini("[computer_x]\naliases=@Invalid()\n"), "x").aliases.is_empty());
+        assert!(
+            read(&ini("[computer_x]\naliases=@Invalid()\n"), "x")
+                .aliases
+                .is_empty()
+        );
     }
 
     #[test]
     fn write_then_read_roundtrips() {
         let mut f = ini("[computer_pc]\nname=pc\n");
-        let mut o = ComputerOptions { aliases: vec!["pc2".into(), "pc.lan".into()], corner_size: 30, ..Default::default() };
+        let mut o = ComputerOptions {
+            aliases: vec!["pc2".into(), "pc.lan".into()],
+            corner_size: 30,
+            ..Default::default()
+        };
         o.corners.bottom_right = true;
         o.modifiers.alt = "none".into();
         o.weak_x11_focus = true;
@@ -223,7 +255,14 @@ mod tests {
         assert_eq!(f.get("computer_pc", "name").as_deref(), Some("pc"));
 
         write(&mut f, "pc", &ComputerOptions::default());
-        assert_eq!(f.entries("computer_pc").iter().find(|(k, _)| k == "aliases").unwrap().1, "@Invalid()");
+        assert_eq!(
+            f.entries("computer_pc")
+                .iter()
+                .find(|(k, _)| k == "aliases")
+                .unwrap()
+                .1,
+            "@Invalid()"
+        );
     }
 
     #[test]
@@ -237,19 +276,37 @@ mod tests {
         let o: ComputerOptions = serde_json::from_str(json).unwrap();
         assert_eq!(o.aliases, ["macbook", "laptop-trabajo"]);
         assert!(o.corners.top_left && o.corner_size == 20);
-        assert_eq!((o.modifiers.ctrl.as_str(), o.modifiers.super_.as_str()), ("super", "ctrl"));
-        assert_eq!(serde_json::to_value(&o).unwrap(), serde_json::from_str::<serde_json::Value>(json).unwrap());
+        assert_eq!(
+            (o.modifiers.ctrl.as_str(), o.modifiers.super_.as_str()),
+            ("super", "ctrl")
+        );
+        assert_eq!(
+            serde_json::to_value(&o).unwrap(),
+            serde_json::from_str::<serde_json::Value>(json).unwrap()
+        );
     }
 
     #[test]
     fn validates_aliases_across_computers() {
-        let a = ComputerOptions { aliases: vec!["laptop".into()], ..Default::default() };
+        let a = ComputerOptions {
+            aliases: vec!["laptop".into()],
+            ..Default::default()
+        };
         let ok = ComputerOptions::default();
         assert!(validate(&[("pc", &a), ("mac", &ok)]).is_ok());
-        assert!(validate(&[("pc", &a), ("laptop", &ok)]).is_err(), "alias equal to another computer's name");
-        let ip = ComputerOptions { aliases: vec!["192.168.1.4".into()], ..Default::default() };
+        assert!(
+            validate(&[("pc", &a), ("laptop", &ok)]).is_err(),
+            "alias equal to another computer's name"
+        );
+        let ip = ComputerOptions {
+            aliases: vec!["192.168.1.4".into()],
+            ..Default::default()
+        };
         assert!(validate(&[("pc", &ip)]).is_err());
-        let space = ComputerOptions { aliases: vec!["mi pc".into()], ..Default::default() };
+        let space = ComputerOptions {
+            aliases: vec!["mi pc".into()],
+            ..Default::default()
+        };
         assert!(validate(&[("pc", &space)]).is_err());
         let mut bad = ComputerOptions::default();
         bad.modifiers.ctrl = "hyper".into();

@@ -1,0 +1,150 @@
+.so {
+  gap: 14px;
+}
+
+.so__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.so__head h3 {
+  font-size: 15px;
+}
+
+.so__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.so__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.so__group h4 {
+  margin: 0 0 2px;
+  font-size: 13px;
+}
+
+.so__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.so__switch,
+.so__choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.so__switch .le__switch {
+  flex: none;
+  margin-top: 2px;
+}
+
+.so__switch--on .le__switch {
+  background: var(--accent);
+}
+
+.so__switch--on .le__switch::after {
+  transform: translateX(13px);
+}
+
+.so__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+}
+
+.so__extra {
+  padding-left: 40px;
+}
+
+.so__num {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.so__num input {
+  width: 84px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 8px;
+}
+
+.so__num input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.so__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.so__label {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.so__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.so__choice {
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.so__choice--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.so__radio {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.so__choice--on .so__radio {
+  border: 4px solid var(--accent);
+}
+
+.so__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}

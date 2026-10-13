@@ -19,7 +19,10 @@ impl IniFile {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
             Err(e) => return Err(e),
         };
-        Ok(Self { path: path.to_path_buf(), lines: text.lines().map(str::to_owned).collect() })
+        Ok(Self {
+            path: path.to_path_buf(),
+            lines: text.lines().map(str::to_owned).collect(),
+        })
     }
 
     /// Index range `[start, end)` of the body of `[section]`, if present.
@@ -36,7 +39,9 @@ impl IniFile {
     fn find_key(&self, section: &str, key: &str) -> Option<usize> {
         let (start, end) = self.section_range(section)?;
         (start..end).find(|&i| {
-            self.lines[i].split_once('=').is_some_and(|(k, _)| k.trim() == key)
+            self.lines[i]
+                .split_once('=')
+                .is_some_and(|(k, _)| k.trim() == key)
         })
     }
 
@@ -55,7 +60,10 @@ impl IniFile {
         match self.section_range(section) {
             Some((start, end)) => {
                 // insert after the last non-empty line of the section
-                let at = (start..end).rev().find(|&i| !self.lines[i].trim().is_empty()).map_or(start, |i| i + 1);
+                let at = (start..end)
+                    .rev()
+                    .find(|&i| !self.lines[i].trim().is_empty())
+                    .map_or(start, |i| i + 1);
                 self.lines.insert(at, line);
             }
             None => {
@@ -72,16 +80,26 @@ impl IniFile {
     pub fn sections(&self) -> Vec<String> {
         self.lines
             .iter()
-            .filter_map(|l| l.trim().strip_prefix('[').and_then(|s| s.strip_suffix(']')).map(str::to_owned))
+            .filter_map(|l| {
+                l.trim()
+                    .strip_prefix('[')
+                    .and_then(|s| s.strip_suffix(']'))
+                    .map(str::to_owned)
+            })
             .collect()
     }
 
     /// Raw `key=value` lines of a section, without unquoting.
     pub fn entries(&self, section: &str) -> Vec<(String, String)> {
-        let Some((start, end)) = self.section_range(section) else { return Vec::new() };
+        let Some((start, end)) = self.section_range(section) else {
+            return Vec::new();
+        };
         self.lines[start..end]
             .iter()
-            .filter_map(|l| l.split_once('=').map(|(k, v)| (k.trim().to_owned(), v.trim().to_owned())))
+            .filter_map(|l| {
+                l.split_once('=')
+                    .map(|(k, v)| (k.trim().to_owned(), v.trim().to_owned()))
+            })
             .collect()
     }
 
@@ -93,7 +111,9 @@ impl IniFile {
     }
 
     pub fn remove_section(&mut self, section: &str) {
-        let Some((start, end)) = self.section_range(section) else { return };
+        let Some((start, end)) = self.section_range(section) else {
+            return;
+        };
         // the body includes the blank line separating it from the next section
         self.lines.drain(start - 1..end);
         while self.lines.last().is_some_and(|l| l.trim().is_empty()) {
@@ -102,11 +122,16 @@ impl IniFile {
     }
 
     pub fn remove_keys(&mut self, section: &str, mut matches: impl FnMut(&str) -> bool) {
-        let Some((start, end)) = self.section_range(section) else { return };
+        let Some((start, end)) = self.section_range(section) else {
+            return;
+        };
         let mut i = end;
         while i > start {
             i -= 1;
-            if self.lines[i].split_once('=').is_some_and(|(k, _)| matches(k.trim())) {
+            if self.lines[i]
+                .split_once('=')
+                .is_some_and(|(k, _)| matches(k.trim()))
+            {
                 self.lines.remove(i);
             }
         }
@@ -142,7 +167,9 @@ fn unquote(v: &str) -> String {
 }
 
 fn quote(v: &str) -> String {
-    let plain = v.chars().all(|c| c.is_ascii_alphanumeric() || "._-:@/[]".contains(c));
+    let plain = v
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || "._-:@/[]".contains(c));
     if plain {
         v.to_owned()
     } else {
@@ -194,7 +221,11 @@ pub fn read_overview() -> std::io::Result<Overview> {
         _ => CoreMode::None,
     };
     // default mirrors Settings::defaultValue(Core::ProcessMode)
-    let default_process = if cfg!(windows) && !paths::is_portable() { ProcessMode::Service } else { ProcessMode::Desktop };
+    let default_process = if cfg!(windows) && !paths::is_portable() {
+        ProcessMode::Service
+    } else {
+        ProcessMode::Desktop
+    };
     let process_mode = match ini.get("core", "processMode").as_deref() {
         Some("0") => ProcessMode::Service,
         Some("1") => ProcessMode::Desktop,
@@ -202,12 +233,20 @@ pub fn read_overview() -> std::io::Result<Overview> {
     };
     Ok(Overview {
         settings_file: path.to_string_lossy().into_owned(),
-        computer_name: ini.get("core", "computerName").filter(|s| !s.is_empty()).unwrap_or_else(host_name),
+        computer_name: ini
+            .get("core", "computerName")
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(host_name),
         core_mode,
         process_mode,
         remote_host: ini.get("client", "remoteHost").unwrap_or_default(),
-        port: ini.get("core", "port").and_then(|p| p.parse().ok()).unwrap_or(24800),
-        tls_enabled: ini.get("security", "tlsEnabled").is_none_or(|v| v == "true"),
+        port: ini
+            .get("core", "port")
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(24800),
+        tls_enabled: ini
+            .get("security", "tlsEnabled")
+            .is_none_or(|v| v == "true"),
         portable: paths::is_portable(),
     })
 }
@@ -240,12 +279,17 @@ mod tests {
     use super::*;
 
     fn ini(text: &str) -> IniFile {
-        IniFile { path: PathBuf::new(), lines: text.lines().map(str::to_owned).collect() }
+        IniFile {
+            path: PathBuf::new(),
+            lines: text.lines().map(str::to_owned).collect(),
+        }
     }
 
     #[test]
     fn reads_and_updates_without_touching_other_lines() {
-        let mut f = ini("[core]\ncomputerName=a\ncoreMode=1\n\n[client]\nremoteHost=10.0.0.1\n\n[server]\nx=\"a, b\"");
+        let mut f = ini(
+            "[core]\ncomputerName=a\ncoreMode=1\n\n[client]\nremoteHost=10.0.0.1\n\n[server]\nx=\"a, b\"",
+        );
         assert_eq!(f.get("core", "coreMode").as_deref(), Some("1"));
         assert_eq!(f.get("server", "x").as_deref(), Some("a, b"));
         f.set("core", "coreMode", "2");
@@ -260,12 +304,23 @@ mod tests {
 
     #[test]
     fn removes_sections_and_keys() {
-        let mut f = ini("[core]\na=1\n\n[computer_x]\nname=x\n\n[internalConfig]\nscreens\\1\\name=x\nscreens\\size=1\nhotkeys\\size=0");
+        let mut f = ini(
+            "[core]\na=1\n\n[computer_x]\nname=x\n\n[internalConfig]\nscreens\\1\\name=x\nscreens\\size=1\nhotkeys\\size=0",
+        );
         assert_eq!(f.sections(), ["core", "computer_x", "internalConfig"]);
         f.remove_section("computer_x");
         f.remove_keys("internalConfig", |k| k.starts_with("screens\\"));
         f.set_raw("internalConfig", "screens\\size", "0");
-        assert_eq!(f.lines.join("\n"), "[core]\na=1\n\n[internalConfig]\nhotkeys\\size=0\nscreens\\size=0");
-        assert_eq!(f.entries("internalConfig"), [("hotkeys\\size".to_owned(), "0".to_owned()), ("screens\\size".to_owned(), "0".to_owned())]);
+        assert_eq!(
+            f.lines.join("\n"),
+            "[core]\na=1\n\n[internalConfig]\nhotkeys\\size=0\nscreens\\size=0"
+        );
+        assert_eq!(
+            f.entries("internalConfig"),
+            [
+                ("hotkeys\\size".to_owned(), "0".to_owned()),
+                ("screens\\size".to_owned(), "0".to_owned())
+            ]
+        );
     }
 }

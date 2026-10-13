@@ -44,7 +44,10 @@ impl Screen {
         self.y + self.h
     }
     fn overlaps(&self, o: &Screen) -> bool {
-        self.x < o.right() - EPS && o.x < self.right() - EPS && self.y < o.bottom() - EPS && o.y < self.bottom() - EPS
+        self.x < o.right() - EPS
+            && o.x < self.right() - EPS
+            && self.y < o.bottom() - EPS
+            && o.y < self.bottom() - EPS
     }
 }
 
@@ -101,7 +104,12 @@ pub fn links(screens: &[Screen]) -> Vec<Link> {
             // vertical edges: overlap along y
             let (lo, hi) = (a.y.max(b.y), a.bottom().min(b.bottom()));
             if hi - lo > EPS {
-                let ranges = ((lo - a.y) / a.h, (hi - a.y) / a.h, (lo - b.y) / b.h, (hi - b.y) / b.h);
+                let ranges = (
+                    (lo - a.y) / a.h,
+                    (hi - a.y) / a.h,
+                    (lo - b.y) / b.h,
+                    (hi - b.y) / b.h,
+                );
                 if (a.right() - b.x).abs() < EPS {
                     out.push(link(a, Side::Right, ranges, b));
                 }
@@ -112,7 +120,12 @@ pub fn links(screens: &[Screen]) -> Vec<Link> {
             // horizontal edges: overlap along x
             let (lo, hi) = (a.x.max(b.x), a.right().min(b.right()));
             if hi - lo > EPS {
-                let ranges = ((lo - a.x) / a.w, (hi - a.x) / a.w, (lo - b.x) / b.w, (hi - b.x) / b.w);
+                let ranges = (
+                    (lo - a.x) / a.w,
+                    (hi - a.x) / a.w,
+                    (lo - b.x) / b.w,
+                    (hi - b.x) / b.w,
+                );
                 if (a.bottom() - b.y).abs() < EPS {
                     out.push(link(a, Side::Down, ranges, b));
                 }
@@ -126,7 +139,15 @@ pub fn links(screens: &[Screen]) -> Vec<Link> {
 }
 
 fn link(a: &Screen, side: Side, (fs, fe, ts, te): (f64, f64, f64, f64), b: &Screen) -> Link {
-    Link { from: a.name.clone(), side, from_start: fs, from_end: fe, to: b.name.clone(), to_start: ts, to_end: te }
+    Link {
+        from: a.name.clone(),
+        side,
+        from_start: fs,
+        from_end: fe,
+        to: b.name.clone(),
+        to_start: ts,
+        to_end: te,
+    }
 }
 
 /// Names of computers the cursor can never reach from the server (the UI does the same live).
@@ -142,25 +163,39 @@ pub fn unreachable(screens: &[Screen], server: &str) -> Vec<String> {
             }
         }
     }
-    screens.iter().filter(|s| !seen.contains(&s.name)).map(|s| s.name.clone()).collect()
+    screens
+        .iter()
+        .filter(|s| !seen.contains(&s.name))
+        .map(|s| s.name.clone())
+        .collect()
 }
 
 /// Same rule as the Qt GUI's ComputerNameValidator: `^[\w._-]{1,255}$`.
 pub fn is_valid_name(name: &str) -> bool {
-    !name.is_empty() && name.chars().count() <= 255 && name.chars().all(|c| c.is_alphanumeric() || "_.-".contains(c))
+    !name.is_empty()
+        && name.chars().count() <= 255
+        && name
+            .chars()
+            .all(|c| c.is_alphanumeric() || "_.-".contains(c))
 }
 
 pub fn validate(screens: &[Screen], server: &str) -> Result<(), String> {
     let mut names = HashSet::new();
     for s in screens {
         if !is_valid_name(&s.name) {
-            return Err(format!("“{}” no es un nombre válido: usá letras, números, punto, guion o guion bajo, sin espacios.", s.name));
+            return Err(format!(
+                "“{}” no es un nombre válido: usá letras, números, punto, guion o guion bajo, sin espacios.",
+                s.name
+            ));
         }
         if !names.insert(s.name.to_lowercase()) {
             return Err(format!("Hay dos computadoras llamadas “{}”.", s.name));
         }
         if !(s.w >= MIN_SIZE && s.h >= MIN_SIZE && s.x.is_finite() && s.y.is_finite()) {
-            return Err(format!("La pantalla de “{}” tiene un tamaño inválido.", s.name));
+            return Err(format!(
+                "La pantalla de “{}” tiene un tamaño inválido.",
+                s.name
+            ));
         }
     }
     if !screens.iter().any(|s| s.name == server) {
@@ -168,7 +203,10 @@ pub fn validate(screens: &[Screen], server: &str) -> Result<(), String> {
     }
     for (i, a) in screens.iter().enumerate() {
         if let Some(b) = screens[i + 1..].iter().find(|b| a.overlaps(b)) {
-            return Err(format!("Las pantallas de “{}” y “{}” se superponen.", a.name, b.name));
+            return Err(format!(
+                "Las pantallas de “{}” y “{}” se superponen.",
+                a.name, b.name
+            ));
         }
     }
     Ok(())
@@ -190,7 +228,11 @@ fn interval(start: &str, end: &str) -> Option<String> {
 /// The server config consumed by the core (`section: links` + `section: options`).
 pub fn config_text(screens: &[Screen], options: &str) -> String {
     let mut links = links(screens);
-    links.sort_by(|a, b| a.side.cmp(&b.side).then(a.from_start.total_cmp(&b.from_start)));
+    links.sort_by(|a, b| {
+        a.side
+            .cmp(&b.side)
+            .then(a.from_start.total_cmp(&b.from_start))
+    });
     let mut out = String::from("section: links\n");
     for s in screens {
         out.push_str(&format!("\t{}:\n", s.name));
@@ -201,10 +243,15 @@ pub fn config_text(screens: &[Screen], options: &str) -> String {
             let mut start = pct(l.from_start);
             let end = pct(l.from_end);
             if let Some((side, prev_end)) = previous
-                && side == l.side && start.parse::<f64>().unwrap_or(0.0) < prev_end {
-                    start = pct(prev_end / 100.0);
-                }
-            if let (Some(src), Some(dst)) = (interval(&start, &end), interval(&pct(l.to_start), &pct(l.to_end))) {
+                && side == l.side
+                && start.parse::<f64>().unwrap_or(0.0) < prev_end
+            {
+                start = pct(prev_end / 100.0);
+            }
+            if let (Some(src), Some(dst)) = (
+                interval(&start, &end),
+                interval(&pct(l.to_start), &pct(l.to_end)),
+            ) {
                 out.push_str(&format!("\t\t{}{src} = {}{dst}\n", l.side.name(), l.to));
                 previous = Some((l.side, end.parse().unwrap_or(100.0)));
             }
@@ -239,7 +286,11 @@ fn options_body(config: &str) -> String {
 
 pub fn layout_file() -> PathBuf {
     let settings = paths::settings_file();
-    settings.parent().map(Path::to_path_buf).unwrap_or_default().join("deskflow-layout.json")
+    settings
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default()
+        .join("deskflow-layout.json")
 }
 
 fn generated_config_file() -> PathBuf {
@@ -252,7 +303,9 @@ fn fallback_config_file() -> PathBuf {
 
 /// Mirrors `Settings::serverConfigFile()`.
 pub fn server_config_file(ini: &IniFile) -> PathBuf {
-    let external = ini.get("server", "externalConfig").is_some_and(|v| v == "true");
+    let external = ini
+        .get("server", "externalConfig")
+        .is_some_and(|v| v == "true");
     match ini.get("server", "externalConfigFile") {
         Some(f) if external && !f.is_empty() => PathBuf::from(f),
         _ => paths::settings_dir().join("deskflow-server.conf"),
@@ -286,12 +339,25 @@ fn read_layout_file() -> Option<LayoutFile> {
 
 /// Builds a free layout from the Qt GUI's grid (`internalConfig/screens`).
 fn import_grid(ini: &IniFile, server: &str) -> Vec<Screen> {
-    let width = ini.get("server", "gridWidth").and_then(|v| v.parse::<usize>().ok()).filter(|&w| w > 0).unwrap_or(5);
+    let width = ini
+        .get("server", "gridWidth")
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|&w| w > 0)
+        .unwrap_or(5);
     let mut screens: Vec<Screen> = Vec::new();
     for (key, _) in ini.entries("internalConfig") {
-        let Some(index) = key.strip_prefix("screens\\").and_then(|k| k.strip_suffix("\\name")) else { continue };
-        let Ok(index) = index.parse::<usize>() else { continue };
-        let Some(name) = ini.get("internalConfig", &key).filter(|n| !n.is_empty()) else { continue };
+        let Some(index) = key
+            .strip_prefix("screens\\")
+            .and_then(|k| k.strip_suffix("\\name"))
+        else {
+            continue;
+        };
+        let Ok(index) = index.parse::<usize>() else {
+            continue;
+        };
+        let Some(name) = ini.get("internalConfig", &key).filter(|n| !n.is_empty()) else {
+            continue;
+        };
         let i = index - 1;
         screens.push(Screen {
             options: None,
@@ -312,7 +378,14 @@ fn import_grid(ini: &IniFile, server: &str) -> Vec<Screen> {
 fn place_new(screens: &mut Vec<Screen>, name: &str) {
     let x = screens.iter().map(Screen::right).fold(0.0, f64::max);
     let y = screens.first().map_or(0.0, |s| s.y);
-    screens.push(Screen { name: name.to_owned(), x, y, w: DEFAULT_W, h: DEFAULT_H, options: None });
+    screens.push(Screen {
+        name: name.to_owned(),
+        x,
+        y,
+        w: DEFAULT_W,
+        h: DEFAULT_H,
+        options: None,
+    });
 }
 
 pub fn load() -> Result<LayoutView, String> {
@@ -325,9 +398,10 @@ pub fn load() -> Result<LayoutView, String> {
             let mut screens = file.screens;
             // this computer was renamed outside the editor: follow it
             if !screens.iter().any(|s| s.name == server)
-                && let Some(s) = screens.iter_mut().find(|s| s.name == file.server) {
-                    s.name = server.clone();
-                }
+                && let Some(s) = screens.iter_mut().find(|s| s.name == file.server)
+            {
+                s.name = server.clone();
+            }
             (screens, false)
         }
         None => (import_grid(&ini, &server), true),
@@ -337,12 +411,20 @@ pub fn load() -> Result<LayoutView, String> {
     }
 
     let current = server_config_file(&ini);
-    let external = ini.get("server", "externalConfig").is_some_and(|v| v == "true");
-    let foreign_config = (external && !is_our_config(&current)).then(|| current.to_string_lossy().into_owned());
+    let external = ini
+        .get("server", "externalConfig")
+        .is_some_and(|v| v == "true");
+    let foreign_config =
+        (external && !is_our_config(&current)).then(|| current.to_string_lossy().into_owned());
     for s in &mut screens {
         s.options = Some(computer::read(&ini, &s.name));
     }
-    Ok(LayoutView { screens, server_name: server, foreign_config, imported })
+    Ok(LayoutView {
+        screens,
+        server_name: server,
+        foreign_config,
+        imported,
+    })
 }
 
 /// Writes the server config the core will read, keeping existing hotkeys.
@@ -373,10 +455,20 @@ fn write_config(screens: &[Screen], options: &str) -> std::io::Result<PathBuf> {
 /// Keeps the Qt GUI's grid roughly in sync, so its editor shows the same computers
 /// and does not drop their `[computer_*]` groups if it is used again.
 fn write_grid_projection(ini: &mut IniFile, screens: &[Screen], server: &str) {
-    let width = ini.get("server", "gridWidth").and_then(|v| v.parse::<i64>().ok()).filter(|&w| w > 0).unwrap_or(5);
-    let height = ini.get("server", "gridHeight").and_then(|v| v.parse::<i64>().ok()).filter(|&h| h > 0).unwrap_or(3);
+    let width = ini
+        .get("server", "gridWidth")
+        .and_then(|v| v.parse::<i64>().ok())
+        .filter(|&w| w > 0)
+        .unwrap_or(5);
+    let height = ini
+        .get("server", "gridHeight")
+        .and_then(|v| v.parse::<i64>().ok())
+        .filter(|&h| h > 0)
+        .unwrap_or(3);
     let mut cells: Vec<Option<&str>> = vec![None; (width * height) as usize];
-    let Some(srv) = screens.iter().find(|s| s.name == server) else { return };
+    let Some(srv) = screens.iter().find(|s| s.name == server) else {
+        return;
+    };
     let (cx, cy) = (width / 2, height / 2);
     let (sx, sy) = (srv.x + srv.w / 2.0, srv.y + srv.h / 2.0);
 
@@ -397,7 +489,11 @@ fn write_grid_projection(ini: &mut IniFile, screens: &[Screen], server: &str) {
 
     ini.remove_keys("internalConfig", |k| k.starts_with("screens\\"));
     for (i, name) in cells.iter().enumerate() {
-        ini.set("internalConfig", &format!("screens\\{}\\name", i + 1), name.unwrap_or(""));
+        ini.set(
+            "internalConfig",
+            &format!("screens\\{}\\name", i + 1),
+            name.unwrap_or(""),
+        );
     }
     ini.set("internalConfig", "screens\\size", &cells.len().to_string());
 }
@@ -411,10 +507,15 @@ pub struct Rename {
 pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, String> {
     let io = |e: std::io::Error| format!("No se pudo guardar el diseño: {e}");
     let old_server = settings::read_overview().map_err(io)?.computer_name;
-    let new_server = renames.iter().find(|r| r.from == old_server).map_or(old_server.clone(), |r| r.to.clone());
+    let new_server = renames
+        .iter()
+        .find(|r| r.from == old_server)
+        .map_or(old_server.clone(), |r| r.to.clone());
     validate(&screens, &new_server)?;
-    let options: Vec<(&str, &ComputerOptions)> =
-        screens.iter().filter_map(|s| s.options.as_ref().map(|o| (s.name.as_str(), o))).collect();
+    let options: Vec<(&str, &ComputerOptions)> = screens
+        .iter()
+        .filter_map(|s| s.options.as_ref().map(|o| (s.name.as_str(), o)))
+        .collect();
     computer::validate(&options)?;
 
     let mut ini = IniFile::load(&paths::settings_file()).map_err(io)?;
@@ -434,7 +535,10 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
     }
 
     // the core learns the computer names from these groups
-    let names: HashSet<String> = screens.iter().map(|s| format!("computer_{}", s.name)).collect();
+    let names: HashSet<String> = screens
+        .iter()
+        .map(|s| format!("computer_{}", s.name))
+        .collect();
     for section in ini.sections() {
         if section.starts_with("computer_") && !names.contains(&section) {
             ini.remove_section(&section);
@@ -454,8 +558,16 @@ pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, Stri
     ini.set("server", "externalConfigFile", &qt_path(&config));
     ini.save().map_err(io)?;
 
-    let screens = screens.into_iter().map(|s| Screen { options: None, ..s }).collect();
-    let file = LayoutFile { version: 1, server: new_server, screens, options };
+    let screens = screens
+        .into_iter()
+        .map(|s| Screen { options: None, ..s })
+        .collect();
+    let file = LayoutFile {
+        version: 1,
+        server: new_server,
+        screens,
+        options,
+    };
     let json = serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?;
     std::fs::write(layout_file(), json).map_err(io)?;
     load()
@@ -488,20 +600,36 @@ mod tests {
     use super::*;
 
     fn s(name: &str, x: f64, y: f64, w: f64, h: f64) -> Screen {
-        Screen { name: name.into(), x, y, w, h, options: None }
+        Screen {
+            name: name.into(),
+            x,
+            y,
+            w,
+            h,
+            options: None,
+        }
     }
 
     #[test]
     fn side_by_side_same_size_links_whole_edges() {
-        let screens = [s("a", 0.0, 0.0, 160.0, 90.0), s("b", 160.0, 0.0, 160.0, 90.0)];
+        let screens = [
+            s("a", 0.0, 0.0, 160.0, 90.0),
+            s("b", 160.0, 0.0, 160.0, 90.0),
+        ];
         let text = config_text(&screens, "");
-        assert_eq!(text, "section: links\n\ta:\n\t\tright = b\n\tb:\n\t\tleft = a\nend\n\nsection: options\nend\n\n");
+        assert_eq!(
+            text,
+            "section: links\n\ta:\n\t\tright = b\n\tb:\n\t\tleft = a\nend\n\nsection: options\nend\n\n"
+        );
     }
 
     #[test]
     fn different_sizes_map_proportionally() {
         // b is half as tall as a and aligned with a's bottom half
-        let screens = [s("a", 0.0, 0.0, 160.0, 100.0), s("b", 160.0, 50.0, 80.0, 50.0)];
+        let screens = [
+            s("a", 0.0, 0.0, 160.0, 100.0),
+            s("b", 160.0, 50.0, 80.0, 50.0),
+        ];
         let text = config_text(&screens, "");
         assert!(text.contains("\t\tright(50,100) = b\n"), "{text}");
         assert!(text.contains("\t\tleft = a(50,100)\n"), "{text}");
@@ -509,44 +637,93 @@ mod tests {
 
     #[test]
     fn partial_vertical_overlap() {
-        let screens = [s("top", 0.0, 0.0, 200.0, 100.0), s("laptop", 120.0, 100.0, 120.0, 60.0)];
-        let text = config_text(&screens, "\tkeystroke(Control+Alt+Left) = switchInDirection(left)\n");
-        assert!(text.contains("\t\tdown(60,100) = laptop(0,66.67)\n"), "{text}");
+        let screens = [
+            s("top", 0.0, 0.0, 200.0, 100.0),
+            s("laptop", 120.0, 100.0, 120.0, 60.0),
+        ];
+        let text = config_text(
+            &screens,
+            "\tkeystroke(Control+Alt+Left) = switchInDirection(left)\n",
+        );
+        assert!(
+            text.contains("\t\tdown(60,100) = laptop(0,66.67)\n"),
+            "{text}"
+        );
         assert!(text.contains("\t\tup(0,66.67) = top(60,100)\n"), "{text}");
-        assert!(text.ends_with("section: options\n\tkeystroke(Control+Alt+Left) = switchInDirection(left)\nend\n\n"));
+        assert!(text.ends_with(
+            "section: options\n\tkeystroke(Control+Alt+Left) = switchInDirection(left)\nend\n\n"
+        ));
     }
 
     #[test]
     fn corners_only_touching_are_not_linked() {
-        let screens = [s("a", 0.0, 0.0, 100.0, 100.0), s("b", 100.0, 100.0, 100.0, 100.0)];
+        let screens = [
+            s("a", 0.0, 0.0, 100.0, 100.0),
+            s("b", 100.0, 100.0, 100.0, 100.0),
+        ];
         assert!(links(&screens).is_empty());
         assert_eq!(unreachable(&screens, "a"), ["b"]);
     }
 
     #[test]
     fn several_neighbours_on_one_edge() {
-        let screens = [s("main", 0.0, 0.0, 100.0, 100.0), s("r1", 100.0, 0.0, 50.0, 40.0), s("r2", 100.0, 40.0, 50.0, 60.0)];
+        let screens = [
+            s("main", 0.0, 0.0, 100.0, 100.0),
+            s("r1", 100.0, 0.0, 50.0, 40.0),
+            s("r2", 100.0, 40.0, 50.0, 60.0),
+        ];
         let text = config_text(&screens, "");
-        assert!(text.contains("\tmain:\n\t\tright(0,40) = r1\n\t\tright(40,100) = r2\n"), "{text}");
+        assert!(
+            text.contains("\tmain:\n\t\tright(0,40) = r1\n\t\tright(40,100) = r2\n"),
+            "{text}"
+        );
         assert!(unreachable(&screens, "main").is_empty());
     }
 
     #[test]
     fn neighbours_within_tolerance_never_produce_overlapping_ranges() {
         // r1 and r2 overlap by 0.4 units, which still counts as touching
-        let screens = [s("main", 0.0, 0.0, 100.0, 100.0), s("r1", 100.0, 0.0, 50.0, 40.2), s("r2", 100.0, 39.8, 50.0, 60.2)];
+        let screens = [
+            s("main", 0.0, 0.0, 100.0, 100.0),
+            s("r1", 100.0, 0.0, 50.0, 40.2),
+            s("r2", 100.0, 39.8, 50.0, 60.2),
+        ];
         let text = config_text(&screens, "");
-        assert!(text.contains("\t\tright(0,40.2) = r1\n\t\tright(40.2,100) = r2\n"), "{text}");
+        assert!(
+            text.contains("\t\tright(0,40.2) = r1\n\t\tright(40.2,100) = r2\n"),
+            "{text}"
+        );
     }
 
     #[test]
     fn validation() {
-        let ok = [s("a", 0.0, 0.0, 100.0, 100.0), s("b-2.x", 100.0, 0.0, 100.0, 100.0)];
+        let ok = [
+            s("a", 0.0, 0.0, 100.0, 100.0),
+            s("b-2.x", 100.0, 0.0, 100.0, 100.0),
+        ];
         assert!(validate(&ok, "a").is_ok());
         assert!(validate(&ok, "zz").is_err());
         assert!(validate(&[s("a b", 0.0, 0.0, 100.0, 100.0)], "a b").is_err());
-        assert!(validate(&[s("a", 0.0, 0.0, 100.0, 100.0), s("A", 200.0, 0.0, 100.0, 100.0)], "a").is_err());
-        assert!(validate(&[s("a", 0.0, 0.0, 100.0, 100.0), s("b", 50.0, 50.0, 100.0, 100.0)], "a").is_err());
+        assert!(
+            validate(
+                &[
+                    s("a", 0.0, 0.0, 100.0, 100.0),
+                    s("A", 200.0, 0.0, 100.0, 100.0)
+                ],
+                "a"
+            )
+            .is_err()
+        );
+        assert!(
+            validate(
+                &[
+                    s("a", 0.0, 0.0, 100.0, 100.0),
+                    s("b", 50.0, 50.0, 100.0, 100.0)
+                ],
+                "a"
+            )
+            .is_err()
+        );
     }
 
     /// End to end against a throwaway portable install (Windows only, where portable
@@ -575,36 +752,98 @@ mod tests {
 
         let view = load().unwrap();
         assert!(view.imported);
-        let geometry: Vec<Screen> = view.screens.iter().map(|x| Screen { options: None, ..x.clone() }).collect();
-        assert_eq!(geometry, [s("srv", 320.0, 90.0, DEFAULT_W, DEFAULT_H), s("old", 480.0, 90.0, DEFAULT_W, DEFAULT_H)]);
-        assert_eq!(view.screens[1].options.as_ref().unwrap().modifiers.alt, "meta", "options are loaded");
+        let geometry: Vec<Screen> = view
+            .screens
+            .iter()
+            .map(|x| Screen {
+                options: None,
+                ..x.clone()
+            })
+            .collect();
+        assert_eq!(
+            geometry,
+            [
+                s("srv", 320.0, 90.0, DEFAULT_W, DEFAULT_H),
+                s("old", 480.0, 90.0, DEFAULT_W, DEFAULT_H)
+            ]
+        );
+        assert_eq!(
+            view.screens[1].options.as_ref().unwrap().modifiers.alt,
+            "meta",
+            "options are loaded"
+        );
 
         let mut lap = s("lap", 0.0, 100.0, 100.0, 60.0);
-        let mut lap_options = ComputerOptions { aliases: vec!["lap.local".into()], ..Default::default() };
+        let mut lap_options = ComputerOptions {
+            aliases: vec!["lap.local".into()],
+            ..Default::default()
+        };
         lap_options.corners.top_left = true;
         lap.options = Some(lap_options.clone());
-        let screens = vec![s("srv", 0.0, 0.0, 200.0, 100.0), s("new", 200.0, 50.0, 100.0, 50.0), lap];
-        let view = save(screens, &[Rename { from: "old".into(), to: "new".into() }]).unwrap();
+        let screens = vec![
+            s("srv", 0.0, 0.0, 200.0, 100.0),
+            s("new", 200.0, 50.0, 100.0, 50.0),
+            lap,
+        ];
+        let view = save(
+            screens,
+            &[Rename {
+                from: "old".into(),
+                to: "new".into(),
+            }],
+        )
+        .unwrap();
         assert!(!view.imported);
         assert_eq!(view.screens.len(), 3);
 
         let ini = IniFile::load(&settings_dir.join("Deskflow.conf")).unwrap();
-        assert_eq!(ini.get("computer_new", "modifierAlt").as_deref(), Some("Meta"), "options follow the rename");
+        assert_eq!(
+            ini.get("computer_new", "modifierAlt").as_deref(),
+            Some("Meta"),
+            "options follow the rename"
+        );
         assert_eq!(ini.get("computer_lap", "name").as_deref(), Some("lap"));
         assert_eq!(computer::read(&ini, "lap"), lap_options);
-        assert_eq!(view.screens[2].options.as_ref(), Some(&lap_options), "options come back on load");
+        assert_eq!(
+            view.screens[2].options.as_ref(),
+            Some(&lap_options),
+            "options come back on load"
+        );
         let json = std::fs::read_to_string(layout_file()).unwrap();
-        assert!(!json.contains("aliases"), "options live in the settings file only: {json}");
-        assert!(!ini.sections().iter().any(|s| s == "computer_old" || s == "computer_gone"));
+        assert!(
+            !json.contains("aliases"),
+            "options live in the settings file only: {json}"
+        );
+        assert!(
+            !ini.sections()
+                .iter()
+                .any(|s| s == "computer_old" || s == "computer_gone")
+        );
         assert_eq!(ini.get("server", "externalConfig").as_deref(), Some("true"));
-        assert_eq!(ini.get("internalConfig", "hotkeys\\size").as_deref(), Some("0"));
-        assert_eq!(ini.get("internalConfig", "screens\\8\\name").as_deref(), Some("srv"), "server stays in the grid centre");
+        assert_eq!(
+            ini.get("internalConfig", "hotkeys\\size").as_deref(),
+            Some("0")
+        );
+        assert_eq!(
+            ini.get("internalConfig", "screens\\8\\name").as_deref(),
+            Some("srv"),
+            "server stays in the grid centre"
+        );
 
         let config_path = PathBuf::from(ini.get("server", "externalConfigFile").unwrap());
-        assert_eq!(qt_path(&config_path), qt_path(&settings_dir.join("deskflow-server-layout.conf")));
+        assert_eq!(
+            qt_path(&config_path),
+            qt_path(&settings_dir.join("deskflow-server-layout.conf"))
+        );
         let config = std::fs::read_to_string(&config_path).unwrap();
-        assert!(config.contains("\tsrv:\n\t\tright(50,100) = new\n\t\tdown(0,50) = lap\n"), "{config}");
-        assert!(config.contains("keystroke(F1) = lockCursorToScreen(toggle)"), "hotkeys kept: {config}");
+        assert!(
+            config.contains("\tsrv:\n\t\tright(50,100) = new\n\t\tdown(0,50) = lap\n"),
+            "{config}"
+        );
+        assert!(
+            config.contains("keystroke(F1) = lockCursorToScreen(toggle)"),
+            "hotkeys kept: {config}"
+        );
 
         // regenerating before a start keeps the same content
         std::fs::remove_file(&config_path).unwrap();
@@ -618,6 +857,9 @@ mod tests {
     #[test]
     fn keeps_hotkeys_from_previous_config() {
         let prev = "section: links\n\ta:\nend\n\nsection: options\n\tkeystroke(F1) = lockCursorToScreen(toggle)\nend\n\n";
-        assert_eq!(options_body(prev), "\tkeystroke(F1) = lockCursorToScreen(toggle)\n");
+        assert_eq!(
+            options_body(prev),
+            "\tkeystroke(F1) = lockCursorToScreen(toggle)\n"
+        );
     }
 }

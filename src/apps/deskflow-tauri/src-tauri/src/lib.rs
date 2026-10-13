@@ -3,6 +3,7 @@ mod engine;
 mod ipc;
 mod layout;
 mod paths;
+mod server_options;
 mod settings;
 
 use std::sync::Arc;
@@ -82,11 +83,32 @@ async fn save_layout(
     renames: Vec<layout::Rename>,
 ) -> Result<layout::LayoutView, String> {
     let view = layout::save(screens, &renames)?;
-    let serving = settings::read_overview().is_ok_and(|o| o.core_mode == settings::CoreMode::Server);
+    let serving =
+        settings::read_overview().is_ok_and(|o| o.core_mode == settings::CoreMode::Server);
     if serving && hub.snapshot().process != engine::ProcessStatus::Stopped {
         hub.inner().restart().await?;
     }
     Ok(view)
+}
+
+#[tauri::command]
+fn get_server_options() -> Result<server_options::ServerOptions, String> {
+    server_options::load()
+}
+
+/// Saves the global server options and restarts the core if it is serving.
+#[tauri::command]
+async fn save_server_options(
+    hub: State<'_, Arc<Hub>>,
+    options: server_options::ServerOptions,
+) -> Result<server_options::ServerOptions, String> {
+    let saved = server_options::save(&options)?;
+    let serving =
+        settings::read_overview().is_ok_and(|o| o.core_mode == settings::CoreMode::Server);
+    if serving && hub.snapshot().process != engine::ProcessStatus::Stopped {
+        hub.inner().restart().await?;
+    }
+    Ok(saved)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -97,7 +119,8 @@ pub fn run() {
             let hub = Hub::new(app.handle().clone(), engine::detect_version_id());
             app.manage(hub.clone());
             tauri::async_runtime::spawn(hub.clone().monitor_core());
-            let service = settings::read_overview().is_ok_and(|o| o.process_mode == ProcessMode::Service);
+            let service =
+                settings::read_overview().is_ok_and(|o| o.process_mode == ProcessMode::Service);
             if service {
                 tauri::async_runtime::spawn(hub.tail_daemon_log());
             }
@@ -112,7 +135,9 @@ pub fn run() {
             stop_core,
             save_settings,
             get_layout,
-            save_layout
+            save_layout,
+            get_server_options,
+            save_server_options
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -55,6 +55,11 @@ Tests: `pnpm test` (layout geometry) and `cargo test` in `src-tauri`.
   aliases (validated to be unique across all names and aliases), dead corners
   with their size, and the two X11 options. Changes are part of undo/redo and
   are applied together with the layout.
+- Global server options (server mode), the same `[server]` keys as the Qt server
+  dialog with its limits: clipboard sharing and size, switch delay and double tap,
+  Scroll Lock locking / start locked / relative moves, heartbeat, Synergy/Barrier
+  compatibility and keeping the foreground window on Windows. Saving restarts a
+  running server so the core picks them up.
 
 ## Not yet
 

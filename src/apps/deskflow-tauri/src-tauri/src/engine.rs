@@ -74,7 +74,9 @@ pub struct Hub {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
 }
 
 /// Reads `deskflow-core --version`, e.g. `deskflow-core.exe: 1.27.0.5 (3aec96d5)` -> `1.27.0.5+3aec96d5`.
@@ -87,7 +89,11 @@ pub fn detect_version_id() -> Option<String> {
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
     let out = cmd.output().ok()?;
-    let text = format!("{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    let text = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
     parse_version_id(&text)
 }
 
@@ -97,8 +103,12 @@ fn parse_version_id(text: &str) -> Option<String> {
         let words: Vec<&str> = line.split_whitespace().collect();
         words.windows(2).find_map(|pair| {
             let version = pair[0].trim_start_matches('v');
-            let sha = pair[1].trim_end_matches(',').strip_prefix('(')?.strip_suffix(')')?;
-            let numeric = version.split('.').count() >= 3 && version.split('.').all(|p| p.parse::<u32>().is_ok());
+            let sha = pair[1]
+                .trim_end_matches(',')
+                .strip_prefix('(')?
+                .strip_suffix(')')?;
+            let numeric = version.split('.').count() >= 3
+                && version.split('.').all(|p| p.parse::<u32>().is_ok());
             numeric.then(|| format!("{version}+{sha}"))
         })
     })
@@ -145,7 +155,11 @@ impl Hub {
         let tls = lines.iter().rev().find_map(|l| {
             let lower = l.to_lowercase();
             let i = lower.find("network encryption protocol: ")?;
-            Some(l[i + "network encryption protocol: ".len()..].trim().to_owned())
+            Some(
+                l[i + "network encryption protocol: ".len()..]
+                    .trim()
+                    .to_owned(),
+            )
         });
         {
             let mut log = self.log.lock().unwrap();
@@ -159,7 +173,11 @@ impl Hub {
         let _ = self.app.emit("core-log", lines);
 
         // the history may arrive after we attached to the core, so refine the guess
-        let inferred = self.snapshot().connection_inferred.then(|| infer_connection(&self.log_lines())).flatten();
+        let inferred = self
+            .snapshot()
+            .connection_inferred
+            .then(|| infer_connection(&self.log_lines()))
+            .flatten();
         if tls.is_some() || inferred.is_some() {
             self.update(|s| {
                 if let Some(tls) = tls {
@@ -176,7 +194,9 @@ impl Hub {
 
     pub async fn monitor_core(self: Arc<Self>) {
         loop {
-            if let Ok((conn, handshake)) = Connection::connect(paths::CORE_IPC, &self.version_id).await {
+            if let Ok((conn, handshake)) =
+                Connection::connect(paths::CORE_IPC, &self.version_id).await
+            {
                 self.run_core_session(conn, handshake).await;
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -238,7 +258,11 @@ impl Hub {
                 s.connection_inferred = false;
             }
             "connectedClients" => {
-                s.clients = args.split(',').filter(|c| !c.is_empty()).map(str::to_owned).collect();
+                s.clients = args
+                    .split(',')
+                    .filter(|c| !c.is_empty())
+                    .map(str::to_owned)
+                    .collect();
             }
             "secureSocket" => s.tls = Some(args),
             "unrecognisedClient" => s.unrecognised_client = Some(args),
@@ -277,7 +301,10 @@ impl Hub {
                     let mut buf = Vec::with_capacity((len - start) as usize);
                     if file.take(len - start).read_to_end(&mut buf).is_ok() {
                         partial.push_str(&String::from_utf8_lossy(&buf));
-                        let mut lines: Vec<String> = partial.split('\n').map(|l| l.trim_end_matches('\r').to_owned()).collect();
+                        let mut lines: Vec<String> = partial
+                            .split('\n')
+                            .map(|l| l.trim_end_matches('\r').to_owned())
+                            .collect();
                         partial = lines.pop().unwrap_or_default();
                         if offset.is_none() && start > 0 && !lines.is_empty() {
                             lines.remove(0); // first line is probably cut in half
@@ -304,11 +331,17 @@ impl Hub {
     // ---- start / stop --------------------------------------------------------------------
 
     pub async fn start(self: &Arc<Self>) -> Result<(), String> {
-        let ov = settings::read_overview().map_err(|e| format!("No se pudo leer la configuración: {e}"))?;
+        let ov = settings::read_overview()
+            .map_err(|e| format!("No se pudo leer la configuración: {e}"))?;
         let mode = match ov.core_mode {
             CoreMode::Client => "client",
             CoreMode::Server => "server",
-            CoreMode::None => return Err("Primero elegí si esta computadora comparte su teclado o usa el de otra.".into()),
+            CoreMode::None => {
+                return Err(
+                    "Primero elegí si esta computadora comparte su teclado o usa el de otra."
+                        .into(),
+                );
+            }
         };
         if ov.core_mode == CoreMode::Client && ov.remote_host.trim().is_empty() {
             return Err("Falta la dirección de la computadora que comparte el teclado.".into());
@@ -316,7 +349,10 @@ impl Hub {
         if ov.core_mode == CoreMode::Server {
             layout::persist()?;
             if !server_config_file().is_file() {
-                return Err("Todavía no hay un diseño de pantallas. Guardalo una vez desde el editor.".into());
+                return Err(
+                    "Todavía no hay un diseño de pantallas. Guardalo una vez desde el editor."
+                        .into(),
+                );
             }
         }
 
@@ -356,10 +392,15 @@ impl Hub {
     async fn spawn_desktop(self: &Arc<Self>, mode: &str) -> Result<(), String> {
         let bin = paths::core_bin().ok_or("No encontré deskflow-core.")?;
         let mut cmd = Command::new(bin);
-        cmd.arg(mode).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
+        cmd.arg(mode)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
         #[cfg(windows)]
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-        let mut child = cmd.spawn().map_err(|e| format!("No se pudo iniciar deskflow-core: {e}"))?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("No se pudo iniciar deskflow-core: {e}"))?;
         if let Some(out) = child.stdout.take() {
             self.pipe_output(out);
         }
@@ -381,7 +422,10 @@ impl Hub {
                         s.process = ProcessStatus::Stopped;
                         s.connection = None;
                         if !status.success() {
-                            s.last_error = Some(format!("deskflow-core terminó con código {:?}", status.code()));
+                            s.last_error = Some(format!(
+                                "deskflow-core terminó con código {:?}",
+                                status.code()
+                            ));
                         }
                     });
                     return;
@@ -394,7 +438,13 @@ impl Hub {
     pub async fn stop(self: &Arc<Self>) -> Result<(), String> {
         let ov = settings::read_overview().map_err(|e| e.to_string())?;
         let running = self.snapshot().ipc != IpcStatus::Disconnected;
-        self.update(|s| s.process = if running { ProcessStatus::Stopping } else { ProcessStatus::Stopped });
+        self.update(|s| {
+            s.process = if running {
+                ProcessStatus::Stopping
+            } else {
+                ProcessStatus::Stopped
+            }
+        });
 
         match ov.process_mode {
             ProcessMode::Service => {
@@ -425,7 +475,9 @@ impl Hub {
             self.stop().await?;
             for _ in 0..20 {
                 tokio::time::sleep(Duration::from_millis(250)).await;
-                if self.snapshot().ipc == IpcStatus::Disconnected && self.child.lock().await.is_none() {
+                if self.snapshot().ipc == IpcStatus::Disconnected
+                    && self.child.lock().await.is_none()
+                {
                     break;
                 }
             }
@@ -456,7 +508,10 @@ fn infer_connection(lines: &[String]) -> Option<&'static str> {
         let l = l.as_str();
         if l.contains("stopped client") || l.contains("stopped server") {
             Some("Disconnected")
-        } else if l.contains("failed to connect to server") || l.contains("server is dead") || l.contains("started client") {
+        } else if l.contains("failed to connect to server")
+            || l.contains("server is dead")
+            || l.contains("started client")
+        {
             Some("Connecting")
         } else if l.contains("connected to secure socket")
             || l.contains("entering computer")
@@ -482,20 +537,37 @@ mod tests {
 Copyright (C) 2024-2026 Deskflow Devs
 ";
         assert_eq!(parse_version_id(out).as_deref(), Some("1.27.0.5+3aec96d5"));
-        assert_eq!(parse_version_id("deskflow-core: 1.26.0 (abc1234)").as_deref(), Some("1.26.0+abc1234"));
-        assert_eq!(parse_version_id("Copyright (C) 2024-2026 Deskflow Devs"), None);
+        assert_eq!(
+            parse_version_id("deskflow-core: 1.26.0 (abc1234)").as_deref(),
+            Some("1.26.0+abc1234")
+        );
+        assert_eq!(
+            parse_version_id("Copyright (C) 2024-2026 Deskflow Devs"),
+            None
+        );
     }
 
     #[test]
     fn infers_state_from_latest_relevant_line() {
         let log = |xs: &[&str]| xs.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert_eq!(infer_connection(&log(&["INFO: starting core", "INFO: started client"])), Some("Connecting"));
         assert_eq!(
-            infer_connection(&log(&["INFO: started client", "INFO: connected to secure socket", "INFO: clipboard"])),
+            infer_connection(&log(&["INFO: starting core", "INFO: started client"])),
+            Some("Connecting")
+        );
+        assert_eq!(
+            infer_connection(&log(&[
+                "INFO: started client",
+                "INFO: connected to secure socket",
+                "INFO: clipboard"
+            ])),
             Some("Connected")
         );
         assert_eq!(
-            infer_connection(&log(&["INFO: entering computer", "INFO: starting core", "INFO: started client"])),
+            infer_connection(&log(&[
+                "INFO: entering computer",
+                "INFO: starting core",
+                "INFO: started client"
+            ])),
             Some("Connecting")
         );
         assert_eq!(infer_connection(&log(&["nothing useful"])), None);

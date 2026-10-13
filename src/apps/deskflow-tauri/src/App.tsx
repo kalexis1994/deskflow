@@ -3,6 +3,7 @@ import "./App.css";
 import { useCountdown, useDeskflow } from "./useDeskflow";
 import { describeRefusal, describeStatus, parseLogLine } from "./status";
 import { LayoutEditor } from "./layout/LayoutEditor";
+import { ServerOptionsCard } from "./ServerOptionsCard";
 import type { CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
@@ -48,7 +49,12 @@ export default function App() {
       {ov.coreMode === "client" && (
         <ClientCard host={ov.remoteHost} port={ov.port} running={running} busy={df.busy} onSave={(remoteHost) => df.save({ remoteHost })} />
       )}
-      {ov.coreMode === "server" && <LayoutEditor core={core} address={df.address} port={ov.port} onSaved={df.refresh} />}
+      {ov.coreMode === "server" && (
+        <>
+          <LayoutEditor core={core} address={df.address} port={ov.port} onSaved={df.refresh} />
+          <ServerOptionsCard running={core.process === "running"} />
+        </>
+      )}
 
       <ActivityLog lines={df.log} />
 

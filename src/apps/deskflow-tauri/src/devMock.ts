@@ -7,6 +7,9 @@ import { emit } from "@tauri-apps/api/event";
 import type { AppInfo, CoreState } from "./types";
 import type { Screen } from "./layout/geometry";
 import { defaultOptions, toggleMacSwap, type ComputerOptions } from "./layout/options";
+import { DEFAULT_SERVER_OPTIONS, type ServerOptions } from "./ServerOptionsCard";
+
+let serverOptions: ServerOptions = { ...DEFAULT_SERVER_OPTIONS, win32KeepForeground: false };
 
 const params = new URLSearchParams(location.search);
 type MockScreen = Screen & { options: ComputerOptions };
@@ -75,6 +78,12 @@ mockIPC(
         }
         return { screens, serverName: info.overview.computerName, foreignConfig: null, imported: false };
       }
+      case "get_server_options":
+        return serverOptions;
+      case "save_server_options":
+        await new Promise((r) => setTimeout(r, 300));
+        serverOptions = a!.options as ServerOptions;
+        return serverOptions;
       case "start_core":
       case "stop_core":
         return null;

@@ -7,7 +7,9 @@
 use std::io;
 use std::time::Duration;
 
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, Lines, ReadHalf, WriteHalf};
+use tokio::io::{
+    AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, Lines, ReadHalf, WriteHalf,
+};
 
 use crate::paths;
 
@@ -53,15 +55,23 @@ pub fn parse(line: &str) -> (&str, &str) {
 impl Connection {
     pub async fn connect(name: &str, version_id: &str) -> io::Result<(Self, Handshake)> {
         let (r, w) = tokio::io::split(open(name).await?);
-        let mut conn = Connection { reader: BufReader::new(r).lines(), writer: w };
+        let mut conn = Connection {
+            reader: BufReader::new(r).lines(),
+            writer: w,
+        };
         conn.send(&format!("hello={version_id}")).await?;
         loop {
             let line = conn.next_line_timeout().await?;
             match parse(&line) {
                 ("hello", _) => return Ok((conn, Handshake::Ok)),
-                ("versionMismatch", theirs) => return Ok((conn, Handshake::VersionMismatch(theirs.to_owned()))),
+                ("versionMismatch", theirs) => {
+                    return Ok((conn, Handshake::VersionMismatch(theirs.to_owned())));
+                }
                 ("error", detail) => {
-                    return Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("ipc rejected: {detail}")));
+                    return Err(io::Error::new(
+                        io::ErrorKind::ConnectionRefused,
+                        format!("ipc rejected: {detail}"),
+                    ));
                 }
                 _ => continue,
             }
@@ -69,7 +79,9 @@ impl Connection {
     }
 
     pub async fn send(&mut self, message: &str) -> io::Result<()> {
-        self.writer.write_all(format!("{message}\n").as_bytes()).await?;
+        self.writer
+            .write_all(format!("{message}\n").as_bytes())
+            .await?;
         self.writer.flush().await
     }
 

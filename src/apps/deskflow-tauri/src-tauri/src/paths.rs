@@ -20,7 +20,10 @@ pub fn core_dir() -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("DESKFLOW_DIR") {
         candidates.push(PathBuf::from(dir));
     }
-    if let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)) {
+    if let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(Path::to_path_buf))
+    {
         candidates.push(dir);
     }
     #[cfg(windows)]
@@ -41,16 +44,25 @@ pub fn core_bin() -> Option<PathBuf> {
 
 fn user_dir() -> Option<PathBuf> {
     #[cfg(windows)]
-    return std::env::var("APPDATA").ok().map(|d| PathBuf::from(d).join(APP_NAME));
+    return std::env::var("APPDATA")
+        .ok()
+        .map(|d| PathBuf::from(d).join(APP_NAME));
     #[cfg(target_os = "macos")]
-    return std::env::var("HOME").ok().map(|h| PathBuf::from(h).join("Library").join(APP_NAME));
+    return std::env::var("HOME")
+        .ok()
+        .map(|h| PathBuf::from(h).join("Library").join(APP_NAME));
     #[cfg(all(unix, not(target_os = "macos")))]
-    return std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".config").join(APP_NAME));
+    return std::env::var("HOME")
+        .ok()
+        .map(|h| PathBuf::from(h).join(".config").join(APP_NAME));
 }
 
 fn system_dir() -> PathBuf {
     #[cfg(windows)]
-    return PathBuf::from(std::env::var("ProgramData").unwrap_or_else(|_| "C:\\ProgramData".into())).join(APP_NAME);
+    return PathBuf::from(
+        std::env::var("ProgramData").unwrap_or_else(|_| "C:\\ProgramData".into()),
+    )
+    .join(APP_NAME);
     #[cfg(target_os = "macos")]
     return PathBuf::from("/Library").join(APP_NAME);
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -62,7 +74,9 @@ pub fn portable_settings_file() -> Option<PathBuf> {
     if !cfg!(windows) {
         return None;
     }
-    let file = core_dir()?.join("settings").join(format!("{APP_NAME}.conf"));
+    let file = core_dir()?
+        .join("settings")
+        .join(format!("{APP_NAME}.conf"));
     file.is_file().then_some(file)
 }
 
@@ -74,7 +88,9 @@ pub fn settings_file() -> PathBuf {
     #[cfg(not(windows))]
     if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
         if !xdg.is_empty() {
-            return PathBuf::from(xdg).join(APP_NAME).join(format!("{APP_NAME}.conf"));
+            return PathBuf::from(xdg)
+                .join(APP_NAME)
+                .join(format!("{APP_NAME}.conf"));
         }
     }
     let user = user_dir().map(|d| d.join(format!("{APP_NAME}.conf")));
@@ -96,7 +112,10 @@ pub fn settings_dir() -> PathBuf {
     if cfg!(windows) && !is_portable() {
         return system_dir();
     }
-    settings_file().parent().map(Path::to_path_buf).unwrap_or_else(system_dir)
+    settings_file()
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(system_dir)
 }
 
 /// Full path of a Qt `QLocalServer` endpoint with the given name.
@@ -104,8 +123,29 @@ pub fn ipc_endpoint(name: &str) -> String {
     #[cfg(windows)]
     return format!(r"\\.\pipe\{name}");
     #[cfg(not(windows))]
-    return std::env::temp_dir().join(name).to_string_lossy().into_owned();
+    return std::env::temp_dir()
+        .join(name)
+        .to_string_lossy()
+        .into_owned();
 }
 
 pub const CORE_IPC: &str = "deskflow-core";
 pub const DAEMON_IPC: &str = "deskflow-daemon";
+
+/// Qt's state file (`Settings::m_stateSettings`), where the Wayland portal tokens live.
+/// Only Linux uses those keys, so other platforms report none.
+pub fn state_file() -> Option<PathBuf> {
+    if !cfg!(all(unix, not(target_os = "macos"))) {
+        return None;
+    }
+    let base = std::env::var("XDG_STATE_HOME")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var("HOME")
+                .ok()
+                .map(|h| PathBuf::from(h).join(".local").join("state"))
+        })?;
+    Some(base.join(format!("{APP_NAME}.state")))
+}
