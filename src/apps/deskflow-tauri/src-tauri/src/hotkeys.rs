@@ -673,7 +673,10 @@ mod tests {
         let mut send = action(ActionKind::Keystroke);
         send.keys = vec![CONTROL, ALT, 0x0100_0007];
         send.computers = vec!["alexis-server".into()];
-        let hk = vec![Hotkey { keys: vec![CONTROL, ALT, 0x0100_0011], actions: vec![send] }];
+        let hk = vec![Hotkey {
+            keys: vec![CONTROL, ALT, 0x0100_0011],
+            actions: vec![send],
+        }];
         assert_eq!(
             options_text(&hk, &known(&["escritorio", "alexis-server"])),
             "\tkeystroke(Control+Alt+End) = keystroke(Control+Alt+Delete,alexis-server)\n"
