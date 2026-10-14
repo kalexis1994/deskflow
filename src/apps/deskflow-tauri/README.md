@@ -82,6 +82,15 @@ Tests: `pnpm test` (layout geometry) and `cargo test` in `src-tauri`.
   the session (a client stops instead of retrying). A Security card shows this
   computer's fingerprint and the trusted computers, which can be forgotten.
 
+- Start before login (Windows service mode): the status card says whether the
+  service will start the core on boot, at the login screen (it remembers the config
+  while it runs the core, and forgets it when stopped, so stopping asks first).
+  A hotkey suggestion sends Ctrl+Alt+Del to the other computers with
+  Ctrl+Alt+End, since the real combination is caught by the server's own Windows;
+  the client turns it into SendSAS through the service, which unlocks the login
+  screen on Windows Server. Send-keys actions also get a Ctrl+Alt+Del button,
+  as it cannot be recorded.
+
 ## Not yet
 
 - Settings dialog (TLS on/off, key size, regenerating the certificate), tray icon, autostart.

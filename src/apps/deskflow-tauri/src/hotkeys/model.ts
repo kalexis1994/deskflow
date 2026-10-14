@@ -126,14 +126,29 @@ const ARROWS: [Direction, number][] = [
   ["down", 0x01000015],
 ];
 
+/** Ctrl+Alt+Del cannot be pressed on the server (its own Windows takes it) nor recorded. */
+export const CTRL_ALT_DEL = [CONTROL, ALT, 0x01000007];
+const KEY_END = 0x01000011;
+
 export interface Preset {
   id: string;
   title: string;
   text: string;
-  build: (computers: string[]) => Hotkey[];
+  /** `server` is this computer, which must never receive keys meant for the others. */
+  build: (computers: string[], server: string) => Hotkey[];
 }
 
 export const PRESETS: Preset[] = [
+  {
+    id: "ctrlAltDel",
+    title: "Ctrl + Alt + Fin → Ctrl + Alt + Supr",
+    text: "Para iniciar sesión en Windows desde acá: Ctrl+Alt+Supr no se puede mandar directo.",
+    build: (computers, server) => {
+      const others = computers.filter((c) => c !== server);
+      if (!others.length) return [];
+      return [{ keys: [CONTROL, ALT, KEY_END], actions: [{ ...newAction("keystroke", computers), keys: CTRL_ALT_DEL, computers: others }] }];
+    },
+  },
   {
     id: "arrows",
     title: "Ctrl + Alt + flechas",
@@ -163,7 +178,7 @@ export const PRESETS: Preset[] = [
 ];
 
 /** Adds presets, skipping combos that are already taken. */
-export function addPreset(current: Hotkey[], preset: Preset, computers: string[]): Hotkey[] {
-  const fresh = preset.build(computers).filter((h) => !current.some((c) => sameKeys(c.keys, h.keys)));
+export function addPreset(current: Hotkey[], preset: Preset, computers: string[], server = ""): Hotkey[] {
+  const fresh = preset.build(computers, server).filter((h) => !current.some((c) => sameKeys(c.keys, h.keys)));
   return [...current, ...fresh];
 }

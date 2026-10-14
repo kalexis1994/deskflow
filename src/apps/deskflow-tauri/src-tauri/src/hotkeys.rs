@@ -666,6 +666,20 @@ mod tests {
         );
     }
 
+    /// The core turns Ctrl+Alt+Delete received by a Windows client into SendSAS
+    /// (`Computer::keyDown` -> `MSWindowsKeyState::fakeCtrlAltDel`).
+    #[test]
+    fn remote_ctrl_alt_del_preset() {
+        let mut send = action(ActionKind::Keystroke);
+        send.keys = vec![CONTROL, ALT, 0x0100_0007];
+        send.computers = vec!["alexis-server".into()];
+        let hk = vec![Hotkey { keys: vec![CONTROL, ALT, 0x0100_0011], actions: vec![send] }];
+        assert_eq!(
+            options_text(&hk, &known(&["escritorio", "alexis-server"])),
+            "\tkeystroke(Control+Alt+End) = keystroke(Control+Alt+Delete,alexis-server)\n"
+        );
+    }
+
     #[test]
     fn unknown_computers_are_left_out_instead_of_breaking_the_config() {
         let mut gone = action(ActionKind::SwitchToScreen);

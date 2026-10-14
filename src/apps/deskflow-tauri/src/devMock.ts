@@ -106,11 +106,13 @@ mockIPC(
         serverOptions = a!.options as ServerOptions;
         return serverOptions;
       case "get_hotkeys":
-        return { hotkeys, computers: screens.map((x) => x.name) };
+        return { hotkeys, computers: screens.map((x) => x.name), server: info.overview.computerName };
       case "save_hotkeys":
         await new Promise((r) => setTimeout(r, 300));
         hotkeys = a!.hotkeys as Hotkey[];
-        return { hotkeys, computers: screens.map((x) => x.name) };
+        return { hotkeys, computers: screens.map((x) => x.name), server: info.overview.computerName };
+      case "autostart_status":
+        return { supported: true, enabled: core.process === "running" };
       case "tls_info":
         return tlsInfo;
       case "trust_fingerprint":

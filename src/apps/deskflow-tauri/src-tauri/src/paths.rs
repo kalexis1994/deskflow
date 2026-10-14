@@ -149,3 +149,22 @@ pub fn state_file() -> Option<PathBuf> {
         })?;
     Some(base.join(format!("{APP_NAME}.state")))
 }
+
+/// Settings file of the Windows service (`deskflow-daemon` runs as SYSTEM, so its Qt
+/// settings live in the system profile). It remembers which config to start at boot.
+pub fn daemon_settings_file() -> Option<PathBuf> {
+    if !cfg!(windows) {
+        return None;
+    }
+    let root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+    Some(
+        PathBuf::from(root)
+            .join("System32")
+            .join("config")
+            .join("systemprofile")
+            .join("AppData")
+            .join("Roaming")
+            .join(APP_NAME)
+            .join(format!("{APP_NAME}.conf")),
+    )
+}

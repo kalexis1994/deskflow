@@ -119,17 +119,17 @@ struct HotkeysView {
     hotkeys: Vec<hotkeys::Hotkey>,
     /// Computers of the layout, for actions that target one.
     computers: Vec<String>,
+    /// This computer, which presets must not send keys to.
+    server: String,
 }
 
 fn hotkeys_view() -> Result<HotkeysView, String> {
     let ini = settings::IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
+    let layout = layout::load()?;
     Ok(HotkeysView {
         hotkeys: hotkeys::read(&ini),
-        computers: layout::load()?
-            .screens
-            .into_iter()
-            .map(|s| s.name)
-            .collect(),
+        computers: layout.screens.into_iter().map(|s| s.name).collect(),
+        server: layout.server_name,
     })
 }
 
@@ -217,6 +217,31 @@ fn forget_fingerprint(list: String, kind: String, hex: String) -> Result<tls::Tl
     tls::info()
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Autostart {
+    /// Only the Windows service can start the core before anyone logs in.
+    supported: bool,
+    /// The service will start the core on boot, at the login screen.
+    enabled: bool,
+}
+
+/// Whether the service remembers a config to start on boot (`daemon/configFile`,
+/// set when the core is started through it and cleared when it is stopped).
+#[tauri::command]
+fn autostart_status() -> Autostart {
+    let service =
+        settings::read_overview().is_ok_and(|o| o.process_mode == settings::ProcessMode::Service);
+    let enabled = paths::daemon_settings_file()
+        .and_then(|f| settings::IniFile::load(&f).ok())
+        .and_then(|ini| ini.get("daemon", "configFile"))
+        .is_some_and(|f| !f.trim().is_empty());
+    Autostart {
+        supported: service,
+        enabled: service && enabled,
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -249,7 +274,8 @@ pub fn run() {
             tls_info,
             trust_fingerprint,
             reject_fingerprint,
-            forget_fingerprint
+            forget_fingerprint,
+            autostart_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

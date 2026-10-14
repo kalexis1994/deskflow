@@ -5,6 +5,7 @@ import {
   ACTION_KINDS,
   DIRECTION_LABELS,
   LOCK_LABELS,
+  CTRL_ALT_DEL,
   PRESETS,
   addPreset,
   blocking,
@@ -23,6 +24,7 @@ import "./HotkeysCard.css";
 interface HotkeysView {
   hotkeys: Hotkey[];
   computers: string[];
+  server: string;
 }
 
 interface Props {
@@ -37,6 +39,7 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
   const [saved, setSaved] = useState<Hotkey[] | null>(null);
   const [draft, setDraft] = useState<Hotkey[]>([]);
   const [computers, setComputers] = useState<string[]>([]);
+  const [server, setServer] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "danger"; text: string } | null>(null);
@@ -46,6 +49,7 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
     setSaved(v.hotkeys);
     setDraft(v.hotkeys);
     setComputers(v.computers);
+    setServer(v.server);
   };
 
   const load = useCallback(() => {
@@ -92,7 +96,7 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
     }
   };
 
-  const presets = PRESETS.filter((p) => addPreset(draft, p, computers).length > draft.length);
+  const presets = PRESETS.filter((p) => addPreset(draft, p, computers, server).length > draft.length);
 
   return (
     <section className="card hk">
@@ -145,7 +149,7 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
         <div className="hk__presets">
           {draft.length > 0 && <span className="muted small">Sugerencias:</span>}
           {presets.map((p) => (
-            <button key={p.id} className="hk__preset" onClick={() => update(addPreset(draft, p, computers))}>
+            <button key={p.id} className="hk__preset" onClick={() => update(addPreset(draft, p, computers, server))}>
               <strong>{p.title}</strong>
               <span className="muted small">{p.text}</span>
             </button>
@@ -327,7 +331,16 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
 
       {sendsKeys(action.kind) && (
         <>
-          <KeyRecorder keys={action.keys} onChange={(keys) => onChange({ ...action, keys })} />
+          <div className="hk__keys-row">
+            <KeyRecorder keys={action.keys} onChange={(keys) => onChange({ ...action, keys })} />
+            <button
+              className="le__chip"
+              title="Ctrl+Alt+Supr no se puede grabar: lo atrapa Windows"
+              onClick={() => onChange({ ...action, keys: CTRL_ALT_DEL })}
+            >
+              Ctrl+Alt+Supr
+            </button>
+          </div>
           <div className="hk__targets" role="group" aria-label="Computadoras que reciben las teclas">
             <span className="muted small">Para:</span>
             <button className={`le__chip ${action.computers.length === 0 ? "le__chip--on" : ""}`} onClick={() => onChange({ ...action, computers: [] })}>

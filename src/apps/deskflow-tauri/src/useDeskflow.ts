@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { AppInfo, Changes, CoreState, Overview } from "./types";
+import type { AppInfo, Autostart, Changes, CoreState, Overview } from "./types";
 
 const LOG_LIMIT = 1000;
 
@@ -11,6 +11,7 @@ export function useDeskflow() {
   const [core, setCore] = useState<CoreState | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [address, setAddress] = useState<string | null>(null);
+  const [autostart, setAutostart] = useState<Autostart | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +72,13 @@ export function useDeskflow() {
       .catch((e) => setError(String(e)));
   }, []);
 
-  return { info, core, log, address, busy, error, dismissError: () => setError(null), start, stop, save, refresh };
+  // the service remembers what to start on boot only while it runs the core, so re-check on changes
+  const process = core?.process;
+  useEffect(() => {
+    invoke<Autostart>("autostart_status").then(setAutostart, () => setAutostart(null));
+  }, [process, info?.overview.processMode]);
+
+  return { info, core, log, address, autostart, busy, error, dismissError: () => setError(null), start, stop, save, refresh };
 }
 
 /** Seconds left until `deadline` (ms since epoch), refreshed every second. */

@@ -49,6 +49,13 @@ export interface FingerprintPrompt {
   mode: CoreMode;
 }
 
+export interface Autostart {
+  /** Only the Windows service can start Deskflow before anyone logs in. */
+  supported: boolean;
+  /** Deskflow starts on boot, already at the login screen. */
+  enabled: boolean;
+}
+
 export interface Changes {
   coreMode?: CoreMode;
   remoteHost?: string;

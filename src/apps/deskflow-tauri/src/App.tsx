@@ -6,7 +6,7 @@ import { LayoutEditor } from "./layout/LayoutEditor";
 import { ServerOptionsCard } from "./ServerOptionsCard";
 import { HotkeysCard } from "./hotkeys/HotkeysCard";
 import { FingerprintPromptCard, SecurityCard } from "./tls/Security";
-import type { CoreMode, CoreState, Overview } from "./types";
+import type { Autostart, CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
   const df = useDeskflow();
@@ -45,6 +45,7 @@ export default function App() {
         busy={df.busy}
         onStart={df.start}
         onStop={df.stop}
+        autostart={df.autostart}
       />
 
       {core.fingerprintPrompt && <FingerprintPromptCard key={core.fingerprintPrompt.fingerprint} prompt={core.fingerprintPrompt} onDone={() => {}} />}
@@ -162,10 +163,14 @@ interface StatusCardProps {
   busy: boolean;
   onStart: () => void;
   onStop: () => void;
+  autostart: Autostart | null;
 }
 
-function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop }: StatusCardProps) {
+function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop, autostart }: StatusCardProps) {
   const view = describeStatus(core, ov, retryIn, address);
+  // stopping through the service also stops it from starting on boot, so say so first
+  const [confirmStop, setConfirmStop] = useState(false);
+  useEffect(() => setConfirmStop(false), [core.process]);
   const running = core.process === "running" || core.process === "starting";
   const transitioning = core.process === "starting" || core.process === "stopping";
 
@@ -199,12 +204,39 @@ function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop }: Statu
             )}
           </p>
         )}
+        {autostart?.supported && (
+          <p className={`status__autostart ${autostart.enabled ? "" : "status__autostart--off"}`}>
+            {autostart.enabled
+              ? "Arranca solo al prender la PC, ya en la pantalla de inicio de sesión."
+              : "No arranca solo al prender la PC: iniciá Deskflow una vez para que lo recuerde."}
+          </p>
+        )}
+        {confirmStop && (
+          <p className="status__confirm">
+            Si lo detenés, tampoco va a arrancar solo la próxima vez que prendas la PC.
+          </p>
+        )}
       </div>
       <div className="status__actions">
         {running ? (
-          <button className="btn btn--secondary" onClick={onStop} disabled={busy || transitioning}>
-            Detener
-          </button>
+          confirmStop ? (
+            <div className="status__confirm-actions">
+              <button className="btn btn--secondary" onClick={() => setConfirmStop(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn--danger" onClick={onStop} disabled={busy || transitioning}>
+                Detener igual
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn--secondary"
+              onClick={() => (autostart?.enabled ? setConfirmStop(true) : onStop())}
+              disabled={busy || transitioning}
+            >
+              Detener
+            </button>
+          )
         ) : (
           <button className="btn btn--primary" onClick={onStart} disabled={busy || ov.coreMode === "none"}>
             Iniciar

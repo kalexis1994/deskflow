@@ -252,3 +252,13 @@
   border-color: var(--accent);
   border-style: solid;
 }
+
+.hk__keys-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.hk__keys-row .hk__recorder {
+  flex: 1;
+}
