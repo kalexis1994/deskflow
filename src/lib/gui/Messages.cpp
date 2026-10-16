@@ -8,9 +8,9 @@
 
 #include "Logger.h"
 
-#include "common/Settings.h"
 #include "common/UrlConstants.h"
 #include "common/VersionInfo.h"
+#include "gui/Settings.h"
 
 #include <QCheckBox>
 #include <QMessageBox>
@@ -39,10 +39,8 @@ void showErrorDialog(const QString &message, const QString &fileLine, QtMsgType 
 {
   auto errorType = QtFatalMsg ? QObject::tr("fatal error") : QObject::tr("error");
   auto title = QStringLiteral("%1 %2").arg(kAppName, errorType);
-  auto text = QObject::tr(
-                  R"(<p>Please <a href="%1">report a bug</a>)"
-                  " and copy/paste the following error:</p><pre>v%2\n%3\n%4</pre>"
-  )
+  auto text = QObject::tr(R"(<p>Please <a href="%1">report a bug</a>)"
+                          " and copy/paste the following error:</p><pre>v%2\n%3\n%4</pre>")
                   .arg(kUrlHelp, kVersion, message, fileLine);
 
   if (type == QtFatalMsg) {
@@ -110,20 +108,14 @@ void messageHandler(QtMsgType type, const QMessageLogContext &context, const QSt
 
 void showCloseReminder(QWidget *parent)
 {
-  auto message = QObject::tr(
-                     "<p>%1 will continue to run in the background and can be accessed via the %1 icon in your "
-                     "system notifications area. This setting can be disabled.</p>"
-  )
+  auto message = QObject::tr("<p>%1 will continue to run in the background and can be accessed via the %1 icon in your "
+                             "system notifications area. This setting can be disabled.</p>")
                      .arg(kAppName);
 
 #if defined(Q_OS_LINUX)
-  message.append(
-      QObject::tr(
-          "<p>On Linux systems using GNOME 3, the notification area might be disabled. "
-          R"(You may need to <a href="%1">enable an extension</a> to see the %2 tray icon.</p>)"
-      )
-          .arg(kUrlGnomeTrayFix, kAppName)
-  );
+  message.append(QObject::tr("<p>On Linux systems using GNOME 3, the notification area might be disabled. "
+                             R"(You may need to <a href="%1">enable an extension</a> to see the %2 tray icon.</p>)")
+                     .arg(kUrlGnomeTrayFix, kAppName));
 #endif
 
   QMessageBox::information(parent, kAppName, message);
@@ -133,11 +125,9 @@ void showFirstServerStartMessage(QWidget *parent)
 {
   QMessageBox::information(
       parent, QObject::tr("%1 Server").arg(kAppName),
-      QObject::tr(
-          "<p>Great, the %1 server is now running.</p>"
-          "<p>Now you can connect your client computers to this server. "
-          "You should see a prompt here on the server when a new client tries to connect.</p>"
-      )
+      QObject::tr("<p>Great, the %1 server is now running.</p>"
+                  "<p>Now you can connect your client computers to this server. "
+                  "You should see a prompt here on the server when a new client tries to connect.</p>")
           .arg(kAppName)
   );
 }
@@ -147,13 +137,9 @@ void showFirstConnectedMessage(QWidget *parent)
   auto message = QObject::tr("<p>%1 is now connected!</p>").arg(kAppName);
 
   if (Settings::value(Settings::Core::CoreMode).value<Settings::CoreMode>() == Settings::Server) {
-    message.append(
-        QObject::tr(
-            "<p>Try moving your mouse to your other computer. Once there, go ahead "
-            "and type something.</p>"
-            "<p>Don't forget, you can copy and paste between computers too.</p>"
-        )
-    );
+    message.append(QObject::tr("<p>Try moving your mouse to your other computer. Once there, go ahead "
+                               "and type something.</p>"
+                               "<p>Don't forget, you can copy and paste between computers too.</p>"));
   } else {
     message.append(QObject::tr("<p>Try controlling this computer remotely.</p>"));
   }
@@ -162,22 +148,14 @@ void showFirstConnectedMessage(QWidget *parent)
 
   if (Settings::value(Settings::Core::ProcessMode).value<ProcessMode>() == ProcessMode::Desktop &&
       !Settings::value(Settings::Gui::CloseToTray).toBool()) {
-    message.append(
-        QObject::tr(
-            "<p>As you do not have the setting enabled to keep %1 running in "
-            "the background, you'll need to keep this window open or minimized "
-            "to keep %1 running.</p>"
-        )
-            .arg(kAppName)
-    );
+    message.append(QObject::tr("<p>As you do not have the setting enabled to keep %1 running in "
+                               "the background, you'll need to keep this window open or minimized "
+                               "to keep %1 running.</p>")
+                       .arg(kAppName));
   } else {
-    message.append(
-        QObject::tr(
-            "<p>You can now close this window and %1 will continue to run in "
-            "the background. This setting can be disabled.</p>"
-        )
-            .arg(kAppName)
-    );
+    message.append(QObject::tr("<p>You can now close this window and %1 will continue to run in "
+                               "the background. This setting can be disabled.</p>")
+                       .arg(kAppName));
   }
 
   const auto title = QObject::tr("%1 Connected").arg(kAppName);
@@ -212,14 +190,10 @@ bool showUpdateCheckOption(QWidget *parent)
   QMessageBox message(parent);
   message.addButton(QObject::tr("No thanks"), QMessageBox::RejectRole);
   const auto checkButton = message.addButton(QObject::tr("Check for updates"), QMessageBox::AcceptRole);
-  message.setText(
-      QObject::tr(
-          "<p>Would you like to check for updates when %1 starts?</p>"
-          "<p>Checking for updates requires an Internet connection.</p>"
-          "<p>URL: <pre>%2</pre></p>"
-      )
-          .arg(kAppName, Settings::value(Settings::Gui::UpdateCheckUrl).toString())
-  );
+  message.setText(QObject::tr("<p>Would you like to check for updates when %1 starts?</p>"
+                              "<p>Checking for updates requires an Internet connection.</p>"
+                              "<p>URL: <pre>%2</pre></p>")
+                      .arg(kAppName, Settings::value(Settings::Gui::UpdateCheckUrl).toString()));
 
   message.exec();
   return message.clickedButton() == checkButton;
@@ -236,14 +210,12 @@ bool showDaemonOffline(QWidget *parent)
   const auto disable = message.addButton(QObject::tr("Disable"), QMessageBox::NoRole);
 
   message.setText(
-      QObject::tr(
-          "<p>There was a problem finding the %1 background service (daemon).</p>"
-          "<p>The background service makes %1 work with UAC prompts and the login screen.</p>"
-          "<p>If don't want to use the background service and intentionally stopped it, "
-          "you can prevent it's use by disabling this feature.</p>"
-          "<p>If you did not stop the background service intentionally, there may be a problem with it. "
-          "Please retry or try restarting the %1 service from the Windows services program.</p>"
-      )
+      QObject::tr("<p>There was a problem finding the %1 background service (daemon).</p>"
+                  "<p>The background service makes %1 work with UAC prompts and the login screen.</p>"
+                  "<p>If don't want to use the background service and intentionally stopped it, "
+                  "you can prevent it's use by disabling this feature.</p>"
+                  "<p>If you did not stop the background service intentionally, there may be a problem with it. "
+                  "Please retry or try restarting the %1 service from the Windows services program.</p>")
           .arg(kAppName)
   );
   message.exec();

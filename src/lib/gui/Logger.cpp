@@ -5,7 +5,7 @@
  */
 
 #include "Logger.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 #include <QDateTime>
 #include <QDir>

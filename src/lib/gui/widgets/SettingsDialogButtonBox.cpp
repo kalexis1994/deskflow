@@ -5,7 +5,7 @@
  */
 
 #include "SettingsDialogButtonBox.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 #include <QDialogButtonBox>
 #include <QEvent>

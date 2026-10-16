@@ -9,7 +9,7 @@
 #include "ServerConfig.h"
 
 #include "gui/Hotkey.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 #include <QAbstractButton>
 #include <QPushButton>

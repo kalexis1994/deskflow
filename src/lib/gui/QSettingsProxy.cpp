@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "QSettingsProxy.h"
+#include "gui/QSettingsProxy.h"
 
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 /**
  * @brief The base dir for the system settings file.

@@ -7,7 +7,7 @@
 
 #include "TlsUtility.h"
 
-#include "common/Settings.h"
+#include "gui/Settings.h"
 #include "net/SecureUtils.h"
 
 #include <QFile>
@@ -100,10 +100,8 @@ QByteArray certFingerprint(const QString &certPath)
 
 bool generateCertificate()
 {
-  qDebug(
-      "generating tls certificate, "
-      "all clients must trust the new fingerprint"
-  );
+  qDebug("generating tls certificate, "
+         "all clients must trust the new fingerprint");
 
   const auto keyLength = std::max(2048, Settings::value(Settings::Security::KeySize).toInt());
   const auto certPath = Settings::value(Settings::Security::Certificate).toString();

@@ -11,6 +11,7 @@
 
 #include "arch/Utf8.h"
 #include "base/IEventQueue.h"
+#include "common/CoreSettings.h"
 #include "common/KeyboardModifier.h"
 #include "deskflow/KeyMap.h"
 #include "deskflow/KeyTypes.h"
@@ -48,75 +49,64 @@ bool Config::addComputer(const std::string &name)
   // add name
   m_nameToCanonicalName.try_emplace(name, name);
 
-  const auto computer = QString::fromStdString(name);
-  // add aliases
-  const auto aliases = Settings::value(Settings::Computer::Aliases.arg(computer)).toStringList();
-  for (const auto &alias : aliases)
-    m_nameToCanonicalName.try_emplace(alias.toStdString(), name);
+  const auto computerValue = [&name](std::string_view key) {
+    return CoreSettings::value(CoreSettings::computerKey(name, key));
+  };
 
-  addOption(
-      name, kOptionHalfDuplexCapsLock, Settings::value(Settings::Computer::HalfDuplexCapsLock.arg(computer)).toBool()
-  );
-  addOption(
-      name, kOptionHalfDuplexNumLock, Settings::value(Settings::Computer::HalfDuplexNumLock.arg(computer)).toBool()
-  );
-  addOption(
-      name, kOptionHalfDuplexScrollLock,
-      Settings::value(Settings::Computer::HalfDuplexScrollLock.arg(computer)).toBool()
-  );
-  addOption(
-      name, kOptionXTestXineramaUnaware,
-      Settings::value(Settings::Computer::XtestIsXineramaUnaware.arg(computer)).toBool()
-  );
-  addOption(
-      name, kOptionComputerSwitchCornerSize, Settings::value(Settings::Computer::SwitchCornerSize.arg(computer)).toInt()
-  );
-  addOption(
-      name, kOptionComputerX11WeakFocus, Settings::value(Settings::Computer::WeakX11Focus.arg(computer)).toBool()
-  );
+  // add aliases
+  const auto aliases = computerValue(CoreSettings::Computer::Aliases).toStringList();
+  for (const auto &alias : aliases)
+    m_nameToCanonicalName.try_emplace(alias, name);
+
+  addOption(name, kOptionHalfDuplexCapsLock, computerValue(CoreSettings::Computer::HalfDuplexCapsLock).toBool());
+  addOption(name, kOptionHalfDuplexNumLock, computerValue(CoreSettings::Computer::HalfDuplexNumLock).toBool());
+  addOption(name, kOptionHalfDuplexScrollLock, computerValue(CoreSettings::Computer::HalfDuplexScrollLock).toBool());
+  addOption(name, kOptionXTestXineramaUnaware, computerValue(CoreSettings::Computer::XtestIsXineramaUnaware).toBool());
+  addOption(name, kOptionComputerSwitchCornerSize, computerValue(CoreSettings::Computer::SwitchCornerSize).toInt());
+  addOption(name, kOptionComputerX11WeakFocus, computerValue(CoreSettings::Computer::WeakX11Focus).toBool());
 
   OptionValue cornerValue = s_noCornerMask;
-  if (Settings::value(Settings::Computer::SwitchCornerTopLeft.arg(computer)).toBool()) {
+  if (computerValue(CoreSettings::Computer::SwitchCornerTopLeft).toBool()) {
     cornerValue = cornerValue | s_topLeftCornerMask;
   }
-  if (Settings::value(Settings::Computer::SwitchCornerTopRight.arg(computer)).toBool()) {
+  if (computerValue(CoreSettings::Computer::SwitchCornerTopRight).toBool()) {
     cornerValue = cornerValue | s_topRightCornerMask;
   }
-  if (Settings::value(Settings::Computer::SwitchCornerBottomLeft.arg(computer)).toBool()) {
+  if (computerValue(CoreSettings::Computer::SwitchCornerBottomLeft).toBool()) {
     cornerValue = cornerValue | s_bottomLeftCornerMask;
   }
-  if (Settings::value(Settings::Computer::SwitchCornerBottomRight.arg(computer)).toBool()) {
+  if (computerValue(CoreSettings::Computer::SwitchCornerBottomRight).toBool()) {
     cornerValue = cornerValue | s_bottomRightCornerMask;
   }
   addOption(name, kOptionComputerSwitchCorners, cornerValue);
 
-  auto altModifier = Settings::value(Settings::Computer::ModifierAlt.arg(computer)).toString();
-  if (altModifier.isEmpty())
+  auto altModifier = computerValue(CoreSettings::Computer::ModifierAlt).toString();
+  if (altModifier.empty())
     altModifier = kModifierNameAlt;
   addOption(name, kOptionModifierMapForAlt, modifierIDValueFromString(altModifier));
 
-  auto altgrModifier = Settings::value(Settings::Computer::ModifierAltGr.arg(computer)).toString();
-  if (altgrModifier.isEmpty())
+  auto altgrModifier = computerValue(CoreSettings::Computer::ModifierAltGr).toString();
+  if (altgrModifier.empty())
     altgrModifier = kModifierNameAltGr;
   addOption(name, kOptionModifierMapForAltGr, modifierIDValueFromString(altgrModifier));
 
-  auto ctrlModifier = Settings::value(Settings::Computer::ModifierCtrl.arg(computer)).toString();
-  if (ctrlModifier.isEmpty())
+  auto ctrlModifier = computerValue(CoreSettings::Computer::ModifierCtrl).toString();
+  if (ctrlModifier.empty())
     ctrlModifier = kModifierNameCtrl;
   addOption(name, kOptionModifierMapForControl, modifierIDValueFromString(ctrlModifier));
 
-  auto metaModifier = Settings::value(Settings::Computer::ModifierMeta.arg(computer)).toString();
-  if (metaModifier.isEmpty())
+  auto metaModifier = computerValue(CoreSettings::Computer::ModifierMeta).toString();
+  if (metaModifier.empty())
     metaModifier = kModifierNameMeta;
   addOption(name, kOptionModifierMapForMeta, modifierIDValueFromString(metaModifier));
 
-  auto shiftModifier = Settings::value(Settings::Computer::ModifierShift.arg(computer)).toString();
-  if (shiftModifier.isEmpty())
+  auto shiftModifier = computerValue(CoreSettings::Computer::ModifierShift).toString();
+  if (shiftModifier.empty())
     shiftModifier = kModifierNameShift;
   addOption(name, kOptionModifierMapForShift, modifierIDValueFromString(shiftModifier));
 
-  auto superModifier = Settings::value(Settings::Computer::ModifierSuper.arg(computer)).toString();
-  if (superModifier.isEmpty())
+  auto superModifier = computerValue(CoreSettings::Computer::ModifierSuper).toString();
+  if (superModifier.empty())
     superModifier = kModifierNameSuper;
   addOption(name, kOptionModifierMapForSuper, modifierIDValueFromString(superModifier));
 
@@ -447,11 +437,11 @@ bool Config::operator==(const Config &x) const
 void Config::read(ConfigReadContext &context)
 {
   Config tmp(m_events);
-  const auto computers = Settings::knownComputers();
+  const auto computers = CoreSettings::knownComputers();
   for (const auto &computer : computers) {
-    if (computer.isEmpty())
+    if (computer.empty())
       continue;
-    const auto computerName = computer.toStdString();
+    const auto &computerName = computer;
 
     if (!isValidComputerName(computerName)) {
       throw ServerConfigReadException(context, "invalid computer name \"%{1}\"", computerName);
@@ -536,31 +526,34 @@ void Config::readSection(ConfigReadContext &s)
 
 void Config::readSectionOptions(ConfigReadContext &s)
 {
-  if (Settings::value(Settings::Server::EnableHeartbeat).toBool()) {
-    addOption("", kOptionHeartbeat, Settings::value(Settings::Server::Heartbeat).toInt());
+  if (CoreSettings::value(CoreSettings::Server::EnableHeartbeat).toBool()) {
+    addOption("", kOptionHeartbeat, CoreSettings::value(CoreSettings::Server::Heartbeat).toInt());
   }
 
-  if (Settings::value(Settings::Server::EnableSwitchDelay).toBool()) {
-    addOption("", kOptionComputerSwitchDelay, Settings::value(Settings::Server::SwitchDelay).toInt());
+  if (CoreSettings::value(CoreSettings::Server::EnableSwitchDelay).toBool()) {
+    addOption("", kOptionComputerSwitchDelay, CoreSettings::value(CoreSettings::Server::SwitchDelay).toInt());
   }
 
-  if (Settings::value(Settings::Server::EnableSwitchDoubleTap).toBool()) {
-    addOption("", kOptionComputerSwitchTwoTap, Settings::value(Settings::Server::SwitchDoubleTap).toInt());
+  if (CoreSettings::value(CoreSettings::Server::EnableSwitchDoubleTap).toBool()) {
+    addOption("", kOptionComputerSwitchTwoTap, CoreSettings::value(CoreSettings::Server::SwitchDoubleTap).toInt());
   }
 
   addOption(
-      "", kOptionDefaultLockToComputerState, Settings::value(Settings::Server::DefaultLockToComputerState).toBool()
+      "", kOptionDefaultLockToComputerState,
+      CoreSettings::value(CoreSettings::Server::DefaultLockToComputerState).toBool()
   );
-  addOption("", kOptionDisableLockToComputer, Settings::value(Settings::Server::DisableLockToComputer).toBool());
-  addOption("", kOptionRelativeMouseMoves, Settings::value(Settings::Server::RelativeMouseMoves).toBool());
-  addOption("", kOptionWin32KeepForeground, Settings::value(Settings::Server::Win32KeepForeground).toBool());
-  addOption("", kOptionClipboardSharing, Settings::value(Settings::Server::EnableClipboard).toBool());
-  addOption("", kOptionClipboardSharingSize, Settings::value(Settings::Server::ClipboardSize).toUInt() * 1024);
+  addOption(
+      "", kOptionDisableLockToComputer, CoreSettings::value(CoreSettings::Server::DisableLockToComputer).toBool()
+  );
+  addOption("", kOptionRelativeMouseMoves, CoreSettings::value(CoreSettings::Server::RelativeMouseMoves).toBool());
+  addOption("", kOptionWin32KeepForeground, CoreSettings::value(CoreSettings::Server::Win32KeepForeground).toBool());
+  addOption("", kOptionClipboardSharing, CoreSettings::value(CoreSettings::Server::EnableClipboard).toBool());
+  addOption("", kOptionClipboardSharingSize, CoreSettings::value(CoreSettings::Server::ClipboardSize).toUInt() * 1024);
 
-  if (const auto address = Settings::value(Settings::Core::Interface).toString(); !address.isEmpty()) {
-    m_deskflowAddress = NetworkAddress(address.toStdString(), Settings::value(Settings::Core::Port).toInt());
+  if (const auto address = CoreSettings::value(CoreSettings::Core::Interface).toString(); !address.empty()) {
+    m_deskflowAddress = NetworkAddress(address, CoreSettings::value(CoreSettings::Core::Port).toInt());
   } else {
-    m_deskflowAddress = NetworkAddress(Settings::value(Settings::Core::Port).toInt());
+    m_deskflowAddress = NetworkAddress(CoreSettings::value(CoreSettings::Core::Port).toInt());
   }
   try {
     m_deskflowAddress.resolve();
@@ -630,10 +623,8 @@ void Config::readSectionOptions(ConfigReadContext &s)
 
 void Config::readSectionScreens(ConfigReadContext &s)
 {
-  LOG_WARN(
-      "Your server config has a screen section. Screens have moved to the general config this section will not be "
-      "parsed."
-  );
+  LOG_WARN("Your server config has a screen section. Screens have moved to the general config this section will not be "
+           "parsed.");
   std::string line;
   std::string screen;
   while (s.readLine(line)) {
@@ -717,10 +708,8 @@ void Config::readSectionLinks(ConfigReadContext &s)
 
 void Config::readSectionAliases(ConfigReadContext &s)
 {
-  LOG_WARN(
-      "Your server config has an alias section. Alias have moved to the general config this section will no be "
-      "parsed."
-  );
+  LOG_WARN("Your server config has an alias section. Alias have moved to the general config this section will no be "
+           "parsed.");
   std::string line;
   while (s.readLine(line)) {
     if (line == "end") {
@@ -961,9 +950,8 @@ void Config::parseAction(
   rule.adoptAction(action, activate);
 }
 
-void Config::parseComputers(
-    const ConfigReadContext &c, const std::string_view &s, std::set<std::string> &computers
-) const
+void Config::parseComputers(const ConfigReadContext &c, const std::string_view &s, std::set<std::string> &computers)
+    const
 {
   computers.clear();
 

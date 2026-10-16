@@ -15,7 +15,7 @@
 
 #include "common/Constants.h"
 #include "common/NetworkProtocol.h"
-#include "common/QSettingsProxy.h"
+#include "gui/QSettingsProxy.h"
 
 class QFileSystemWatcher;
 class Settings : public QObject

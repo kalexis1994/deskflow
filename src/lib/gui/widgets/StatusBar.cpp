@@ -6,7 +6,7 @@
 
 #include "StatusBar.h"
 #include "common/Constants.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 #include <QEvent>
 #include <QLabel>

@@ -6,16 +6,17 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "deskflow/ServerApp.h"
 #include "arch/OsDetection.h"
 #include <cassert>
-#include "deskflow/ServerApp.h"
 
 #include "arch/Arch.h"
+#include "arch/Utf8.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
+#include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
 #include "common/PlatformInfo.h"
-#include "common/Settings.h"
 #include "deskflow/App.h"
 #include "deskflow/Computer.h"
 #include "deskflow/DisplayException.h"
@@ -59,16 +60,16 @@ using namespace deskflow::server;
 
 ServerApp::ServerApp(IEventQueue *events, const QString &processName) : App(events, processName)
 {
-  m_name = Settings::value(Settings::Core::ComputerName).toString().toStdString();
+  m_name = CoreSettings::value(CoreSettings::Core::ComputerName).toString();
   // do nothing
 }
 
 void ServerApp::parseArgs()
 {
-  if (const auto address = Settings::value(Settings::Core::Interface).toString(); !address.isEmpty()) {
-    *m_deskflowAddress = NetworkAddress(address.toStdString(), Settings::value(Settings::Core::Port).toInt());
+  if (const auto address = CoreSettings::value(CoreSettings::Core::Interface).toString(); !address.empty()) {
+    *m_deskflowAddress = NetworkAddress(address, CoreSettings::value(CoreSettings::Core::Port).toInt());
   } else {
-    *m_deskflowAddress = NetworkAddress(Settings::value(Settings::Core::Port).toInt());
+    *m_deskflowAddress = NetworkAddress(CoreSettings::value(CoreSettings::Core::Port).toInt());
   }
 
   try {
@@ -88,7 +89,7 @@ void ServerApp::reloadSignalHandler(Arch::ThreadSignal, void *)
 void ServerApp::reloadConfig()
 {
   LOG_DEBUG("reload configuration");
-  if (loadConfig(Settings::serverConfigFile())) {
+  if (loadConfig(CoreSettings::serverConfigFile())) {
     if (m_server != nullptr) {
       m_server->setConfig(*m_config);
     }
@@ -98,29 +99,24 @@ void ServerApp::reloadConfig()
 
 void ServerApp::loadConfig()
 {
-  const auto path = Settings::serverConfigFile();
-  if (path.isEmpty()) {
+  const auto path = CoreSettings::serverConfigFile();
+  if (path.empty()) {
     LOG_CRIT("no configuration path provided");
     bye(s_exitConfig);
   }
 
   if (!loadConfig(path)) {
-    LOG_CRIT("%s: failed to load config: %s", qPrintable(processName()), path.toStdString().c_str());
+    LOG_CRIT("%s: failed to load config: %s", qPrintable(processName()), path.c_str());
     bye(s_exitConfig);
   }
 }
 
-bool ServerApp::loadConfig(const QString &filename)
+bool ServerApp::loadConfig(const std::string &path)
 {
-  const auto path = filename.toStdString();
   try {
     // load configuration
     LOG_DEBUG("opening configuration \"%s\"", path.c_str());
-#if defined(DESKFLOW_OS_WIN)
-    std::ifstream configStream(filename.toStdWString());
-#else
-    std::ifstream configStream(path);
-#endif
+    std::ifstream configStream(deskflow::utf8Path(path));
     if (!configStream.is_open()) {
       LOG_ERR("cannot open configuration \"%s\"", path.c_str());
       return false;
@@ -395,7 +391,7 @@ deskflow::Computer *ServerApp::createComputer()
 {
 #if defined(DESKFLOW_OS_WIN)
   return new deskflow::Computer(
-      new MSWindowsComputer(true, Settings::value(Settings::Core::UseHooks).toBool(), getEvents()), getEvents()
+      new MSWindowsComputer(true, CoreSettings::value(CoreSettings::Core::UseHooks).toBool(), getEvents()), getEvents()
   );
 #elif defined(DESKFLOW_OS_MACOS)
   return new deskflow::Computer(new OSXComputer(getEvents(), true), getEvents());
@@ -411,7 +407,7 @@ deskflow::Computer *ServerApp::createComputer()
 #if WINAPI_XWINDOWS
   LOG_INFO("detected X11 platform");
   return new deskflow::Computer(
-      new XWindowsComputer(qPrintable(Settings::value(Settings::Core::Display).toString()), true, getEvents()),
+      new XWindowsComputer(CoreSettings::value(CoreSettings::Core::Display).toString().c_str(), true, getEvents()),
       getEvents()
   );
 #endif
@@ -446,8 +442,8 @@ ClientListener *ServerApp::openClientListener(const NetworkAddress &address)
 {
   using enum SecurityLevel;
   auto securityLevel = PlainText;
-  if (Settings::value(Settings::Security::TlsEnabled).toBool()) {
-    if (Settings::value(Settings::Security::CheckPeers).toBool()) {
+  if (CoreSettings::value(CoreSettings::Security::TlsEnabled).toBool()) {
+    if (CoreSettings::value(CoreSettings::Security::CheckPeers).toBool()) {
       securityLevel = PeerAuth;
     } else {
       securityLevel = Encrypted;

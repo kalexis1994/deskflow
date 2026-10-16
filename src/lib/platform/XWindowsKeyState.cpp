@@ -13,7 +13,7 @@
 #include <QDBusPendingReply>
 #endif
 
-#include "common/Settings.h" // Must Include before XWindowsKeyState due to its use of Xorg headers
+#include "common/CoreSettings.h" // Must Include before XWindowsKeyState due to its use of Xorg headers
 
 #include "platform/XWindowsKeyState.h"
 
@@ -37,7 +37,8 @@ static const size_t ModifiersFromXDefaultSize = 32;
 
 XWindowsKeyState::XWindowsKeyState(Display *display, bool useXKB, IEventQueue *events)
     : KeyState(
-          events, AppUtil::instance().getKeyboardLayoutList(), Settings::value(Settings::Client::LanguageSync).toBool()
+          events, AppUtil::instance().getKeyboardLayoutList(),
+          CoreSettings::value(CoreSettings::Client::LanguageSync).toBool()
       ),
       m_display(display),
       m_modifierFromX(ModifiersFromXDefaultSize)
@@ -48,7 +49,7 @@ XWindowsKeyState::XWindowsKeyState(Display *display, bool useXKB, IEventQueue *e
 XWindowsKeyState::XWindowsKeyState(Display *display, bool useXKB, IEventQueue *events, deskflow::KeyMap &keyMap)
     : KeyState(
           events, keyMap, AppUtil::instance().getKeyboardLayoutList(),
-          Settings::value(Settings::Client::LanguageSync).toBool()
+          CoreSettings::value(CoreSettings::Client::LanguageSync).toBool()
       ),
       m_display(display),
       m_modifierFromX(ModifiersFromXDefaultSize)

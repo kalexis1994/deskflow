@@ -10,7 +10,7 @@
 
 #include "base/Log.h"
 #include "base/TMethodJob.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
 
 #ifdef HAVE_LIBPORTAL_CLIPBOARD
 #include "platform/PortalClipboard.h"
@@ -100,13 +100,13 @@ void PortalRemoteDesktop::handleSessionStarted(GObject *object, GAsyncResult *re
 
 #ifdef HAVE_LIBPORTAL_CLIPBOARD
   if (!xdp_session_is_clipboard_enabled(session)) {
-    if (Settings::value(Settings::Client::XdpClipboardRetried).toBool()) {
+    if (CoreSettings::value(CoreSettings::Client::XdpClipboardRetried).toBool()) {
       // some backends never report clipboard enabled even when granted; don't loop forever
       LOG_DEBUG("clipboard still not enabled on remote desktop session after one retry, continuing without it");
     } else {
       LOG_WARN("clipboard not enabled on remote desktop session, discarding restore token to force a fresh session");
-      Settings::setValue(Settings::Client::XdpRestoreToken, QString());
-      Settings::setValue(Settings::Client::XdpClipboardRetried, true);
+      CoreSettings::setValue(CoreSettings::Client::XdpRestoreToken, "");
+      CoreSettings::setValue(CoreSettings::Client::XdpClipboardRetried, true);
       free(m_sessionRestoreToken);
       m_sessionRestoreToken = nullptr;
       if (m_selectionTransferSignalId) {
@@ -131,7 +131,7 @@ void PortalRemoteDesktop::handleSessionStarted(GObject *object, GAsyncResult *re
   free(m_sessionRestoreToken);
   m_sessionRestoreToken = xdp_session_get_restore_token(session);
   if (m_sessionRestoreToken) {
-    Settings::setValue(Settings::Client::XdpRestoreToken, QString(m_sessionRestoreToken));
+    CoreSettings::setValue(CoreSettings::Client::XdpRestoreToken, std::string(m_sessionRestoreToken));
   }
 
   // ConnectToEIS requires version 2 of the xdg-desktop-portal (and the same
@@ -198,9 +198,10 @@ void PortalRemoteDesktop::handleInitSession(GObject *object, GAsyncResult *res)
 
 gboolean PortalRemoteDesktop::initSession()
 {
-  if (auto sessionToken = Settings::value(Settings::Client::XdpRestoreToken).toByteArray(); !sessionToken.isEmpty()) {
+  if (const auto sessionToken = CoreSettings::value(CoreSettings::Client::XdpRestoreToken).toString();
+      !sessionToken.empty()) {
     free(m_sessionRestoreToken);
-    m_sessionRestoreToken = strdup(sessionToken.data());
+    m_sessionRestoreToken = strdup(sessionToken.c_str());
   }
 
   LOG_DEBUG("setting up remote desktop session with restore token %s", m_sessionRestoreToken);

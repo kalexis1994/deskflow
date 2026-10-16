@@ -5,8 +5,11 @@
  */
 
 #pragma once
-#include <QObject>
-#include <QString>
+
+#include <algorithm>
+#include <cctype>
+#include <string>
+#include <string_view>
 
 inline static const auto kSynergyProtocolOption = "synergy";
 inline static const auto kBarrierProtocolOption = "barrier";
@@ -17,9 +20,8 @@ enum class NetworkProtocol
   Synergy,
   Barrier
 };
-Q_DECLARE_METATYPE(NetworkProtocol);
 
-static QString networkProtocolToOption(const NetworkProtocol proto)
+inline std::string networkProtocolToOption(const NetworkProtocol proto)
 {
   switch (proto) {
   case NetworkProtocol::Synergy:
@@ -31,24 +33,29 @@ static QString networkProtocolToOption(const NetworkProtocol proto)
   }
 }
 
-static QString networkProtocolToName(const NetworkProtocol proto)
+inline std::string networkProtocolToName(const NetworkProtocol proto)
 {
   switch (proto) {
   case NetworkProtocol::Synergy:
-    return QStringLiteral("Synergy");
+    return "Synergy";
   case NetworkProtocol::Barrier:
-    return QStringLiteral("Barrier");
+    return "Barrier";
   default:
     return {};
   }
 }
 
-static NetworkProtocol networkProtocolFromString(const QString &proto)
+inline NetworkProtocol networkProtocolFromString(std::string_view proto)
 {
+  const auto equalsIgnoreCase = [proto](std::string_view option) {
+    return proto.size() == option.size() && std::equal(proto.begin(), proto.end(), option.begin(), [](char a, char b) {
+             return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+           });
+  };
   using enum NetworkProtocol;
-  if (proto.compare(kBarrierProtocolOption, Qt::CaseInsensitive) == 0)
+  if (equalsIgnoreCase(kBarrierProtocolOption))
     return Barrier;
-  if (proto.compare(kSynergyProtocolOption, Qt::CaseInsensitive) == 0)
+  if (equalsIgnoreCase(kSynergyProtocolOption))
     return Synergy;
   return Unknown;
 }

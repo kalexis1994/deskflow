@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "gui/Settings.h"
 #include "arch/OsDetection.h"
-#include "Settings.h"
 
-#include "LogLevel.h"
-#include "NetworkProtocol.h"
-#include "UrlConstants.h"
 #include "base/Log.h"
 #include "common/KeyboardModifier.h"
+#include "common/LogLevel.h"
+#include "common/NetworkProtocol.h"
+#include "common/UrlConstants.h"
 
 #include <QCoreApplication>
 #include <QFile>
@@ -125,7 +125,9 @@ void Settings::upgradeSettings()
     if (m_settings->contains(newKey) || !m_settings->contains(oldKey))
       continue;
     if (oldKey == InternalConfig::Protocol) {
-      m_settings->setValue(newKey, networkProtocolToOption(NetworkProtocol(m_settings->value(oldKey).toInt())));
+      m_settings->setValue(
+          newKey, QString::fromStdString(networkProtocolToOption(NetworkProtocol(m_settings->value(oldKey).toInt())))
+      );
     } else if (oldKey == InternalConfig::ClipboardSharingSize) {
       m_settings->setValue(newKey, m_settings->value(oldKey).toUInt() / 1024);
     } else {
@@ -182,9 +184,9 @@ void Settings::upgradeSettings()
       for (int j = 0; j < modifierArraySize; j++) {
         m_settings->setArrayIndex(j);
         auto modifier = m_settings->value("modifier").toInt();
-        modifierTemp.append(
+        modifierTemp.append(QString::fromStdString(
             modifier == -1 ? valueToKeyboardModifierOption(j) : valueToKeyboardModifierOption(modifier)
-        );
+        ));
       }
       m_settings->endArray();
     }
@@ -360,7 +362,7 @@ QVariant Settings::defaultValue(const QString &key)
     return 1.0;
 
   if (key == Server::Protocol)
-    return networkProtocolToOption(NetworkProtocol::Barrier);
+    return QString::fromStdString(networkProtocolToOption(NetworkProtocol::Barrier));
 
   if (key == Server::GridWidth)
     return kServerGridWidth;
@@ -387,7 +389,7 @@ QSettingsProxy &Settings::proxy()
 
 NetworkProtocol Settings::networkProtocol()
 {
-  return networkProtocolFromString(Settings::value(Server::Protocol).toString());
+  return networkProtocolFromString(Settings::value(Server::Protocol).toString().toStdString());
 }
 
 void Settings::save(bool emitSaving)
@@ -523,17 +525,17 @@ QVariant Settings::computerDefaults(const QString &key)
   if (key.endsWith("switchCornerSize"))
     return 0;
   if (key == "modifierAlt")
-    return keyboardModifierToOption(KeyboardModifier::Alt);
+    return QString::fromStdString(keyboardModifierToOption(KeyboardModifier::Alt));
   if (key == "modifierAltGr")
-    return keyboardModifierToOption(KeyboardModifier::AltGr);
+    return QString::fromStdString(keyboardModifierToOption(KeyboardModifier::AltGr));
   if (key == "modifierCtrl")
-    return keyboardModifierToOption(KeyboardModifier::Ctrl);
+    return QString::fromStdString(keyboardModifierToOption(KeyboardModifier::Ctrl));
   if (key == "modifierMeta")
-    return keyboardModifierToOption(KeyboardModifier::Meta);
+    return QString::fromStdString(keyboardModifierToOption(KeyboardModifier::Meta));
   if (key == "modifierShift")
-    return keyboardModifierToOption(KeyboardModifier::Shift);
+    return QString::fromStdString(keyboardModifierToOption(KeyboardModifier::Shift));
   if (key == "modifierSuper")
-    return keyboardModifierToOption(KeyboardModifier::Super);
+    return QString::fromStdString(keyboardModifierToOption(KeyboardModifier::Super));
   return QVariant();
 }
 

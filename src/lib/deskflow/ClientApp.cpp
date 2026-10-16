@@ -6,16 +6,17 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "arch/OsDetection.h"
 #include "deskflow/ClientApp.h"
+#include "arch/OsDetection.h"
 
+#include "arch/Utf8.h"
 #include "base/Event.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
 #include "client/Client.h"
+#include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
 #include "common/PlatformInfo.h"
-#include "common/Settings.h"
 #include "deskflow/Computer.h"
 #include "deskflow/DisplayException.h"
 #include "deskflow/ipc/CoreIpc.h"
@@ -43,6 +44,8 @@
 #endif
 
 #include <memory>
+#include <sstream>
+#include <string>
 
 ClientApp::ClientApp(IEventQueue *events, const QString &processName) : App(events, processName)
 {
@@ -52,21 +55,21 @@ ClientApp::ClientApp(IEventQueue *events, const QString &processName) : App(even
 void ClientApp::parseArgs()
 {
   // save server addresses (comma-separated list supported)
-  if (const auto addressList = Settings::value(Settings::Client::RemoteHost).toString(); !addressList.isEmpty()) {
-    const int port = Settings::value(Settings::Core::Port).toInt();
-    const QStringList addresses = addressList.split(',', Qt::SkipEmptyParts);
+  if (const auto addressList = CoreSettings::value(CoreSettings::Client::RemoteHost).toString(); !addressList.empty()) {
+    const int port = CoreSettings::value(CoreSettings::Core::Port).toInt();
+    std::istringstream addresses(addressList);
 
-    for (const QString &addr : addresses) {
-      const QString trimmedAddr = addr.trimmed();
-      if (trimmedAddr.isEmpty()) {
+    for (std::string addr; std::getline(addresses, addr, ',');) {
+      const auto trimmedAddr = deskflow::trimmed(addr);
+      if (trimmedAddr.empty()) {
         continue;
       }
 
       try {
-        NetworkAddress netAddr(trimmedAddr.toStdString(), port);
+        NetworkAddress netAddr(trimmedAddr, port);
         netAddr.resolve();
         m_serverAddresses.append(netAddr);
-        LOG_DEBUG("added server address: %s", qPrintable(trimmedAddr));
+        LOG_DEBUG("added server address: %s", trimmedAddr.c_str());
       } catch (SocketAddressException &e) {
         // allow an address that we can't look up if we're restartable.
         // we'll try to resolve the address each time we connect to the
@@ -76,9 +79,9 @@ void ClientApp::parseArgs()
           bye(s_exitFailed);
         } else {
           // Still add it - we'll try to resolve later
-          NetworkAddress netAddr(trimmedAddr.toStdString(), port);
+          NetworkAddress netAddr(trimmedAddr, port);
           m_serverAddresses.append(netAddr);
-          LOG_WARN("could not resolve address '%s': %s (will retry later)", qPrintable(trimmedAddr), e.what());
+          LOG_WARN("could not resolve address '%s': %s (will retry later)", trimmedAddr.c_str(), e.what());
         }
       }
     }
@@ -102,13 +105,15 @@ const char *ClientApp::daemonName() const
 deskflow::Computer *ClientApp::createComputer()
 {
 #if defined(DESKFLOW_OS_WIN) || defined(DESKFLOW_OS_MACOS)
-  const auto languageSync = Settings::value(Settings::Client::LanguageSync).toBool();
+  const auto languageSync = CoreSettings::value(CoreSettings::Client::LanguageSync).toBool();
   LOG_INFO("keyboard language sync is %s", languageSync ? "enabled" : "disabled");
 #endif
 
 #if defined(DESKFLOW_OS_WIN)
   return new deskflow::Computer(
-      new MSWindowsComputer(false, Settings::value(Settings::Core::UseHooks).toBool(), getEvents(), languageSync),
+      new MSWindowsComputer(
+          false, CoreSettings::value(CoreSettings::Core::UseHooks).toBool(), getEvents(), languageSync
+      ),
       getEvents()
   );
 #elif defined(DESKFLOW_OS_MACOS)
@@ -125,7 +130,7 @@ deskflow::Computer *ClientApp::createComputer()
 #if WINAPI_XWINDOWS
   LOG_INFO("detected X11 platform");
   return new deskflow::Computer(
-      new XWindowsComputer(qPrintable(Settings::value(Settings::Core::Display).toString()), false, getEvents()),
+      new XWindowsComputer(CoreSettings::value(CoreSettings::Core::Display).toString().c_str(), false, getEvents()),
       getEvents()
   );
 #endif
@@ -278,8 +283,7 @@ bool ClientApp::startClient()
     if (m_clientComputer == nullptr) {
       clientComputer = openClientComputer();
       m_client = openClient(
-          Settings::value(Settings::Core::ComputerName).toString().toStdString(), getCurrentServerAddress(),
-          clientComputer
+          CoreSettings::value(CoreSettings::Core::ComputerName).toString(), getCurrentServerAddress(), clientComputer
       );
       m_clientComputer = clientComputer;
       LOG_INFO("started client");
@@ -391,7 +395,7 @@ ISocketFactory *ClientApp::getSocketFactory() const
 
 double ClientApp::retryTime() const
 {
-  if (!Settings::value(Settings::Client::DynamicConnectionRetry).toBool() || m_retryCount < 300) // 5 minutes
+  if (!CoreSettings::value(CoreSettings::Client::DynamicConnectionRetry).toBool() || m_retryCount < 300) // 5 minutes
     return 1;
   if (m_retryCount < 360) // 5 minutes
     return 5;

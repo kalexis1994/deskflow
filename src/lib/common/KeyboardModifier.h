@@ -8,8 +8,11 @@
 
 #include "KeyModifierID.h"
 
-#include <QObject>
-#include <QString>
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <string>
+#include <string_view>
 
 inline static const auto kModifierNameAlt = "alt";
 inline static const auto kModifierNameAltGr = "altgr";
@@ -30,9 +33,8 @@ enum class KeyboardModifier : int8_t
   AltGr,
   None
 };
-Q_DECLARE_METATYPE(KeyboardModifier);
 
-static QString keyboardModifierToOption(const KeyboardModifier modifier)
+inline std::string keyboardModifierToOption(const KeyboardModifier modifier)
 {
   using enum KeyboardModifier;
   switch (modifier) {
@@ -55,59 +57,62 @@ static QString keyboardModifierToOption(const KeyboardModifier modifier)
   }
 }
 
-static QString valueToKeyboardModifierOption(int modifier)
+inline std::string valueToKeyboardModifierOption(int modifier)
 {
   return keyboardModifierToOption(static_cast<KeyboardModifier>(modifier));
 }
 
-static KeyboardModifier keyboardModifierFromString(const QString &modifier)
+//! The modifier for a settings value; the names are matched ignoring case
+inline KeyboardModifier keyboardModifierFromString(std::string_view modifier)
 {
+  const auto is = [modifier](std::string_view name) {
+    return modifier.size() == name.size() &&
+           std::equal(modifier.begin(), modifier.end(), name.begin(), [](char a, char b) {
+             return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+           });
+  };
   using enum KeyboardModifier;
-  if (modifier.compare(kModifierNameShift, Qt::CaseInsensitive) == 0 ||
-      modifier.localeAwareCompare(QObject::tr("Shift")) == 0)
+  if (is(kModifierNameShift))
     return Shift;
-  if (modifier.compare(kModifierNameCtrl, Qt::CaseInsensitive) == 0 ||
-      modifier.localeAwareCompare(QObject::tr("Ctrl")) == 0)
+  if (is(kModifierNameCtrl))
     return Ctrl;
-  if (modifier.compare(kModifierNameAlt, Qt::CaseInsensitive) == 0 ||
-      modifier.localeAwareCompare(QObject::tr("Alt")) == 0)
+  if (is(kModifierNameAlt))
     return Alt;
-  if (modifier.compare(kModifierNameMeta, Qt::CaseInsensitive) == 0 ||
-      modifier.localeAwareCompare(QObject::tr("Meta")) == 0)
+  if (is(kModifierNameMeta))
     return Meta;
-  if (modifier.compare(kModifierNameSuper, Qt::CaseInsensitive) == 0 ||
-      modifier.localeAwareCompare(QObject::tr("Super")) == 0)
+  if (is(kModifierNameSuper))
     return Super;
-  if (modifier.compare(kModifierNameAltGr, Qt::CaseInsensitive) == 0 ||
-      modifier.localeAwareCompare(QObject::tr("AltGr")) == 0)
+  if (is(kModifierNameAltGr))
     return AltGr;
-  if (modifier.compare(kModifierNameNone, Qt::CaseInsensitive) == 0 ||
-      modifier.localeAwareCompare(QObject::tr("None")) == 0)
+  if (is(kModifierNameNone))
     return None;
   return DefaultMod;
 }
 
-static int modifierValueFromString(const QString &modifier)
+inline int modifierValueFromString(std::string_view modifier)
 {
   return static_cast<int>(keyboardModifierFromString(modifier));
 }
 
-static int32_t modifierIDValueFromString(const QString &modifier)
+inline int32_t modifierIDValueFromString(std::string_view modifier)
 {
-  auto mod = keyboardModifierToOption(keyboardModifierFromString(modifier));
-  if (mod == kModifierNameShift)
+  using enum KeyboardModifier;
+  switch (keyboardModifierFromString(modifier)) {
+  case Shift:
     return static_cast<int32_t>(kKeyModifierIDShift);
-  if (mod == kModifierNameCtrl)
+  case Ctrl:
     return static_cast<int32_t>(kKeyModifierIDControl);
-  if (mod == kModifierNameAlt)
+  case Alt:
     return static_cast<int32_t>(kKeyModifierIDAlt);
-  if (mod == kModifierNameAltGr)
+  case AltGr:
     return static_cast<int32_t>(kKeyModifierIDAltGr);
-  if (mod == kModifierNameMeta)
+  case Meta:
     return static_cast<int32_t>(kKeyModifierIDMeta);
-  if (mod == kModifierNameSuper)
+  case Super:
     return static_cast<int32_t>(kKeyModifierIDSuper);
-  if (mod == kModifierNameNone)
+  case None:
     return static_cast<int32_t>(kKeyModifierIDNull);
-  return static_cast<int32_t>(-1);
+  default:
+    return static_cast<int32_t>(-1);
+  }
 }

@@ -11,7 +11,7 @@
 #include <QString>
 #include <QVariant>
 
-#include "common/QSettingsProxy.h"
+#include "gui/QSettingsProxy.h"
 
 /// @brief Computer configuration base class
 class ComputerConfig

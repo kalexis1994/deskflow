@@ -10,8 +10,8 @@
 #include "ui_AboutDialog.h"
 
 #include "common/Constants.h"
-#include "common/Settings.h"
 #include "common/VersionInfo.h"
+#include "gui/Settings.h"
 
 #include <QClipboard>
 

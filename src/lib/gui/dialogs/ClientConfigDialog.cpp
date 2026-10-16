@@ -7,7 +7,7 @@
 #include "ClientConfigDialog.h"
 #include "ui_ClientConfigDialog.h"
 
-#include "common/Settings.h"
+#include "gui/Settings.h"
 #include "gui/widgets/SettingsDialogButtonBox.h"
 
 #include <QPushButton>

@@ -12,7 +12,7 @@
 #include "ui_SettingsDialog.h"
 
 #include "gui/I18N.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 #include "gui/TlsUtility.h"
 #include "gui/core/NetworkMonitor.h"
 #include "gui/widgets/SettingsDialogButtonBox.h"

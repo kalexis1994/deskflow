@@ -12,10 +12,10 @@
 #include "common/Constants.h"
 #include "common/NetworkProtocol.h"
 #include "common/PlatformInfo.h"
-#include "common/Settings.h"
 #include "dialogs/ActionDialog.h"
 #include "dialogs/ComputerSettingsDialog.h"
 #include "dialogs/HotkeyDialog.h"
+#include "gui/Settings.h"
 #include "gui/widgets/SettingsDialogButtonBox.h"
 
 #include <QFileDialog>
@@ -77,7 +77,7 @@ void ServerConfigDialog::save()
     Settings::setValue(Settings::Server::XdpRestoreToken, QString());
     Settings::setValue(Settings::Server::XdpClipboardRetried, false);
   }
-  Settings::setValue(Settings::Server::Protocol, networkProtocolToOption(m_protocol));
+  Settings::setValue(Settings::Server::Protocol, QString::fromStdString(networkProtocolToOption(m_protocol)));
   Settings::setValue(Settings::Server::EnableClipboard, m_enableClipboard);
   Settings::setValue(Settings::Server::ClipboardSize, m_clipboardSize);
   Settings::setValue(Settings::Server::EnableHeartbeat, m_enableHeartbeat);
@@ -541,7 +541,7 @@ void ServerConfigDialog::updateControls() const
 
 void ServerConfigDialog::restoreFromDefaults()
 {
-  m_protocol = networkProtocolFromString(Settings::defaultValue(Settings::Server::Protocol).toString());
+  m_protocol = networkProtocolFromString(Settings::defaultValue(Settings::Server::Protocol).toString().toStdString());
   m_enableHeartbeat = Settings::defaultValue(Settings::Server::EnableHeartbeat).toBool();
   m_heartbeatRate = Settings::defaultValue(Settings::Server::Heartbeat).toInt();
   m_relativeMouseMoves = Settings::defaultValue(Settings::Server::RelativeMouseMoves).toBool();
@@ -611,7 +611,8 @@ bool ServerConfigDialog::isGeneralConfigDefault() const
 {
   return ui->groupExternalConfig->isChecked() == Settings::defaultValue(Settings::Server::ExternalConfig).toBool() &&
          ui->lineConfigFile->text() == Settings::defaultValue(Settings::Server::ExternalConfigFile).toString() &&
-         m_protocol == networkProtocolFromString(Settings::defaultValue(Settings::Server::Protocol).toString()) &&
+         m_protocol ==
+             networkProtocolFromString(Settings::defaultValue(Settings::Server::Protocol).toString().toStdString()) &&
          m_enableClipboard == Settings::defaultValue(Settings::Server::EnableClipboard).toBool() &&
          m_clipboardSize == Settings::defaultValue(Settings::Server::ClipboardSize).toUInt() &&
          m_enableHeartbeat == Settings::defaultValue(Settings::Server::EnableHeartbeat).toBool() &&

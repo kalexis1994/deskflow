@@ -2,9 +2,16 @@
 # SPDX-License-Identifier: MIT
 
 create_test(
-  NAME SettingsTests
+  NAME IniFileTests
   DEPENDS common
-  SOURCE SettingsTests.cpp
+  SOURCE IniFileTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/common"
+)
+
+create_test(
+  NAME CoreSettingsTests
+  DEPENDS common
+  SOURCE CoreSettingsTests.cpp
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/common"
 )
 

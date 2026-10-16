@@ -21,10 +21,10 @@
 #include "dialogs/SettingsDialog.h"
 
 #include "common/PlatformInfo.h"
-#include "common/Settings.h"
 #include "common/UrlConstants.h"
 #include "common/VersionInfo.h"
 #include "gui/Messages.h"
+#include "gui/Settings.h"
 #include "gui/TlsUtility.h"
 #include "gui/core/CoreProcess.h"
 #include "gui/ipc/DaemonIpcClient.h"
@@ -1165,12 +1165,11 @@ void MainWindow::setHostName()
     if (existingComputer) {
       body = tr("Computer name already exists");
     } else {
-      body =
-          tr("The name you have chosen is invalid.\n\n"
-             "Valid names:\n"
-             "• Use letters and numbers\n"
-             "• May also use _ or -\n"
-             "• Are between 1 and 255 characters");
+      body = tr("The name you have chosen is invalid.\n\n"
+                "Valid names:\n"
+                "• Use letters and numbers\n"
+                "• May also use _ or -\n"
+                "• Are between 1 and 255 characters");
     }
     QMessageBox::information(this, title, body);
     return;

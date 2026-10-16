@@ -7,7 +7,7 @@
 #include "I18NTests.h"
 
 #include "gui/I18N.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 #include <QDir>
 #include <QFile>
 #include <QSignalSpy>

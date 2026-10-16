@@ -17,8 +17,8 @@
 #include "base/Log.h"
 #include "base/TMethodJob.h"
 #include "client/Client.h"
+#include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
-#include "common/Settings.h"
 #include "deskflow/ClientApp.h"
 #include "deskflow/Clipboard.h"
 #include "deskflow/DisplayInvalidException.h"
@@ -125,7 +125,7 @@ OSXComputer::OSXComputer(IEventQueue *events, bool isPrimary, bool enableLangSyn
     m_screensaver = new OSXScreenSaver(m_events, getEventTarget());
     m_keyState = new OSXKeyState(m_events, AppUtil::instance().getKeyboardLayoutList(), enableLangSync);
 
-    if (Settings::value(Settings::Core::PreventSleep).toBool()) {
+    if (CoreSettings::value(CoreSettings::Core::PreventSleep).toBool()) {
       m_powerManager.disableSleep();
     }
 

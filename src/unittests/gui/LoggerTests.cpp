@@ -6,7 +6,7 @@
  */
 
 #include "LoggerTests.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 #include "gui/Logger.h"
 

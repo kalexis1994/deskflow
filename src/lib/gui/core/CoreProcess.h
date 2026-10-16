@@ -8,8 +8,8 @@
 #pragma once
 
 #include "common/Enums.h"
-#include "common/Settings.h"
 #include "gui/FileTail.h"
+#include "gui/Settings.h"
 #include "gui/config/ServerConfig.h"
 
 #include <QMutex>

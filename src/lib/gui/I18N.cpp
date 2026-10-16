@@ -7,7 +7,7 @@
 #include "I18N.h"
 
 #include "common/Constants.h"
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 #include <QCoreApplication>
 #include <QDir>

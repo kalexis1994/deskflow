@@ -15,7 +15,7 @@
 
 #include <QMessageBox>
 
-#include <common/Settings.h>
+#include <gui/Settings.h>
 
 using enum ComputerConfig::SwitchCorner;
 using enum ComputerConfig::Fix;

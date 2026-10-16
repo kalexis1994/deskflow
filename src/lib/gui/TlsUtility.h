@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <common/Settings.h>
+#include <gui/Settings.h>
 
 namespace deskflow::gui::TlsUtility {
 

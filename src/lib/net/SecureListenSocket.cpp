@@ -10,8 +10,10 @@
 #include "SecureSocket.h"
 #include "arch/Arch.h"
 #include "arch/ArchException.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
+
 #include "net/SocketMultiplexer.h"
+#include <QString>
 
 //
 // SecureListenSocket
@@ -40,7 +42,9 @@ std::unique_ptr<IDataSocket> SecureListenSocket::accept()
     setListeningJob();
 
     // default location of the TLS cert file in users dir
-    if (!secureSocket->loadCertificate(Settings::value(Settings::Security::Certificate).toString())) {
+    if (!secureSocket->loadCertificate(
+            QString::fromStdString(CoreSettings::value(CoreSettings::Security::Certificate).toString())
+        )) {
       return nullptr;
     }
 

@@ -5,15 +5,18 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "arch/OsDetection.h"
 #include "DaemonApp.h"
+#include "arch/OsDetection.h"
 
 #include "arch/Arch.h"
+#include "arch/Utf8.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
 #include "base/LogOutputters.h"
+#include "common/Constants.h"
+#include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
-#include "common/Settings.h"
+#include "common/IniFile.h"
 #include "deskflow/ipc/DaemonIpcServer.h"
 
 #if defined(DESKFLOW_OS_WIN)
@@ -30,7 +33,6 @@
 
 #include <QCoreApplication>
 #include <QFileInfo>
-#include <QSettings>
 
 using namespace deskflow::core;
 
@@ -45,14 +47,14 @@ void DaemonApp::saveLogLevel(const QString &logLevel) const
 {
   LOG_DEBUG("log level changed: %s", logLevel.toUtf8().constData());
   CLOG->setFilter(logLevel.toUtf8().constData());
-  Settings::setValue(Settings::Daemon::LogLevel, logLevel);
+  CoreSettings::setValue(CoreSettings::Daemon::LogLevel, logLevel.toStdString());
 }
 
 void DaemonApp::setConfigFile(const QString &configFile)
 {
   LOG_DEBUG("config file updated: %s", configFile.toUtf8().constData());
   m_configFile = configFile;
-  Settings::setValue(Settings::Daemon::ConfigFile, configFile);
+  CoreSettings::setValue(CoreSettings::Daemon::ConfigFile, configFile.toStdString());
 }
 
 void DaemonApp::applyWatchdogCommand() const
@@ -76,14 +78,14 @@ void DaemonApp::applyWatchdogCommand() const
     return;
   }
 
-  QSettings config(m_configFile, QSettings::IniFormat);
-  const auto coreMode = config.value(Settings::Core::CoreMode).toInt();
-  const auto elevate = config.value(Settings::Daemon::Elevate, !Settings::isPortableMode()).toBool();
+  const auto config = deskflow::IniFile::load(deskflow::utf8Path(m_configFile.toStdString()));
+  const auto coreMode = config.value(CoreSettings::Core::CoreMode).toInt();
+  const auto elevate = config.value(CoreSettings::Daemon::Elevate, !CoreSettings::isPortableMode()).toBool();
 
   QString modeArg;
-  if (coreMode == Settings::CoreMode::Server) {
+  if (coreMode == CoreSettings::CoreMode::Server) {
     modeArg = QStringLiteral("server");
-  } else if (coreMode == Settings::CoreMode::Client) {
+  } else if (coreMode == CoreSettings::CoreMode::Client) {
     modeArg = QStringLiteral("client");
   } else {
     LOG_ERR("cannot apply watchdog command: invalid core mode in config: %d", coreMode);
@@ -106,7 +108,7 @@ void DaemonApp::clearWatchdogCommand()
 
   // Clear the persisted config path so the daemon does not auto-start the core on next boot.
   m_configFile.clear();
-  Settings::setValue(Settings::Daemon::ConfigFile);
+  CoreSettings::setValue(CoreSettings::Daemon::ConfigFile);
 
 #if defined(DESKFLOW_OS_WIN)
   m_pWatchdog->setProcessConfig("", false);
@@ -119,9 +121,9 @@ void DaemonApp::clearSettings()
 {
   LOG_INFO("clearing daemon settings");
   m_configFile.clear();
-  Settings::setValue(Settings::Daemon::ConfigFile);
-  Settings::setValue(Settings::Daemon::LogFile);
-  Settings::setValue(Settings::Daemon::LogLevel);
+  CoreSettings::setValue(CoreSettings::Daemon::ConfigFile);
+  CoreSettings::setValue(CoreSettings::Daemon::LogFile);
+  CoreSettings::setValue(CoreSettings::Daemon::LogLevel);
 }
 
 void DaemonApp::connectIpcServer(const ipc::DaemonIpcServer *ipcServer) const
@@ -169,10 +171,10 @@ void DaemonApp::run(QThread &daemonThread)
 #if defined(DESKFLOW_OS_WIN)
   m_pWatchdog = std::make_unique<MSWindowsWatchdog>(m_foreground, *m_pFileLogOutputter);
 
-  if (const auto persistedConfig = Settings::value(Settings::Daemon::ConfigFile).toString();
-      !persistedConfig.isEmpty()) {
-    LOG_DEBUG("using last known config file: %s", persistedConfig.toUtf8().constData());
-    m_configFile = persistedConfig;
+  if (const auto persistedConfig = CoreSettings::value(CoreSettings::Daemon::ConfigFile).toString();
+      !persistedConfig.empty()) {
+    LOG_DEBUG("using last known config file: %s", persistedConfig.c_str());
+    m_configFile = QString::fromStdString(persistedConfig);
     applyWatchdogCommand();
   }
 #endif
@@ -239,7 +241,7 @@ int DaemonApp::mainLoop()
 
 QString DaemonApp::logFilename()
 {
-  return Settings::value(Settings::Daemon::LogFile).toString();
+  return QString::fromStdString(CoreSettings::value(CoreSettings::Daemon::LogFile).toString());
 }
 
 void DaemonApp::setForeground()

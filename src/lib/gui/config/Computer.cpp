@@ -8,7 +8,7 @@
 
 #include "Computer.h"
 #include "config/ComputerConfig.h"
-#include <common/Settings.h>
+#include <gui/Settings.h>
 
 using enum KeyboardModifier;
 using enum ComputerConfig::SwitchCorner;
@@ -27,12 +27,15 @@ void Computer::loadSettings(QSettingsProxy &settings)
   if (name.isEmpty())
     return;
 
-  setModifier(Alt, modifierValueFromString(Settings::value(Settings::Computer::ModifierAlt.arg(name)).toString()));
-  setModifier(AltGr, modifierValueFromString(Settings::value(Settings::Computer::ModifierAltGr.arg(name)).toString()));
-  setModifier(Ctrl, modifierValueFromString(Settings::value(Settings::Computer::ModifierCtrl.arg(name)).toString()));
-  setModifier(Meta, modifierValueFromString(Settings::value(Settings::Computer::ModifierMeta.arg(name)).toString()));
-  setModifier(Shift, modifierValueFromString(Settings::value(Settings::Computer::ModifierShift.arg(name)).toString()));
-  setModifier(Super, modifierValueFromString(Settings::value(Settings::Computer::ModifierSuper.arg(name)).toString()));
+  const auto modifier = [&name](const QString &key) {
+    return modifierValueFromString(Settings::value(key.arg(name)).toString().toStdString());
+  };
+  setModifier(Alt, modifier(Settings::Computer::ModifierAlt));
+  setModifier(AltGr, modifier(Settings::Computer::ModifierAltGr));
+  setModifier(Ctrl, modifier(Settings::Computer::ModifierCtrl));
+  setModifier(Meta, modifier(Settings::Computer::ModifierMeta));
+  setModifier(Shift, modifier(Settings::Computer::ModifierShift));
+  setModifier(Super, modifier(Settings::Computer::ModifierSuper));
 
   setSwitchCornerSize(Settings::value(Settings::Computer::SwitchCornerSize.arg(name)).toInt());
 
@@ -81,30 +84,16 @@ void Computer::saveSettings(QSettingsProxy &settings) const
       Settings::Computer::SwitchCornerBottomRight.arg(computerName), m_SwitchCorners[static_cast<int>(BottomRight)]
   );
 
-  Settings::setValue(
-      Settings::Computer::ModifierAlt.arg(computerName),
-      valueToKeyboardModifierOption(m_Modifiers.at(static_cast<qsizetype>(KeyboardModifier::Alt)))
-  );
-  Settings::setValue(
-      Settings::Computer::ModifierAltGr.arg(computerName),
-      valueToKeyboardModifierOption(m_Modifiers.at(static_cast<qsizetype>(KeyboardModifier::AltGr)))
-  );
-  Settings::setValue(
-      Settings::Computer::ModifierCtrl.arg(computerName),
-      valueToKeyboardModifierOption(m_Modifiers.at(static_cast<qsizetype>(KeyboardModifier::Ctrl)))
-  );
-  Settings::setValue(
-      Settings::Computer::ModifierMeta.arg(computerName),
-      valueToKeyboardModifierOption(m_Modifiers.at(static_cast<qsizetype>(KeyboardModifier::Meta)))
-  );
-  Settings::setValue(
-      Settings::Computer::ModifierShift.arg(computerName),
-      valueToKeyboardModifierOption(m_Modifiers.at(static_cast<qsizetype>(KeyboardModifier::Shift)))
-  );
-  Settings::setValue(
-      Settings::Computer::ModifierSuper.arg(computerName),
-      valueToKeyboardModifierOption(m_Modifiers.at(static_cast<qsizetype>(KeyboardModifier::Super)))
-  );
+  const auto saveModifier = [this, &computerName](const QString &key, KeyboardModifier modifier) {
+    const auto option = valueToKeyboardModifierOption(m_Modifiers.at(static_cast<qsizetype>(modifier)));
+    Settings::setValue(key.arg(computerName), QString::fromStdString(option));
+  };
+  saveModifier(Settings::Computer::ModifierAlt, KeyboardModifier::Alt);
+  saveModifier(Settings::Computer::ModifierAltGr, KeyboardModifier::AltGr);
+  saveModifier(Settings::Computer::ModifierCtrl, KeyboardModifier::Ctrl);
+  saveModifier(Settings::Computer::ModifierMeta, KeyboardModifier::Meta);
+  saveModifier(Settings::Computer::ModifierShift, KeyboardModifier::Shift);
+  saveModifier(Settings::Computer::ModifierSuper, KeyboardModifier::Super);
 }
 
 QString Computer::screensSection() const

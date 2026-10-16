@@ -5,20 +5,23 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "arch/OsDetection.h"
-#include <cassert>
 #include "SecureSocket.h"
 #include "SecureUtils.h"
+#include "arch/OsDetection.h"
+#include <cassert>
 
 #include "arch/ArchException.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
+
 #include "deskflow/ipc/CoreIpc.h"
 #include "mt/Lock.h"
 #include "net/FingerprintDatabase.h"
 #include "net/TCPSocket.h"
 #include "net/TSocketMultiplexerMethodJob.h"
+#include <QFile>
+#include <QString>
 #include <net/SslLogger.h>
 
 #include <cstdlib>
@@ -432,7 +435,8 @@ int SecureSocket::secureAccept(int socket)
 
   // If not fatal and no retry, state is good
   if (retry == 0) {
-    if (m_securityLevel == SecurityLevel::PeerAuth && !verifyCertFingerprint(Settings::tlsTrustedClientsDb())) {
+    if (m_securityLevel == SecurityLevel::PeerAuth &&
+        !verifyCertFingerprint(QString::fromStdString(CoreSettings::tlsTrustedClientsDb()))) {
       retry = 0;
       disconnect();
       return -1; // Fail
@@ -458,7 +462,7 @@ int SecureSocket::secureAccept(int socket)
 
 int SecureSocket::secureConnect(int socket)
 {
-  if (!loadCertificate(Settings::value(Settings::Security::Certificate).toString())) {
+  if (!loadCertificate(QString::fromStdString(CoreSettings::value(CoreSettings::Security::Certificate).toString()))) {
     LOG_ERR("could not load client certificates");
     disconnect();
     return -1;
@@ -495,7 +499,7 @@ int SecureSocket::secureConnect(int socket)
   retry = 0;
   // No error, set ready, process and return ok
   m_secureReady = true;
-  if (verifyCertFingerprint(Settings::tlsTrustedServersDb())) {
+  if (verifyCertFingerprint(QString::fromStdString(CoreSettings::tlsTrustedServersDb()))) {
     LOG_INFO("connected to secure socket");
     if (!showCertificate()) {
       disconnect();

@@ -11,7 +11,7 @@
 #include "base/Event.h"
 #include "base/Log.h"
 #include "base/TMethodJob.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
 #include "deskflow/ClipboardTypes.h"
 #include "platform/EiClipboard.h"
 
@@ -297,15 +297,15 @@ void PortalInputCapture::setupSession(XdpInputCaptureSession *session)
 
 #ifdef HAVE_LIBPORTAL_CLIPBOARD
   if (!xdp_session_is_clipboard_enabled(parentSession) && m_portalVersion > 1) {
-    if (Settings::value(Settings::Server::XdpClipboardRetried).toBool()) {
+    if (CoreSettings::value(CoreSettings::Server::XdpClipboardRetried).toBool()) {
       // some backends never report clipboard enabled even when granted; don't loop forever
       LOG_DEBUG("clipboard still not enabled on session after one retry, continuing without it");
     } else {
       LOG_WARN("clipboard not enabled on session, discarding restore token to force a fresh session");
 #ifdef HAVE_LIBPORTAL_INPUTCAPTURE_RESTORE
-      Settings::setValue(Settings::Server::XdpRestoreToken, QString());
+      CoreSettings::setValue(CoreSettings::Server::XdpRestoreToken, "");
 #endif
-      Settings::setValue(Settings::Server::XdpClipboardRetried, true);
+      CoreSettings::setValue(CoreSettings::Server::XdpClipboardRetried, true);
       g_object_unref(m_session);
       m_session = nullptr;
       g_idle_add([](gpointer data) { return static_cast<PortalInputCapture *>(data)->initSession(); }, this);
@@ -374,7 +374,7 @@ void PortalInputCapture::handleStart(GObject *object, GAsyncResult *res)
 
   auto restoreToken = QString(xdp_input_capture_session_get_restore_token(m_session));
   if (!restoreToken.isEmpty()) {
-    Settings::setValue(Settings::Server::XdpRestoreToken, restoreToken);
+    CoreSettings::setValue(CoreSettings::Server::XdpRestoreToken, restoreToken.toStdString());
   }
 #endif
   setupSession(m_session);
@@ -608,8 +608,9 @@ gboolean PortalInputCapture::initSession()
     m_session = session;
     xdp_session_request_clipboard(xdp_input_capture_session_get_session(session));
     xdp_input_capture_session_set_session_persistence(session, XDP_INPUT_CAPTURE_SESSION_PERSISTENCE_PERSISTENT);
-    if (auto sessionToken = Settings::value(Settings::Server::XdpRestoreToken).toByteArray(); !sessionToken.isEmpty()) {
-      xdp_input_capture_session_set_restore_token(session, strdup(sessionToken.data()));
+    if (const auto sessionToken = CoreSettings::value(CoreSettings::Server::XdpRestoreToken).toString();
+        !sessionToken.empty()) {
+      xdp_input_capture_session_set_restore_token(session, strdup(sessionToken.c_str()));
     }
     xdp_input_capture_session_start(
         m_session,
@@ -763,9 +764,8 @@ void PortalInputCapture::handleActivated(
 #endif
 }
 
-void PortalInputCapture::handleDeactivated(
-    const XdpInputCaptureSession *, const std::uint32_t activationId, const GVariant *
-)
+void PortalInputCapture::
+    handleDeactivated(const XdpInputCaptureSession *, const std::uint32_t activationId, const GVariant *)
 {
   LOG_DEBUG("cb deactivated, id=%i", activationId);
   m_isActive = false;

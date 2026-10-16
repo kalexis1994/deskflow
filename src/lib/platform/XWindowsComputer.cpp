@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "common/Settings.h" // must include first
+#include "common/CoreSettings.h" // must include first
 #include <cassert>
 
 #include "platform/XWindowsComputer.h"
@@ -136,7 +136,7 @@ XWindowsComputer::XWindowsComputer(const char *displayName, bool isPrimary, IEve
   }
 
   // disable sleep if the flag is set
-  if (Settings::value(Settings::Core::PreventSleep).toBool()) {
+  if (CoreSettings::value(CoreSettings::Core::PreventSleep).toBool()) {
     m_powerManager.disableSleep();
   }
 

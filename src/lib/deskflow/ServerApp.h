@@ -55,7 +55,7 @@ public:
   void parseArgs() override;
   const char *daemonName() const override;
   void loadConfig() override;
-  bool loadConfig(const QString &filename) override;
+  bool loadConfig(const std::string &filename) override;
   deskflow::Computer *createComputer() override;
   int mainLoop() override;
   int runInner(StartupFunc startup) override;

@@ -9,7 +9,7 @@
 #pragma once
 
 #include "common/Coordinate.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
 #include "deskflow/MouseTypes.h"
 
 //! Secondary computer interface
@@ -22,10 +22,10 @@ class ISecondaryComputer
 public:
   ISecondaryComputer()
   {
-    m_invertYScroll = Settings::value(Settings::Client::InvertYScroll).toBool();
-    m_yScrollScale = std::clamp(Settings::value(Settings::Client::YScrollScale).toDouble(), 0.1, 10.0);
-    m_invertXScroll = Settings::value(Settings::Client::InvertXScroll).toBool();
-    m_xScrollScale = std::clamp(Settings::value(Settings::Client::XScrollScale).toDouble(), 0.1, 10.0);
+    m_invertYScroll = CoreSettings::value(CoreSettings::Client::InvertYScroll).toBool();
+    m_yScrollScale = std::clamp(CoreSettings::value(CoreSettings::Client::YScrollScale).toDouble(), 0.1, 10.0);
+    m_invertXScroll = CoreSettings::value(CoreSettings::Client::InvertXScroll).toBool();
+    m_xScrollScale = std::clamp(CoreSettings::value(CoreSettings::Client::XScrollScale).toDouble(), 0.1, 10.0);
   }
 
   virtual ~ISecondaryComputer() = default;

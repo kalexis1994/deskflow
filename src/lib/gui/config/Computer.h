@@ -11,7 +11,7 @@
 #include "ComputerConfig.h"
 
 #include "common/KeyboardModifier.h"
-#include "common/QSettingsProxy.h"
+#include "gui/QSettingsProxy.h"
 
 #include <QIcon>
 #include <QList>

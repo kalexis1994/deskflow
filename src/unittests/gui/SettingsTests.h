@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "common/Settings.h"
+#include "gui/Settings.h"
 
 #include <QTest>
 
@@ -27,7 +27,8 @@ private Q_SLOTS:
   void checkClearState();
 
 private:
-  inline static const QString m_settingsPathTemp = QStringLiteral("tmp/test");
+  // its own directory: the other GUI tests run in the same working directory, in parallel
+  inline static const QString m_settingsPathTemp = QStringLiteral("tmp/settings-test");
   inline static const QString m_settingsFile = QStringLiteral("%1/Deskflow.conf").arg(m_settingsPathTemp);
   inline static const QString m_stateFile = QStringLiteral("%1/Deskflow.state").arg(m_settingsPathTemp);
 

@@ -17,7 +17,7 @@
 #include "base/TMethodJob.h"
 #include "client/Client.h"
 #include "common/Constants.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
 #include "deskflow/App.h"
 #include "deskflow/ClientApp.h"
 #include "deskflow/Clipboard.h"
@@ -115,7 +115,7 @@ MSWindowsComputer::MSWindowsComputer(bool isPrimary, bool useHooks, IEventQueue 
     LOG_DEBUG("computer shape: %d,%d %dx%d %s", m_x, m_y, m_w, m_h, m_multimon ? "(multi-monitor)" : "");
     LOG_DEBUG("window is 0x%08x", m_window);
 
-    if (Settings::value(Settings::Core::PreventSleep).toBool()) {
+    if (CoreSettings::value(CoreSettings::Core::PreventSleep).toBool()) {
       m_powerManager.disableSleep();
     }
 

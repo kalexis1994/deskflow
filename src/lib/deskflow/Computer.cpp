@@ -5,12 +5,13 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "arch/OsDetection.h"
-#include <cassert>
 #include "deskflow/Computer.h"
+#include "arch/OsDetection.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
+#include "common/CoreSettings.h"
 #include "deskflow/IPlatformComputer.h"
+#include <cassert>
 
 #include <QProcess>
 
@@ -151,10 +152,10 @@ void Computer::enter(KeyModifierMask toggleMask)
     enterSecondary(toggleMask);
   }
 
-  if (Settings::value(Settings::Core::EnableEnterCommand).toBool()) {
-    const auto commandLine = Settings::value(Settings::Core::ComputerEnterCommand).toString();
-    LOG_DEBUG("running computer enter command: %s", qPrintable(commandLine));
-    if (!runComputerCommand(commandLine))
+  if (CoreSettings::value(CoreSettings::Core::EnableEnterCommand).toBool()) {
+    const auto commandLine = CoreSettings::value(CoreSettings::Core::ComputerEnterCommand).toString();
+    LOG_DEBUG("running computer enter command: %s", commandLine.c_str());
+    if (!runComputerCommand(QString::fromStdString(commandLine)))
       LOG_ERR("failed to run computer enter command");
   }
 }
@@ -178,10 +179,10 @@ bool Computer::leave()
   }
 
   m_computer->leave();
-  if (Settings::value(Settings::Core::EnableExitCommand).toBool()) {
-    const auto commandLine = Settings::value(Settings::Core::ComputerExitCommand).toString();
-    LOG_DEBUG("running computer exit command: %s", qPrintable(commandLine));
-    if (!runComputerCommand(commandLine))
+  if (CoreSettings::value(CoreSettings::Core::EnableExitCommand).toBool()) {
+    const auto commandLine = CoreSettings::value(CoreSettings::Core::ComputerExitCommand).toString();
+    LOG_DEBUG("running computer exit command: %s", commandLine.c_str());
+    if (!runComputerCommand(QString::fromStdString(commandLine)))
       LOG_ERR("failed to run computer exit command");
   }
 

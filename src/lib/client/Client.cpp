@@ -15,8 +15,8 @@
 #include "client/ServerProxy.h"
 #include "client/ServerProxy1_7.h"
 #include "client/ServerProxy1_8.h"
+#include "common/CoreSettings.h"
 #include "common/NetworkProtocol.h"
-#include "common/Settings.h"
 #include "deskflow/Clipboard.h"
 #include "deskflow/Computer.h"
 #include "deskflow/DeskflowException.h"
@@ -62,7 +62,7 @@ Client::Client(
       m_socketFactory(socketFactory),
       m_computer(computer),
       m_events(events),
-      m_useSecureNetwork(Settings::value(Settings::Security::TlsEnabled).toBool())
+      m_useSecureNetwork(CoreSettings::value(CoreSettings::Security::TlsEnabled).toBool())
 {
   assert(m_socketFactory != nullptr);
   assert(m_computer != nullptr);
@@ -427,7 +427,7 @@ void Client::setupConnecting()
 {
   assert(m_stream != nullptr);
 
-  if (Settings::value(Settings::Security::TlsEnabled).toBool()) {
+  if (CoreSettings::value(CoreSettings::Security::TlsEnabled).toBool()) {
     m_events->addHandler(EventTypes::DataSocketSecureConnected, m_stream->getEventTarget(), [this](const auto &) {
       handleConnected();
     });
@@ -677,8 +677,7 @@ void Client::handleHello()
   std::string protocolName;
   ProtocolUtil::readf(m_stream, kMsgHello, &protocolName, &serverMajor, &serverMinor);
 
-  if (const auto proto = networkProtocolFromString(QString::fromStdString(protocolName));
-      proto == NetworkProtocol::Unknown) {
+  if (const auto proto = networkProtocolFromString(protocolName); proto == NetworkProtocol::Unknown) {
     LOG_WARN("hello back received with protocol: '%s'", protocolName.c_str());
     sendConnectionFailedEvent("got invalid hello message from server");
     cleanupTimer();
@@ -757,13 +756,13 @@ void Client::handleResume()
 
 void Client::bindNetworkInterface(IDataSocket *socket) const
 {
-  const auto address = Settings::value(Settings::Core::Interface).toString();
-  if (address.isEmpty())
+  const auto address = CoreSettings::value(CoreSettings::Core::Interface).toString();
+  if (address.empty())
     return;
 
-  LOG_DEBUG("bind to network interface: %s", qPrintable(address));
+  LOG_DEBUG("bind to network interface: %s", address.c_str());
 
-  NetworkAddress bindAddress(address.toStdString());
+  NetworkAddress bindAddress(address);
   bindAddress.resolve();
 
   socket->bind(bindAddress);

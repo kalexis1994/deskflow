@@ -36,7 +36,11 @@ add_library(${target} STATIC
   MainWindow.ui
   Messages.cpp
   Messages.h
+  QSettingsProxy.cpp
+  QSettingsProxy.h
   QtLogOutputter.h
+  Settings.cpp
+  Settings.h
   StyleUtils.h
   TlsUtility.cpp
   TlsUtility.h

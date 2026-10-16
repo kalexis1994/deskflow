@@ -12,7 +12,7 @@
 #include "base/IEventQueue.h"
 #include "base/Log.h"
 #include "common/Constants.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
 #include "deskflow/App.h"
 #include "deskflow/IComputer.h"
 #include "deskflow/OptionTypes.h"
@@ -84,7 +84,7 @@ EiComputer::EiComputer(bool isPrimary, IEventQueue *events, bool usePortal)
   }
 
   // disable sleep if the flag is set
-  if (Settings::value(Settings::Core::PreventSleep).toBool()) {
+  if (CoreSettings::value(CoreSettings::Core::PreventSleep).toBool()) {
     m_powerManager.disableSleep();
   }
 }
@@ -429,7 +429,7 @@ void EiComputer::ensureEmulating() const
   }
 
   cancelIdleEmulationTimer();
-  if (Settings::value(Settings::Core::PreventSleep).toBool())
+  if (CoreSettings::value(CoreSettings::Core::PreventSleep).toBool())
     return;
 
   m_idleEmulationTimer = m_events->newOneShotTimer(s_idleEmulationTimeout, nullptr);

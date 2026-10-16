@@ -39,7 +39,7 @@ public:
   {
     // do nothing
   }
-  bool loadConfig(const QString &) override
+  bool loadConfig(const std::string &) override
   {
     return false;
   }

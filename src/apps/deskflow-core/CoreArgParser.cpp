@@ -8,10 +8,12 @@
 #include "CoreArgs.h"
 
 #include "common/Constants.h"
+#include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
-#include "common/Settings.h"
 #include "common/VersionInfo.h"
 #include "deskflow/ProtocolTypes.h"
+
+#include <QTextStream>
 
 const QString CoreArgParser::s_headerText = QStringLiteral("%1: %2\n").arg(kCoreBinName, kDisplayVersion);
 
@@ -49,7 +51,7 @@ void CoreArgParser::parse()
   }
 
   if (m_parser.isSet(CoreArgs::configOption)) {
-    Settings::setSettingsFile(m_parser.value(CoreArgs::configOption));
+    CoreSettings::setSettingsFile(m_parser.value(CoreArgs::configOption).toStdString());
   }
 }
 

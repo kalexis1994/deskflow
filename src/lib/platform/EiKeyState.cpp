@@ -9,7 +9,7 @@
 #include "platform/EiKeyState.h"
 
 #include "base/Log.h"
-#include "common/Settings.h"
+#include "common/CoreSettings.h"
 #include "deskflow/AppUtil.h"
 #include "platform/XDGKeyUtil.h"
 
@@ -21,7 +21,8 @@ namespace deskflow {
 
 EiKeyState::EiKeyState(EiComputer *computer, IEventQueue *events)
     : KeyState(
-          events, AppUtil::instance().getKeyboardLayoutList(), Settings::value(Settings::Client::LanguageSync).toBool()
+          events, AppUtil::instance().getKeyboardLayoutList(),
+          CoreSettings::value(CoreSettings::Client::LanguageSync).toBool()
       ),
       m_computer{computer}
 {

@@ -7,7 +7,7 @@
 
 #include "ComputerTests.h"
 
-#include "common/Settings.h"
+#include "gui/Settings.h"
 #include "gui/config/Computer.h"
 
 void ComputerTests::initTestCase()

@@ -7,14 +7,18 @@
 
 #pragma once
 
-#include <QFileInfo>
-#include <QSysInfo>
+#include "arch/OsDetection.h"
+
+#include <cstdlib>
+#include <filesystem>
+#include <string_view>
 
 namespace deskflow::platform {
 
 inline bool isWayland()
 {
-  return qEnvironmentVariable("XDG_SESSION_TYPE") == QStringLiteral("wayland");
+  const char *session = std::getenv("XDG_SESSION_TYPE");
+  return session != nullptr && std::string_view(session) == "wayland";
 }
 
 /**
@@ -23,7 +27,11 @@ inline bool isWayland()
  */
 inline bool isWindows()
 {
-  return QSysInfo::productType() == QStringLiteral("windows");
+#if defined(DESKFLOW_OS_WIN)
+  return true;
+#else
+  return false;
+#endif
 }
 
 /**
@@ -32,7 +40,11 @@ inline bool isWindows()
  */
 inline bool isMac()
 {
-  return QSysInfo::productType() == QStringLiteral("macos");
+#if defined(DESKFLOW_OS_MACOS)
+  return true;
+#else
+  return false;
+#endif
 }
 
 /**
@@ -41,7 +53,8 @@ inline bool isMac()
  */
 inline bool isFlatpak()
 {
-  return QFileInfo::exists(QStringLiteral("/.flatpak-info"));
+  std::error_code ec;
+  return std::filesystem::exists("/.flatpak-info", ec);
 }
 
 /**
@@ -50,7 +63,7 @@ inline bool isFlatpak()
  */
 inline bool isSnap()
 {
-  return qEnvironmentVariableIsSet("SNAP");
+  return std::getenv("SNAP") != nullptr;
 }
 
 /**

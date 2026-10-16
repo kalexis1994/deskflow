@@ -7,6 +7,7 @@
  */
 
 #include "server/Server.h"
+#include "common/CoreSettings.h"
 #include <cassert>
 
 #include "base/IEventQueue.h"
@@ -299,7 +300,7 @@ std::string Server::protocolString() const
 {
   if (m_protocol == NetworkProtocol::Unknown)
     throw InvalidProtocolException();
-  return networkProtocolToName(m_protocol).toStdString();
+  return networkProtocolToName(m_protocol);
 }
 
 uint32_t Server::getNumClients() const
@@ -1116,10 +1117,8 @@ void Server::processOptions()
     } else if (id == kOptionClipboardSharingSize) {
       if (value <= 0) {
         m_maximumClipboardSize = 0;
-        LOG_INFO(
-            "clipboard sharing is disabled because the "
-            "maximum shared clipboard size is set to 0"
-        );
+        LOG_INFO("clipboard sharing is disabled because the "
+                 "maximum shared clipboard size is set to 0");
       } else {
         m_maximumClipboardSize = static_cast<size_t>(value);
       }
@@ -1129,7 +1128,7 @@ void Server::processOptions()
     stopRelativeMoves();
   }
   m_relativeMoves = newRelativeMoves;
-  m_protocol = Settings::networkProtocol();
+  m_protocol = CoreSettings::networkProtocol();
 }
 
 void Server::handleShapeChanged(BaseClientProxy *client)

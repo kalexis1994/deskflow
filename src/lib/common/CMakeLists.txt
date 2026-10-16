@@ -31,16 +31,21 @@ add_library(common STATIC
   LogLevel.h
   NetworkProtocol.h
   PlatformInfo.h
-  Settings.h
-  Settings.cpp
-  QSettingsProxy.cpp
-  QSettingsProxy.h
+  CoreSettings.cpp
+  CoreSettings.h
+  IniFile.cpp
+  IniFile.h
   UrlConstants.h
   ${CMAKE_CURRENT_BINARY_DIR}/Constants.h
   ${CMAKE_CURRENT_BINARY_DIR}/VersionInfo.h
 )
 
+# Qt6::Core is only left for the moc'd enums in Enums.h and Coordinate.h (IPC, phase 6)
 target_link_libraries(common PUBLIC common-base base Qt6::Core)
+if(WIN32)
+  # GetUserProfileDirectoryW, for the settings file's home directory
+  target_link_libraries(common PRIVATE userenv)
+endif()
 
 target_include_directories(common
   PUBLIC

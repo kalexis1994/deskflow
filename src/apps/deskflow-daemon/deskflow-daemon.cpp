@@ -5,14 +5,15 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "arch/OsDetection.h"
 #include "DaemonApp.h"
+#include "arch/OsDetection.h"
 
 #include "arch/Arch.h"
 #include "base/EventQueue.h"
 #include "base/Log.h"
+#include "common/Constants.h"
+#include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
-#include "common/Settings.h"
 #include "common/VersionInfo.h"
 #include "deskflow/ipc/DaemonIpcServer.h"
 
@@ -74,10 +75,10 @@ int main(int argc, char **argv)
   // It's important to write the version number to the log file so we can be certain the old daemon
   // was uninstalled, since sometimes Windows services can get stuck and fail to be removed.
   LOG_PRINT("%s v%s", qPrintable(QCoreApplication::applicationName()), kDisplayVersion);
-  LOG_INFO("settings file: %s", qPrintable(Settings::settingsFile()));
+  LOG_INFO("settings file: %s", CoreSettings::settingsFile().c_str());
 
   // Default log level to system setting (found in Registry).
-  auto logLevel = Settings::value(Settings::Daemon::LogLevel).toString().toStdString();
+  auto logLevel = CoreSettings::value(CoreSettings::Daemon::LogLevel).toString();
   if (!logLevel.empty()) {
     CLOG->setFilter(logLevel.c_str());
     LOG_DEBUG("log level: %s", logLevel.c_str());
