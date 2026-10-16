@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "Settings.h"
 
 #include "LogLevel.h"
@@ -70,7 +71,7 @@ void Settings::clearState()
 Settings::Settings(QObject *parent) : QObject(parent), m_settingsWatcher{new QFileSystemWatcher(this)}
 {
   QString fileToLoad;
-#ifdef Q_OS_WIN
+#ifdef DESKFLOW_OS_WIN
   const auto portableFile = portableSettingsFile();
   qDebug().noquote() << "checking for portable settings file at:" << portableFile;
   if (QFile(portableFile).exists())
@@ -344,7 +345,7 @@ QVariant Settings::defaultValue(const QString &key)
     return 24800;
 
   if (key == Core::ProcessMode) {
-#ifdef Q_OS_WIN
+#ifdef DESKFLOW_OS_WIN
     if (!Settings::isPortableMode())
       return Settings::ProcessMode::Service;
 #endif
@@ -433,7 +434,7 @@ QString Settings::settingsFile()
 
 QString Settings::settingsPath()
 {
-#ifdef Q_OS_WIN
+#ifdef DESKFLOW_OS_WIN
   if (!isPortableMode())
     return SystemDir;
 #endif

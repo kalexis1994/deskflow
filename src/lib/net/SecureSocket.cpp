@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "SecureSocket.h"
 #include "SecureUtils.h"
 
@@ -662,7 +663,7 @@ ISocketMultiplexerJob *SecureSocket::serviceConnect(ISocketMultiplexerJob *const
   setWritable(false);
 
   int status = 0;
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   status = secureConnect(static_cast<int>(getSocket()->m_socket));
 #else
   status = secureConnect(getSocket()->m_fd);
@@ -701,7 +702,7 @@ ISocketMultiplexerJob *SecureSocket::serviceAccept(ISocketMultiplexerJob *const,
   setWritable(false);
 
   int status = 0;
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   status = secureAccept(static_cast<int>(getSocket()->m_socket));
 #else
   status = secureAccept(getSocket()->m_fd);

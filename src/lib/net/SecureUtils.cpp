@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "SecureUtils.h"
 
 #include "base/FinalAction.h"
@@ -97,7 +98,7 @@ void generatePemSelfSignedCert(const QString &path, int keyLength)
   const QFile file(path);
   const std::filesystem::path fsPath = file.filesystemFileName();
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   auto fp = _wfopen(fsPath.native().c_str(), L"w");
 #else
   auto fp = std::fopen(fsPath.native().c_str(), "w");

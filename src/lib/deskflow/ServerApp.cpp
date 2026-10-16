@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "deskflow/ServerApp.h"
 
 #include "arch/Arch.h"
@@ -31,7 +32,7 @@
 // must be before computer header includes
 #include <QFileInfo>
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
 #include "platform/MSWindowsComputer.h"
 #endif
 
@@ -43,7 +44,7 @@
 #include "platform/EiComputer.h"
 #endif
 
-#if defined(Q_OS_MACOS)
+#if defined(DESKFLOW_OS_MACOS)
 #include "platform/OSXComputer.h"
 #endif
 
@@ -114,7 +115,7 @@ bool ServerApp::loadConfig(const QString &filename)
   try {
     // load configuration
     LOG_DEBUG("opening configuration \"%s\"", path.c_str());
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
     std::ifstream configStream(filename.toStdWString());
 #else
     std::ifstream configStream(path);
@@ -391,11 +392,11 @@ bool ServerApp::startServer()
 
 deskflow::Computer *ServerApp::createComputer()
 {
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   return new deskflow::Computer(
       new MSWindowsComputer(true, Settings::value(Settings::Core::UseHooks).toBool(), getEvents()), getEvents()
   );
-#elif defined(Q_OS_MACOS)
+#elif defined(DESKFLOW_OS_MACOS)
   return new deskflow::Computer(new OSXComputer(getEvents(), true), getEvents());
 #else
   if (deskflow::platform::isWayland()) {

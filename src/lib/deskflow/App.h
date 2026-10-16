@@ -8,13 +8,15 @@
 
 #pragma once
 
+#include "arch/OsDetection.h"
+
 #include "base/EventQueue.h"
 #include "base/Log.h"
 #include "common/ExitCodes.h"
 #include "deskflow/IApp.h"
 #include "net/SocketMultiplexer.h"
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
 #include "deskflow/win32/AppUtilWindows.h"
 #else
 #include "deskflow/unix/AppUtilUnix.h"

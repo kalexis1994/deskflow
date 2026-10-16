@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "arch/OsDetection.h"
+
 #include <QString>
 
 // important: this is used for settings paths on some platforms,
@@ -20,6 +22,6 @@ const auto kUrlDownload = QStringLiteral("%1/download?%2").arg(kUrlApp, kUrlSour
 const auto kUrlWiki = QStringLiteral("%1/wiki?%2").arg(kUrlApp, kUrlSourceQuery);
 const auto kUrlUpdateCheck = QStringLiteral("https://api.%1/version").arg(kOrgDomain);
 
-#if defined(Q_OS_LINUX)
+#if defined(DESKFLOW_OS_LINUX)
 const auto kUrlGnomeTrayFix = QStringLiteral("https://extensions.gnome.org/extension/615/appindicator-support/");
 #endif

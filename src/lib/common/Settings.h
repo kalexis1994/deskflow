@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "arch/OsDetection.h"
+
 #include <QSettings>
 
 #include <QDir>
@@ -20,10 +22,10 @@ class Settings : public QObject
 {
   Q_OBJECT
 public:
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   inline const static auto UserDir = QStringLiteral("%1/AppData/Roaming/%2").arg(QDir::homePath(), kAppName);
   inline const static auto SystemDir = QStringLiteral("%1ProgramData/%2").arg(QDir::rootPath(), kAppName);
-#elif defined(Q_OS_MACOS)
+#elif defined(DESKFLOW_OS_MACOS)
   inline const static auto UserDir = QStringLiteral("%1/Library/%2").arg(QDir::homePath(), kAppName);
   inline const static auto SystemDir = QStringLiteral("/Library/%1").arg(kAppName);
 #else

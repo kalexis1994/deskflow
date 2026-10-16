@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "arch/OsDetection.h"
+
 #include <QObject>
 #include <QThread>
 
@@ -19,7 +21,7 @@ namespace deskflow::core::ipc {
 class DaemonIpcServer;
 }
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
 class MSWindowsWatchdog;
 #endif
 
@@ -53,7 +55,7 @@ private:
 
   static void showConsole();
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   std::unique_ptr<MSWindowsWatchdog> m_pWatchdog;
 #endif
 

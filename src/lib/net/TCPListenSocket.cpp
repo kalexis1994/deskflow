@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "net/TCPListenSocket.h"
 
 #include "arch/Arch.h"
@@ -54,7 +55,7 @@ void TCPListenSocket::bind(const NetworkAddress &addr)
   try {
     std::scoped_lock lock{m_mutex};
 
-#if defined(Q_OS_UNIX)
+#if defined(DESKFLOW_OS_UNIX)
     // Only reuse socket addr on Unix so we can restart the server quickly (Unix holds the port
     // in TIME_WAIT for a few mins after close). This is not needed on Windows and can cause issues
     // because binding to a re-use port makes it look like the server is listening when it is not.

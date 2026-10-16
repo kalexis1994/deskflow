@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "deskflow/ClientApp.h"
 
 #include "base/Event.h"
@@ -23,7 +24,7 @@
 #include "net/SocketMultiplexer.h"
 #include "net/TCPSocketFactory.h"
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
 #include "platform/MSWindowsComputer.h"
 #endif
 
@@ -37,7 +38,7 @@
 #include "platform/EiComputer.h"
 #endif
 
-#if defined(Q_OS_MACOS)
+#if defined(DESKFLOW_OS_MACOS)
 #include "platform/OSXComputer.h"
 #endif
 
@@ -100,17 +101,17 @@ const char *ClientApp::daemonName() const
 
 deskflow::Computer *ClientApp::createComputer()
 {
-#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+#if defined(DESKFLOW_OS_WIN) || defined(DESKFLOW_OS_MACOS)
   const auto languageSync = Settings::value(Settings::Client::LanguageSync).toBool();
   LOG_INFO("keyboard language sync is %s", languageSync ? "enabled" : "disabled");
 #endif
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   return new deskflow::Computer(
       new MSWindowsComputer(false, Settings::value(Settings::Core::UseHooks).toBool(), getEvents(), languageSync),
       getEvents()
   );
-#elif defined(Q_OS_MACOS)
+#elif defined(DESKFLOW_OS_MACOS)
   return new deskflow::Computer(new OSXComputer(getEvents(), false, languageSync), getEvents());
 #else
   if (deskflow::platform::isWayland()) {

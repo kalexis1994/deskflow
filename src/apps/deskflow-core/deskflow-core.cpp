@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "CoreArgParser.h"
 
 #include "arch/Arch.h"
@@ -17,7 +18,7 @@
 #include "deskflow/ServerApp.h"
 #include "deskflow/ipc/CoreIpcServer.h"
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
 #include "arch/win32/ArchMiscWindows.h"
 #endif
 
@@ -69,7 +70,7 @@ App *createApp(const CoreArgParser &parser, EventQueue &events, const QString &p
 
 int main(int argc, char **argv)
 {
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
   ArchMiscWindows::setInstanceWin32(GetModuleHandle(nullptr));
 #endif
 

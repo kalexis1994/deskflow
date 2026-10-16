@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "deskflow/Computer.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
@@ -12,7 +13,7 @@
 
 #include <QProcess>
 
-#ifdef Q_OS_WIN
+#ifdef DESKFLOW_OS_WIN
 #include "arch/win32/ArchMiscWindows.h"
 #include "platform/MSWindowsProcess.h"
 #endif
@@ -23,7 +24,7 @@ namespace {
 
 bool runComputerCommand(const QString &commandLine)
 {
-#ifdef Q_OS_WIN
+#ifdef DESKFLOW_OS_WIN
   using deskflow::platform::MSWindowsProcess;
   if (ArchMiscWindows::isProcessElevated()) {
     LOG_DEBUG("current process is elevated, starting detached process as session user");

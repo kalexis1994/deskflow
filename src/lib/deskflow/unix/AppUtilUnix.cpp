@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "deskflow/unix/AppUtilUnix.h"
 
 #include "base/Log.h"
@@ -14,7 +15,7 @@
 #if WINAPI_XWINDOWS
 #include <X11/XKBlib.h>
 #include <deskflow/unix/XkbLayoutsParser.h>
-#elif defined(Q_OS_MACOS)
+#elif defined(DESKFLOW_OS_MACOS)
 #include <Carbon/Carbon.h>
 #include <platform/OSXAutoTypes.h>
 #endif
@@ -41,7 +42,7 @@ std::vector<std::string> AppUtilUnix::getKeyboardLayoutList()
 #if WINAPI_XWINDOWS
   layoutLangCodes = XkbLayoutsParser::getXkbLanguageList();
 
-#elif defined(Q_OS_MACOS)
+#elif defined(DESKFLOW_OS_MACOS)
   CFStringRef keys[] = {kTISPropertyInputSourceCategory};
   CFStringRef values[] = {kTISCategoryKeyboardInputSource};
   AutoCFDictionary dict(
@@ -137,7 +138,7 @@ std::string AppUtilUnix::getCurrentLanguageCode()
 
   result = XkbLayoutsParser::convertLayoutToISO(result);
 
-#elif defined(Q_OS_MACOS)
+#elif defined(DESKFLOW_OS_MACOS)
   AutoTISInputSourceRef source(nullptr, CFRelease);
   CFArrayRef layoutLanguages = nullptr;
   {

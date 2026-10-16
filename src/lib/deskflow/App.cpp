@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "arch/OsDetection.h"
 #include "deskflow/App.h"
 
 #include "DisplayInvalidException.h"
@@ -16,13 +17,13 @@
 #include "deskflow/DeskflowException.h"
 #include "mt/ThreadException.h"
 
-#if defined(Q_OS_WIN)
+#if defined(DESKFLOW_OS_WIN)
 #include "base/IEventQueue.h"
 #endif
 
 #include <stdexcept>
 
-#if defined(Q_OS_MACOS)
+#if defined(DESKFLOW_OS_MACOS)
 #include <ApplicationServices/ApplicationServices.h>
 #endif
 
