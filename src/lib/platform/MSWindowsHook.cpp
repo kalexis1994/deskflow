@@ -36,10 +36,10 @@ static int32_t g_hComputer = 0;
 static WPARAM g_deadVirtKey = 0;
 static WPARAM g_deadRelease = 0;
 static LPARAM g_deadLParam = 0;
-static BYTE g_deadKeyState[256] = {0};
-static BYTE g_keyState[256] = {0};
-static WCHAR g_lastChars[256] = {0};
-static BYTE g_lastNoAltGr[256] = {0};
+static BYTE g_deadKeyState[MSWindowsHook::kVirtualKeyCount] = {0};
+static BYTE g_keyState[MSWindowsHook::kVirtualKeyCount] = {0};
+static WCHAR g_lastChars[MSWindowsHook::kVirtualKeyCount] = {0};
+static BYTE g_lastNoAltGr[MSWindowsHook::kVirtualKeyCount] = {0};
 static bool g_keyStateValid = false;
 static std::mutex g_keyStateMutex;
 static DWORD g_hookThread = 0;
@@ -150,7 +150,7 @@ void MSWindowsHook::setMode(EHookMode mode)
   g_mode = mode;
 }
 
-bool MSWindowsHook::getPhysicalKeyState(BYTE keys[256])
+bool MSWindowsHook::getPhysicalKeyState(BYTE keys[MSWindowsHook::kVirtualKeyCount])
 {
   std::lock_guard<std::mutex> lock(g_keyStateMutex);
   if (g_keyStateValid) {
@@ -159,13 +159,13 @@ bool MSWindowsHook::getPhysicalKeyState(BYTE keys[256])
   return g_keyStateValid;
 }
 
-static void keyboardGetState(BYTE keys[256], DWORD vkCode, bool kf_up)
+static void keyboardGetState(BYTE keys[MSWindowsHook::kVirtualKeyCount], DWORD vkCode, bool kf_up)
 {
   // we have to use GetAsyncKeyState() rather than GetKeyState() because
   // we don't pass through most keys so the event synchronous state
   // doesn't get updated.  we do that because certain modifier keys have
   // side effects, like alt and the windows key.
-  if (vkCode < 0 || vkCode >= 256) {
+  if (vkCode < 0 || vkCode >= MSWindowsHook::kVirtualKeyCount) {
     return;
   }
 
@@ -185,14 +185,14 @@ static void keyboardGetState(BYTE keys[256], DWORD vkCode, bool kf_up)
     // In this case, update g_keyState to reflect what GetAsyncKeyState()
     // is telling us, just in case we have gotten out of sync
 
-    for (int i = 0; i < 256; ++i) {
+    for (int i = 0; i < MSWindowsHook::kVirtualKeyCount; ++i) {
       key = GetAsyncKeyState(i);
       g_keyState[i] = (BYTE)((key < 0) ? 0x80u : 0);
     }
   }
 
   // copy g_keyState to keys
-  for (int i = 0; i < 256; ++i) {
+  for (int i = 0; i < MSWindowsHook::kVirtualKeyCount; ++i) {
     keys[i] = g_keyState[i];
   }
 
@@ -226,7 +226,9 @@ static void setDeadKey(WCHAR wc[], int size, UINT flags)
   }
 }
 
-static WPARAM mapKeyDown(WPARAM wParam, LPARAM lParam, BYTE (&keys)[256], UINT control, UINT menu, UINT flags)
+static WPARAM mapKeyDown(
+    WPARAM wParam, LPARAM lParam, BYTE (&keys)[MSWindowsHook::kVirtualKeyCount], UINT control, UINT menu, UINT flags
+)
 {
   DWORD vkCode = static_cast<DWORD>(wParam);
 
@@ -250,7 +252,7 @@ static WPARAM mapKeyDown(WPARAM wParam, LPARAM lParam, BYTE (&keys)[256], UINT c
     PostThreadMessage(g_threadID, DESKFLOW_MSG_DEBUG, wParam | 0x05000000, lParam);
     setDeadKey(wc, 2, flags);
 
-    BYTE keys2[256];
+    BYTE keys2[MSWindowsHook::kVirtualKeyCount];
     for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) {
       keys2[i] = keys[i];
     }
@@ -283,7 +285,7 @@ static WPARAM mapKeyDown(WPARAM wParam, LPARAM lParam, BYTE (&keys)[256], UINT c
     // key doesn't map to a character.  this can happen if
     // non-character keys are pressed after a dead key.
     charAndVirtKey = makeKeyMsg((UINT)wParam, 0, noAltGr);
-    if (vkCode < 256) {
+    if (vkCode < MSWindowsHook::kVirtualKeyCount) {
       g_lastChars[vkCode] = 0;
       g_lastNoAltGr[vkCode] = 0;
     }
@@ -298,7 +300,7 @@ static WPARAM mapKeyDown(WPARAM wParam, LPARAM lParam, BYTE (&keys)[256], UINT c
     if (g_deadVirtKey != 0) {
       g_deadRelease = g_deadVirtKey;
     }
-    if (vkCode < 256) {
+    if (vkCode < MSWindowsHook::kVirtualKeyCount) {
       g_lastChars[vkCode] = wc[0];
       g_lastNoAltGr[vkCode] = noAltGr ? 1 : 0;
     }
@@ -314,7 +316,7 @@ static WPARAM mapKeyDown(WPARAM wParam, LPARAM lParam, BYTE (&keys)[256], UINT c
     // use uncomposed character
     charAndVirtKey = makeKeyMsg((UINT)wParam, wc[1], noAltGr);
     clearDeadKey = true;
-    if (vkCode < 256) {
+    if (vkCode < MSWindowsHook::kVirtualKeyCount) {
       g_lastChars[vkCode] = wc[1];
       g_lastNoAltGr[vkCode] = noAltGr ? 1 : 0;
     }
@@ -366,7 +368,7 @@ static bool keyboardHookHandler(WPARAM wParam, LPARAM lParam)
   PostThreadMessage(g_threadID, DESKFLOW_MSG_DEBUG, wParam, lParam);
 
   // we need the keyboard state for ToAscii()
-  BYTE keys[256];
+  BYTE keys[MSWindowsHook::kVirtualKeyCount];
   keyboardGetState(keys, vkCode, kf_up);
 
   // Update the physical state before ignoring a dead key release so it cannot remain down in the resync snapshot.
@@ -428,8 +430,8 @@ static bool keyboardHookHandler(WPARAM wParam, LPARAM lParam)
   // calling ToUnicode on key-up flushes a pending dead key as a spacing character
   WPARAM charAndVirtKey = 0;
   if (kf_up) {
-    WCHAR prev = (vkCode < 256) ? g_lastChars[vkCode] : 0;
-    bool noAltGr = (vkCode < 256) && (g_lastNoAltGr[vkCode] != 0);
+    WCHAR prev = (vkCode < MSWindowsHook::kVirtualKeyCount) ? g_lastChars[vkCode] : 0;
+    bool noAltGr = (vkCode < MSWindowsHook::kVirtualKeyCount) && (g_lastNoAltGr[vkCode] != 0);
     charAndVirtKey = makeKeyMsg((UINT)wParam, prev, noAltGr);
   } else {
     charAndVirtKey = mapKeyDown(wParam, lParam, keys, control, menu, flags);
