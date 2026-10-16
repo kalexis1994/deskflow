@@ -10,8 +10,10 @@
 
 #include <QMetaEnum>
 
-void ipcSendToClient(const QString &command, const QString &args)
+void ipcSendToClient(const std::string &commandText, const std::string &argsText)
 {
+  const auto command = QString::fromStdString(commandText);
+  const auto args = QString::fromStdString(argsText);
   // Queued because callers may not be on the main thread,
   // and QLocalSocket can only be written to from its owning thread.
   auto &server = deskflow::core::ipc::CoreIpcServer::instance();
@@ -24,5 +26,5 @@ void ipcSendToClient(const QString &command, const QString &args)
 void ipcSendConnectionState(deskflow::core::ConnectionState state)
 {
   const auto metaEnum = QMetaEnum::fromType<deskflow::core::ConnectionState>();
-  ipcSendToClient(QStringLiteral("connectionState"), metaEnum.valueToKey(static_cast<int>(state)));
+  ipcSendToClient("connectionState", metaEnum.valueToKey(static_cast<int>(state)));
 }

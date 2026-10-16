@@ -1,6 +1,6 @@
 /*
  * Deskflow -- mouse and keyboard sharing utility
- * SPDX-FileCopyrightText: (C) 2025 Deskflow Developers
+ * SPDX-FileCopyrightText: (C) 2025 - 2026 Deskflow Developers
  * SPDX-FileCopyrightText: (C) 2021 Barrier Contributors
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
@@ -9,26 +9,30 @@
 
 #include "Fingerprint.h"
 
-#include <QList>
+#include <iosfwd>
+#include <string>
+#include <vector>
 
+//! The trusted fingerprints file: one `Fingerprint::toDbLine()` per line
 class FingerprintDatabase
 {
 public:
-  void read(const QString &path);
-  bool write(const QString &path);
+  //! Adds the fingerprints in a file (UTF-8 path); a missing file adds nothing
+  void read(const std::string &path);
+  bool write(const std::string &path);
 
-  void readStream(QTextStream &in);
-  bool writeStream(QTextStream &out);
+  void readStream(std::istream &in);
+  bool writeStream(std::ostream &out);
 
   void clear();
   void addTrusted(const Fingerprint &fingerprint);
   bool isTrusted(const Fingerprint &fingerprint) const;
 
-  const QList<Fingerprint> &fingerprints() const
+  const std::vector<Fingerprint> &fingerprints() const
   {
     return m_fingerprints;
   }
 
 private:
-  QList<Fingerprint> m_fingerprints;
+  std::vector<Fingerprint> m_fingerprints;
 };

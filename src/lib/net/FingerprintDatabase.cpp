@@ -1,71 +1,59 @@
 /*
  * Deskflow -- mouse and keyboard sharing utility
- * SPDX-FileCopyrightText: (C) 2025 Deskflow Developers
+ * SPDX-FileCopyrightText: (C) 2025 - 2026 Deskflow Developers
  * SPDX-FileCopyrightText: (C) 2021 Barrier Contributors
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
 #include "FingerprintDatabase.h"
 
-#include <QFile>
-#include <QTextStream>
+#include "arch/Utf8.h"
 
-void FingerprintDatabase::read(const QString &path)
+#include <algorithm>
+#include <fstream>
+
+void FingerprintDatabase::read(const std::string &path)
 {
-  QFile file(path);
-  if (!file.open(QIODevice::ReadOnly))
+  std::ifstream file(deskflow::utf8Path(path), std::ios::binary);
+  if (!file)
     return;
-  QTextStream in(&file);
-  readStream(in);
+  readStream(file);
 }
 
-void FingerprintDatabase::readStream(QTextStream &in)
+void FingerprintDatabase::readStream(std::istream &in)
 {
-  // Make sure the stream has something to read
-  if (!in.device() && !in.string())
-    return;
-
-  if (in.device() && !in.device()->isReadable())
-    return;
-
-  if (in.string() && in.string()->isEmpty())
-    return;
-
-  QString line;
-  while (!in.atEnd()) {
-    line = in.readLine();
-    if (line.isEmpty())
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.ends_with('\r'))
+      line.pop_back();
+    if (line.empty())
       continue;
     auto fingerprint = Fingerprint::fromDbLine(line);
     if (!fingerprint.isValid()) {
       continue;
     }
-    m_fingerprints.append(fingerprint);
+    m_fingerprints.push_back(std::move(fingerprint));
   }
 }
 
-bool FingerprintDatabase::write(const QString &path)
+bool FingerprintDatabase::write(const std::string &path)
 {
-  QFile file(path);
-  if (!file.open(QIODevice::WriteOnly))
+  std::ofstream file(deskflow::utf8Path(path), std::ios::binary | std::ios::trunc);
+  if (!file)
     return false;
-  QTextStream out(&file);
-  return (writeStream(out));
+  return writeStream(file);
 }
 
-bool FingerprintDatabase::writeStream(QTextStream &out)
+bool FingerprintDatabase::writeStream(std::ostream &out)
 {
-  // Make sure the stream has somewhere to write
-  if (!out.device() && !out.string())
+  if (!out)
     return false;
 
-  if (out.device() && !out.device()->isWritable())
-    return false;
-
-  for (const auto &fingerprint : std::as_const(m_fingerprints)) {
+  for (const auto &fingerprint : m_fingerprints) {
     out << fingerprint.toDbLine() << "\n";
   }
-  return true;
+  out.flush();
+  return static_cast<bool>(out);
 }
 
 void FingerprintDatabase::clear()
@@ -78,10 +66,10 @@ void FingerprintDatabase::addTrusted(const Fingerprint &fingerprint)
   if (isTrusted(fingerprint)) {
     return;
   }
-  m_fingerprints.append(fingerprint);
+  m_fingerprints.push_back(fingerprint);
 }
 
 bool FingerprintDatabase::isTrusted(const Fingerprint &fingerprint) const
 {
-  return m_fingerprints.contains(fingerprint);
+  return std::find(m_fingerprints.begin(), m_fingerprints.end(), fingerprint) != m_fingerprints.end();
 }

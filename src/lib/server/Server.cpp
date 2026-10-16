@@ -256,7 +256,7 @@ void Server::adoptClient(BaseClientProxy *client)
   // name must be in our configuration
   if (!m_config->isComputer(client->getName())) {
     LOG_WARN("unrecognised client name \"%s\", check server config", client->getName().c_str());
-    ipcSendToClient("unrecognisedClient", QString::fromStdString(client->getName()));
+    ipcSendToClient("unrecognisedClient", client->getName());
     closeClient(client, kMsgEUnknown);
     return;
   }
@@ -319,13 +319,15 @@ void Server::getClients(std::vector<std::string> &list) const
 void Server::sendConnectedClientsIpc() const
 {
   const auto primaryName = getName(m_primaryClient);
-  QStringList clientList;
+  std::string clientList;
   for (const auto &[name, _] : m_clients) {
     if (name != primaryName) {
-      clientList.append(QString::fromStdString(name));
+      if (!clientList.empty())
+        clientList += ',';
+      clientList += name;
     }
   }
-  ipcSendToClient("connectedClients", clientList.join(","));
+  ipcSendToClient("connectedClients", clientList);
 }
 
 std::string Server::getName(const BaseClientProxy *client) const

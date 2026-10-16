@@ -24,10 +24,11 @@ FingerprintPreview::FingerprintPreview(
   setFrameStyle(QFrame::Sunken);
   setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
-  if (fingerprint.type == QCryptographicHash::Sha256) {
+  if (fingerprint.type == Fingerprint::Type::Sha256) {
     setLayout(sha256Layout(fingerprint, titleText, hashMode));
   } else {
-    qWarning() << "cannot render fingerprint, unsupported type:" << Fingerprint::typeToString(fingerprint.type);
+    qWarning() << "cannot render fingerprint, unsupported type:"
+               << QString::fromStdString(Fingerprint::typeToString(fingerprint.type));
     setLayout(emptyLayout());
   }
 
@@ -72,13 +73,13 @@ QLayout *FingerprintPreview::sha256Layout(const Fingerprint &fingerprint, const 
   labelTitle->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
   labelTitle->setVisible(!titleText.isEmpty());
 
-  m_lblHash = new QLabel(deskflow::formatSSLFingerprintColumns(fingerprint.data), this);
+  m_lblHash = new QLabel(QString::fromStdString(deskflow::formatSSLFingerprintColumns(fingerprint.data)), this);
   m_lblHash->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
   m_lblHash->setTextInteractionFlags(Qt::TextSelectableByMouse);
   m_lblHash->setVisible(hashMode);
   m_lblHash->setFont(fixedFont());
 
-  m_lblArt = new QLabel(deskflow::generateFingerprintArt(fingerprint.data), this);
+  m_lblArt = new QLabel(QString::fromStdString(deskflow::generateFingerprintArt(fingerprint.data)), this);
   m_lblArt->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
   m_lblArt->setTextInteractionFlags(Qt::TextSelectableByMouse);
   m_lblArt->setVisible(!hashMode);

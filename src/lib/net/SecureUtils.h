@@ -1,6 +1,6 @@
 /*
  * Deskflow -- mouse and keyboard sharing utility
- * SPDX-FileCopyrightText: (C) 2025 Deskflow Developers
+ * SPDX-FileCopyrightText: (C) 2025 - 2026 Deskflow Developers
  * SPDX-FileCopyrightText: (C) 2021 Barrier Contributors
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
@@ -11,21 +11,26 @@
 
 #include <openssl/x509.h>
 
+#include <string>
+
 namespace deskflow {
 
 /**
  * @brief formatSSLFingerprint Format an ssl Fingerprint
- * @param fingerprint input string
+ * @param fingerprint the raw digest
  * @param enableSeparators insert : seperator every byte when true
- * @return a Formated Fingerprint String
+ * @return uppercase hex, e.g. "28:FD:0A:..."
  */
-QString formatSSLFingerprint(const QByteArray &fingerprint, bool enableSeparators = true);
+std::string formatSSLFingerprint(const Fingerprint::Bytes &fingerprint, bool enableSeparators = true);
 
-QString formatSSLFingerprintColumns(const QByteArray &fingerprint);
+//! The hex fingerprint broken into lines of 8 bytes
+std::string formatSSLFingerprintColumns(const Fingerprint::Bytes &fingerprint);
 
-Fingerprint sslCertFingerprint(const X509 *cert, QCryptographicHash::Algorithm type);
+Fingerprint sslCertFingerprint(const X509 *cert, Fingerprint::Type type);
 
-void generatePemSelfSignedCert(const QString &path, int keyLength = 2048);
+//! Writes a new key and self-signed certificate to a PEM file (UTF-8 path)
+void generatePemSelfSignedCert(const std::string &path, int keyLength = 2048);
 
-QString generateFingerprintArt(const QByteArray &rawDigest);
+//! The "random art" picture of a digest (UTF-8, box-drawing frame)
+std::string generateFingerprintArt(const Fingerprint::Bytes &rawDigest);
 } // namespace deskflow

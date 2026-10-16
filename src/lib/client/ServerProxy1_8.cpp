@@ -76,7 +76,7 @@ void ServerProxy1_8::setServerLayouts()
 
   if (const auto missingLayouts = m_layoutManager.getMissedLayouts(); !missingLayouts.empty()) {
     LOG_WARN("server layouts missing on this computer: %s", missingLayouts.c_str());
-    ipcSendToClient("missingKeyboardLayouts", QString::fromStdString(missingLayouts));
+    ipcSendToClient("missingKeyboardLayouts", missingLayouts);
   }
 }
 

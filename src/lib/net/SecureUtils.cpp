@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "arch/OsDetection.h"
 #include "SecureUtils.h"
+#include "arch/OsDetection.h"
 
+#include "arch/Utf8.h"
 #include "base/FinalAction.h"
 
 #include <openssl/evp.h>
@@ -15,8 +16,10 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-#include <QFile>
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <stdexcept>
 
@@ -24,12 +27,12 @@ namespace deskflow {
 
 namespace {
 
-const EVP_MD *digestForType(QCryptographicHash::Algorithm type)
+const EVP_MD *digestForType(Fingerprint::Type type)
 {
   switch (type) {
-  case QCryptographicHash::Sha1:
+  case Fingerprint::Type::Sha1:
     return EVP_sha1();
-  case QCryptographicHash::Sha256:
+  case Fingerprint::Type::Sha256:
     return EVP_sha256();
   default:
     break;
@@ -39,15 +42,16 @@ const EVP_MD *digestForType(QCryptographicHash::Algorithm type)
 
 } // namespace
 
-QString formatSSLFingerprint(const QByteArray &fingerprint, bool enableSeparators)
+std::string formatSSLFingerprint(const Fingerprint::Bytes &fingerprint, bool enableSeparators)
 {
-  if (enableSeparators)
-    return fingerprint.toHex(':').toUpper();
-  else
-    return fingerprint.toHex().toUpper();
+  auto hex = Fingerprint::toHex(fingerprint, enableSeparators ? ':' : '\0');
+  std::transform(hex.begin(), hex.end(), hex.begin(), [](unsigned char c) {
+    return static_cast<char>(std::toupper(c));
+  });
+  return hex;
 }
 
-Fingerprint sslCertFingerprint(const X509 *cert, QCryptographicHash::Algorithm type)
+Fingerprint sslCertFingerprint(const X509 *cert, Fingerprint::Type type)
 {
   if (!cert) {
     throw std::runtime_error("certificate is null");
@@ -60,11 +64,10 @@ Fingerprint sslCertFingerprint(const X509 *cert, QCryptographicHash::Algorithm t
     throw std::runtime_error("failed to calculate fingerprint, digest result: " + std::to_string(result));
   }
 
-  QByteArray digestArray(reinterpret_cast<const char *>(digest), digestLength);
-  return {type, digestArray};
+  return {type, Fingerprint::Bytes(digest, digest + digestLength)};
 }
 
-void generatePemSelfSignedCert(const QString &path, int keyLength)
+void generatePemSelfSignedCert(const std::string &path, int keyLength)
 {
   auto expirationDays = 365;
 
@@ -95,8 +98,7 @@ void generatePemSelfSignedCert(const QString &path, int keyLength)
   X509_NAME_free(name);
 
   X509_sign(cert, privateKey, EVP_sha256());
-  const QFile file(path);
-  const std::filesystem::path fsPath = file.filesystemFileName();
+  const auto fsPath = utf8Path(path);
 
 #if defined(DESKFLOW_OS_WIN)
   auto fp = _wfopen(fsPath.native().c_str(), L"w");
@@ -113,26 +115,18 @@ void generatePemSelfSignedCert(const QString &path, int keyLength)
   PEM_write_X509(fp, cert);
 }
 
-QString formatSSLFingerprintColumns(const QByteArray &fingerprint)
+std::string formatSSLFingerprintColumns(const Fingerprint::Bytes &fingerprint)
 {
-  auto kMaxColumns = 24;
+  const size_t kBytesPerLine = 8;
 
-  QString hex = fingerprint.toHex(':').toUpper();
-  if (hex.isEmpty()) {
-    return hex;
+  std::string result;
+  for (size_t start = 0; start < fingerprint.size(); start += kBytesPerLine) {
+    const auto end = (std::min)(start + kBytesPerLine, fingerprint.size()); // Windows.h defines min
+    if (!result.empty())
+      result += '\n';
+    result += formatSSLFingerprint(Fingerprint::Bytes(fingerprint.begin() + start, fingerprint.begin() + end));
   }
-
-  QString formattedString;
-  while (!hex.isEmpty()) {
-    const auto take = std::min<size_t>(kMaxColumns, hex.size());
-    formattedString.append(hex.first(take));
-    hex.remove(0, take);
-    if (formattedString.endsWith(QLatin1Char(':')))
-      formattedString.removeLast();
-    formattedString.append(QLatin1Char('\n'));
-  }
-  formattedString.removeLast();
-  return formattedString;
+  return result;
 }
 
 /*
@@ -162,12 +156,12 @@ walked in either direction.
     fail, too, because the key type would not fit in anymore.
 */
 
-QString generateFingerprintArt(const QByteArray &rawDigest)
+std::string generateFingerprintArt(const Fingerprint::Bytes &rawDigest)
 {
   const auto baseSize = 8;
   const auto rows = (baseSize + 1);
   const auto columns = (baseSize * 2 + 1);
-  const auto characterPool = QStringLiteral(" .o+=*BOX@%&#/^SE");
+  const std::string_view characterPool = " .o+=*BOX@%&#/^SE";
   const std::size_t len = characterPool.length() - 1;
 
   std::uint8_t field[columns][rows];
@@ -198,19 +192,19 @@ QString generateFingerprintArt(const QByteArray &rawDigest)
   field[columns / 2][rows / 2] = len - 1;
   field[x][y] = len;
 
-  QString result;
-  result.reserve((columns + 3) * (rows + 2));
-  result.append(QStringLiteral("╔═════════════════╗\n"));
+  std::string result;
+  result.reserve((columns + 6) * (rows + 2) * 3);
+  result.append("╔═════════════════╗\n");
 
   /* output content */
   for (y = 0; y < rows; y++) {
-    result.append(QStringLiteral("║"));
+    result.append("║");
     for (x = 0; x < columns; x++)
-      result.append(characterPool.at(std::min<int>(field[x][y], len)));
-    result.append(QStringLiteral("║\n"));
+      result += characterPool.at(std::min<std::size_t>(field[x][y], len));
+    result.append("║\n");
   }
 
-  result.append(QStringLiteral("╚═════════════════╝"));
+  result.append("╚═════════════════╝");
   return result;
 }
 

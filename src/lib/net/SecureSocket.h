@@ -17,7 +17,6 @@ class Event;
 class IEventQueue;
 class SocketMultiplexer;
 class ISocketMultiplexerJob;
-class QString;
 
 struct Ssl;
 
@@ -66,7 +65,7 @@ public:
   JobResult doRead() override;
   JobResult doWrite() override;
   void initSsl(bool server);
-  bool loadCertificate(const QString &filename);
+  bool loadCertificate(const std::string &filename);
 
 private:
   // SSL
@@ -78,7 +77,7 @@ private:
   bool showCertificate() const;
   void checkResult(int n, int &retry);
   void disconnect();
-  bool verifyCertFingerprint(const QString &FingerprintDatabasePath) const;
+  bool verifyCertFingerprint(const std::string &fingerprintDatabasePath) const;
 
   ISocketMultiplexerJob *serviceConnect(ISocketMultiplexerJob *const socket, bool, bool, bool);
 

@@ -15,4 +15,5 @@ private Q_SLOTS:
   void test_fromDbLine();
   void test_typeToString();
   void test_typeFromString();
+  void test_fromHexMatchesQt();
 };

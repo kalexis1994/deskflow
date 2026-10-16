@@ -11,6 +11,7 @@
 #include <cassert>
 
 #include "arch/ArchException.h"
+#include "arch/Utf8.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
 #include "common/CoreSettings.h"
@@ -20,8 +21,7 @@
 #include "net/FingerprintDatabase.h"
 #include "net/TCPSocket.h"
 #include "net/TSocketMultiplexerMethodJob.h"
-#include <QFile>
-#include <QString>
+#include <filesystem>
 #include <net/SslLogger.h>
 
 #include <cstdlib>
@@ -295,23 +295,24 @@ void SecureSocket::initSsl(bool server)
   initContext(server);
 }
 
-bool SecureSocket::loadCertificate(const QString &filename)
+bool SecureSocket::loadCertificate(const std::string &filename)
 {
   std::scoped_lock ssl_lock{ssl_mutex_};
 
-  if (filename.isEmpty()) {
+  if (filename.empty()) {
     SslLogger::logError("tls certificate is not specified");
     return false;
   }
 
-  if (!QFile::exists(filename)) {
+  if (std::error_code ec; !std::filesystem::exists(deskflow::utf8Path(filename), ec)) {
     std::string errorMsg("tls certificate doesn't exist: ");
-    errorMsg.append(filename.toStdString());
+    errorMsg.append(filename);
     SslLogger::logError(errorMsg);
     return false;
   }
 
-  const auto fName = filename.toStdString();
+  // OpenSSL opens UTF-8 paths correctly on Windows too
+  const auto &fName = filename;
 
   if (SSL_CTX_use_certificate_file(m_ssl->m_context, fName.c_str(), SSL_FILETYPE_PEM) <= 0) {
     SslLogger::logError("could not use tls certificate");
@@ -435,8 +436,7 @@ int SecureSocket::secureAccept(int socket)
 
   // If not fatal and no retry, state is good
   if (retry == 0) {
-    if (m_securityLevel == SecurityLevel::PeerAuth &&
-        !verifyCertFingerprint(QString::fromStdString(CoreSettings::tlsTrustedClientsDb()))) {
+    if (m_securityLevel == SecurityLevel::PeerAuth && !verifyCertFingerprint(CoreSettings::tlsTrustedClientsDb())) {
       retry = 0;
       disconnect();
       return -1; // Fail
@@ -462,7 +462,7 @@ int SecureSocket::secureAccept(int socket)
 
 int SecureSocket::secureConnect(int socket)
 {
-  if (!loadCertificate(QString::fromStdString(CoreSettings::value(CoreSettings::Security::Certificate).toString()))) {
+  if (!loadCertificate(CoreSettings::value(CoreSettings::Security::Certificate).toString())) {
     LOG_ERR("could not load client certificates");
     disconnect();
     return -1;
@@ -499,7 +499,7 @@ int SecureSocket::secureConnect(int socket)
   retry = 0;
   // No error, set ready, process and return ok
   m_secureReady = true;
-  if (verifyCertFingerprint(QString::fromStdString(CoreSettings::tlsTrustedServersDb()))) {
+  if (verifyCertFingerprint(CoreSettings::tlsTrustedServersDb())) {
     LOG_INFO("connected to secure socket");
     if (!showCertificate()) {
       disconnect();
@@ -619,10 +619,10 @@ void SecureSocket::disconnect()
   sendEvent(StreamInputShutdown);
 }
 
-bool SecureSocket::verifyCertFingerprint(const QString &FingerprintDatabasePath) const
+bool SecureSocket::verifyCertFingerprint(const std::string &fingerprintDatabasePath) const
 {
   const auto cert = SSL_get_peer_certificate(m_ssl->m_ssl);
-  const auto sha256 = deskflow::sslCertFingerprint(cert, QCryptographicHash::Sha256);
+  const auto sha256 = deskflow::sslCertFingerprint(cert, Fingerprint::Type::Sha256);
 
   if (cert)
     X509_free(cert);
@@ -631,23 +631,21 @@ bool SecureSocket::verifyCertFingerprint(const QString &FingerprintDatabasePath)
     return false;
 
   const auto fingerprint = deskflow::formatSSLFingerprint(sha256.data, false);
-  LOG_DEBUG("peer fingerprint: %s", qPrintable(fingerprint));
+  LOG_DEBUG("peer fingerprint: %s", fingerprint.c_str());
   ipcSendToClient("peerFingerprint", fingerprint);
 
-  QFile file(FingerprintDatabasePath);
-
   FingerprintDatabase db;
-  db.read(FingerprintDatabasePath);
+  db.read(fingerprintDatabasePath);
   const bool emptyDB = db.fingerprints().empty();
 
-  const auto &path = FingerprintDatabasePath;
-  if (file.exists() && emptyDB) {
-    LOG_ERR("failed to open trusted fingerprints file: %s", qPrintable(path));
+  const auto &path = fingerprintDatabasePath;
+  if (std::error_code ec; std::filesystem::exists(deskflow::utf8Path(path), ec) && emptyDB) {
+    LOG_ERR("failed to open trusted fingerprints file: %s", path.c_str());
     return false;
   }
 
   if (!emptyDB) {
-    LOG_DEBUG("read %d fingerprint(s) from file: %s", db.fingerprints().size(), qPrintable(path));
+    LOG_DEBUG("read %zu fingerprint(s) from file: %s", db.fingerprints().size(), path.c_str());
   }
 
   if (!db.isTrusted(sha256)) {

@@ -8,7 +8,7 @@
 
 #include "common/Enums.h"
 
-#include <QString>
+#include <string>
 
-void ipcSendToClient(const QString &command, const QString &args = "");
+void ipcSendToClient(const std::string &command, const std::string &args = {});
 void ipcSendConnectionState(deskflow::core::ConnectionState state);

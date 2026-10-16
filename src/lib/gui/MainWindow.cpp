@@ -57,6 +57,15 @@
 
 using namespace deskflow::gui;
 
+namespace {
+
+Fingerprint sha256Fingerprint(const QByteArray &digest)
+{
+  return {Fingerprint::Type::Sha256, Fingerprint::Bytes(digest.begin(), digest.end())};
+}
+
+} // namespace
+
 MainWindow::MainWindow()
     : ui{std::make_unique<Ui::MainWindow>()},
       m_coreProcess(m_serverConfig),
@@ -150,7 +159,7 @@ MainWindow::MainWindow()
     if (!TlsUtility::isCertValid()) {
       generateCertificate();
     } else {
-      m_fingerprint = {QCryptographicHash::Sha256, TlsUtility::certFingerprint()};
+      m_fingerprint = sha256Fingerprint(TlsUtility::certFingerprint());
     }
   }
 
@@ -361,7 +370,7 @@ void MainWindow::settingsChanged(const QString &key)
         qWarning() << tr("invalid certificate, generating a new one");
         TlsUtility::generateCertificate();
       }
-      m_fingerprint = {QCryptographicHash::Sha256, TlsUtility::certFingerprint()};
+      m_fingerprint = sha256Fingerprint(TlsUtility::certFingerprint());
       updateFingerprintButton();
     }
     updateSecurityIcon(m_statusBar->securityIconVisible());
@@ -844,7 +853,7 @@ void MainWindow::handleMissingKeyboardLayouts(const QString &layouts)
 void MainWindow::handlePeerFingerprint(const QString &fingerprint)
 {
   const auto sha256Text = QString(fingerprint).remove(':');
-  const Fingerprint sha256 = {QCryptographicHash::Sha256, QByteArray::fromHex(sha256Text.toLatin1())};
+  const auto sha256 = sha256Fingerprint(QByteArray::fromHex(sha256Text.toLatin1()));
 
   const bool isClient = m_coreProcess.mode() == CoreMode::Client;
   if ((isClient && m_checkedServers.contains(sha256Text)) || (!isClient && m_checkedClients.contains(sha256Text))) {
@@ -853,7 +862,7 @@ void MainWindow::handlePeerFingerprint(const QString &fingerprint)
   }
 
   FingerprintDatabase db;
-  db.read(trustedFingerprintDatabase());
+  db.read(trustedFingerprintDatabase().toStdString());
 
   if (db.isTrusted(sha256)) {
     qDebug("fingerprint is trusted");
@@ -872,7 +881,7 @@ void MainWindow::handlePeerFingerprint(const QString &fingerprint)
 
   if (fingerprintDialog.exec() == QDialog::Accepted) {
     db.addTrusted(sha256);
-    if (!db.write(trustedFingerprintDatabase())) {
+    if (!db.write(trustedFingerprintDatabase().toStdString())) {
       qCritical().noquote() << "unable to write fingerprint to db:" << trustedFingerprintDatabase();
       m_coreProcess.stop();
       return;
@@ -1002,7 +1011,7 @@ void MainWindow::coreConnectionStateChanged(ConnectionState state)
 
 void MainWindow::updateFingerprintButton()
 {
-  m_statusBar->setBtnFingerprintVisible(TlsUtility::isEnabled() && !m_fingerprint.data.isEmpty());
+  m_statusBar->setBtnFingerprintVisible(TlsUtility::isEnabled() && !m_fingerprint.data.empty());
 }
 
 void MainWindow::hide()
@@ -1195,7 +1204,7 @@ bool MainWindow::generateCertificate()
     return false;
   }
 
-  m_fingerprint = {QCryptographicHash::Sha256, TlsUtility::certFingerprint()};
+  m_fingerprint = sha256Fingerprint(TlsUtility::certFingerprint());
   updateFingerprintButton();
   return true;
 }

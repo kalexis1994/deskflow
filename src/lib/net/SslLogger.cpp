@@ -8,6 +8,7 @@
 #include <iterator>
 #include <sstream>
 
+#include <arch/Utf8.h>
 #include <base/Log.h>
 #include <deskflow/ipc/CoreIpc.h>
 #include <openssl/err.h>
@@ -84,7 +85,7 @@ void SslLogger::logSecureConnectInfo(const SSL *ssl)
     if (cipher) {
       char msg[128] = {0};
       SSL_CIPHER_description(cipher, msg, sizeof(msg));
-      LOG_DEBUG("openssl cipher: %s", QString(msg).trimmed().toStdString().c_str());
+      LOG_DEBUG("openssl cipher: %s", deskflow::trimmed(msg).c_str());
 
       // For some reason SSL_get_version is return mismatching information to
       // SSL_CIPHER_description

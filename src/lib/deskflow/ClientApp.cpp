@@ -43,6 +43,7 @@
 #include "platform/OSXComputer.h"
 #endif
 
+#include <cmath>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -167,7 +168,7 @@ void ClientApp::handleClientRestart(const Event &, EventQueueTimer *timer)
 void ClientApp::scheduleClientRestart(double retryTime)
 {
   LOG_DEBUG("retry in %.0f seconds", retryTime);
-  ipcSendToClient("retryIn", QString::number(retryTime, 'f', 0));
+  ipcSendToClient("retryIn", std::to_string(std::llround(retryTime)));
   // install a timer and handler to retry later
   EventQueueTimer *timer = getEvents()->newOneShotTimer(retryTime, nullptr);
   getEvents()->addHandler(EventTypes::Timer, timer, [this, timer](const auto &e) { handleClientRestart(e, timer); });
