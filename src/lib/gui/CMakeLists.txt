@@ -14,6 +14,14 @@ if(APPLE)
 endif()
 
 add_library(${target} STATIC
+  Action.cpp
+  Action.h
+  Hotkey.cpp
+  Hotkey.h
+  I18N.cpp
+  I18N.h
+  KeySequence.cpp
+  KeySequence.h
   ${platform_sources}
   ComputerSetupModel.cpp
   ComputerSetupModel.h
@@ -28,6 +36,7 @@ add_library(${target} STATIC
   MainWindow.ui
   Messages.cpp
   Messages.h
+  QtLogOutputter.h
   StyleUtils.h
   TlsUtility.cpp
   TlsUtility.h

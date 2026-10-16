@@ -158,8 +158,15 @@ Log::~Log()
 
 Log *Log::getInstance()
 {
-  assert(s_log != nullptr);
-  return s_log;
+  if (s_log != nullptr) {
+    return s_log;
+  }
+
+  // Nothing has created the log yet (code running before main sets it up, a test, or a
+  // program that never does): use a console-only log rather than dereferencing null.
+  // It does not register itself, so a later `Log` still becomes the instance.
+  static Log fallback(false);
+  return &fallback;
 }
 
 void Log::print(const char *file, int line, const char *fmt, ...)

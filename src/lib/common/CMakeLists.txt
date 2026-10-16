@@ -23,19 +23,11 @@ target_include_directories(common-base
 )
 
 add_library(common STATIC
-  Action.cpp
-  Action.h
   Coordinate.h
   Enums.h
   ExitCodes.h
-  Hotkey.cpp
-  Hotkey.h
-  I18N.h
-  I18N.cpp
   KeyModifierID.h
   KeyboardModifier.h
-  KeySequence.h
-  KeySequence.cpp
   LogLevel.h
   NetworkProtocol.h
   PlatformInfo.h
@@ -48,7 +40,7 @@ add_library(common STATIC
   ${CMAKE_CURRENT_BINARY_DIR}/VersionInfo.h
 )
 
-target_link_libraries(common PUBLIC common-base Qt6::Core)
+target_link_libraries(common PUBLIC common-base base Qt6::Core)
 
 target_include_directories(common
   PUBLIC

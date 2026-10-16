@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QDBusConnection>
+#include "base/Log.h"
 #include <QDBusInterface>
 #include <QDBusReply>
 
@@ -32,7 +33,7 @@ inline void setAppId()
   );
 
   if (!i->property("version").toInt()) {
-    qDebug() << "portal registry not found";
+    LOG_DEBUG("portal registry not found");
     return;
   }
 

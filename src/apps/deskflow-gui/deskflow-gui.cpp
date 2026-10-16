@@ -6,15 +6,17 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
+#include "base/Log.h"
 #include "common/Constants.h"
 #include "common/ExitCodes.h"
-#include "common/I18N.h"
+#include "gui/I18N.h"
 #include "common/PlatformInfo.h"
 #include "common/UrlConstants.h"
 #include "common/VersionInfo.h"
 #include "gui/Diagnostic.h"
 #include "gui/MainWindow.h"
 #include "gui/Messages.h"
+#include "gui/QtLogOutputter.h"
 #include "gui/StyleUtils.h"
 
 #include <QApplication>
@@ -63,6 +65,12 @@ int main(int argc, char *argv[])
   QGuiApplication::setDesktopFileName(kRevFqdnName);
 
   QApplication app(argc, argv);
+
+  // Code shared with the core logs through Deskflow's Log; forward it to Qt's handler.
+  Log log;
+  log.pop_front(); // drop the default console outputter, Qt's handler prints instead
+  log.insert(new deskflow::gui::QtLogOutputter); // NOSONAR - Adopted by `Log`
+  log.setFilter(LogLevel::Level::Verbose);       // the GUI's own logger filters
 
   // Ensure the I18N object is made before strings
   QTextStream(stdout) << "initial language: " << I18N::currentLanguage() << '\n';

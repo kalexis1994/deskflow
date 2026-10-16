@@ -9,9 +9,9 @@
 #include "ActionDialog.h"
 #include "ui_ActionDialog.h"
 
-#include "common/Action.h"
-#include "common/Hotkey.h"
-#include "common/KeySequence.h"
+#include "gui/Action.h"
+#include "gui/Hotkey.h"
+#include "gui/KeySequence.h"
 #include "config/ServerConfig.h"
 
 #include <QTimer>

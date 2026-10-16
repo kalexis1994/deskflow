@@ -20,7 +20,7 @@ Constraints for every phase:
 | 0 | Baseline build and tests on Windows (Qt 6.10 SDK, OpenSSL via vcpkg) | 29/29 tests pass | done |
 | 1 | `Q_OS_*` macros (`QtSystemDetection`) | own `arch/OsDetection.h` (`DESKFLOW_OS_*`) with the same semantics | done |
 | 2 | `QString`/`QByteArray`/`QFile`/`QDateTime` in `base`, `arch`, `io`, `mt`; exceptions and log outputters everywhere | `std::string` (UTF-8), `std::filesystem`, `<chrono>`; `arch/Utf8.h` for UTF-16 and paths; `common-base` (Qt-free headers) | done: `arch`, `base`, `io`, `mt` build without any Qt include path; the rest of `server`/`client` depends on `Settings` (4) and IPC (6) |
-| 3 | `qDebug`/`qInfo`/`qWarning`/`qCritical` in the core | `LOG_*` | |
+| 3 | `qDebug`/`qInfo`/`qWarning`/`qCritical` in the core | `LOG_*`; `CLOG` falls back to a console log when no `Log` exists; the Qt GUI forwards `LOG_*` to its Qt handler; GUI-only code (`I18N`, `KeySequence`, `Action`, `Hotkey`) moved from `common` to `gui` | done (the core's Qt message handler stays until 7) |
 | 4 | `QSettings` and `Settings` (a `QObject` singleton) | INI reader/writer compatible with `QSettings` (arrays, quoting, `@Invalid()`, lists) | |
 | 5 | `net`: `QCryptographicHash`, fingerprint database I/O | OpenSSL `EVP_Digest`, `std::fstream` | |
 | 5b | `platform`: `MSWindowsWatchdog` (process output decoding) on Windows; portals, DBus and X11 helpers on Linux; one macOS file | `std::string`, `arch/Utf8.h` | |
@@ -42,6 +42,8 @@ Found while removing it; any library that stops linking Qt needs them from elsew
 - Qt headers pull in `<cassert>`; files using `assert` now include it themselves.
 - `QString`-based code sometimes compiled only because a Qt header arrived through
   `base/BaseException.h`.
+- Libraries declared fewer link dependencies than they use (e.g. `arch` needs
+  `version.lib`); it went unnoticed while every test also linked something bigger.
 
 ## Building on Windows
 

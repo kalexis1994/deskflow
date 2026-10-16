@@ -44,3 +44,8 @@ add_library(arch STATIC ${PLATFORM_CODE}
 )
 
 target_link_libraries (arch PUBLIC common-base)
+
+if(WIN32)
+  # GetFileVersionInfo and friends (ArchMiscWindows::guardRuntimeVersion)
+  target_link_libraries(arch PUBLIC version)
+endif()

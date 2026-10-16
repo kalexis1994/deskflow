@@ -6,6 +6,7 @@
  */
 
 #include "Fingerprint.h"
+#include "base/Log.h"
 
 #include <QDebug>
 
@@ -24,7 +25,7 @@ bool Fingerprint::isValid() const
 QString Fingerprint::toDbLine() const
 {
   if (!isValid()) {
-    qInfo() << "unable to parse invalid db line";
+    LOG_INFO("unable to parse invalid db line");
     return {};
   }
   return QStringLiteral("v2:%1:%2").arg(typeToString(type), data.toHex().toLower());

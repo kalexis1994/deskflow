@@ -6,7 +6,7 @@
 
 #include "I18NTests.h"
 
-#include "common/I18N.h"
+#include "gui/I18N.h"
 #include "common/Settings.h"
 #include <QDir>
 #include <QFile>

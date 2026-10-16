@@ -14,17 +14,3 @@ create_test(
   SOURCE LogLevelTests.cpp
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/common"
 )
-
-create_test(
-  NAME I18NTests
-  DEPENDS common
-  SOURCE I18NTests.cpp
-  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/common"
-)
-
-create_test(
-  NAME KeySequenceTests
-  DEPENDS common
-  SOURCE KeySequenceTests.cpp
-  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/common"
-)

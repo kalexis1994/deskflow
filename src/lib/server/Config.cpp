@@ -7,6 +7,7 @@
  */
 
 #include "server/Config.h"
+#include "base/Log.h"
 
 #include "arch/Utf8.h"
 #include "base/IEventQueue.h"
@@ -629,9 +630,10 @@ void Config::readSectionOptions(ConfigReadContext &s)
 
 void Config::readSectionScreens(ConfigReadContext &s)
 {
-  qWarning(
-  ) << "Your server config has a screen section. Screens have moved to the general config this section will not be "
-       "parsed.";
+  LOG_WARN(
+      "Your server config has a screen section. Screens have moved to the general config this section will not be "
+      "parsed."
+  );
   std::string line;
   std::string screen;
   while (s.readLine(line)) {
@@ -715,9 +717,10 @@ void Config::readSectionLinks(ConfigReadContext &s)
 
 void Config::readSectionAliases(ConfigReadContext &s)
 {
-  qWarning(
-  ) << "Your server config has an alias section. Alias have moved to the general config this section will no be "
-       "parsed.";
+  LOG_WARN(
+      "Your server config has an alias section. Alias have moved to the general config this section will no be "
+      "parsed."
+  );
   std::string line;
   while (s.readLine(line)) {
     if (line == "end") {

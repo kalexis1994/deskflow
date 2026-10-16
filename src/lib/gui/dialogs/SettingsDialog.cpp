@@ -11,7 +11,7 @@
 #include "common/PlatformInfo.h"
 #include "ui_SettingsDialog.h"
 
-#include "common/I18N.h"
+#include "gui/I18N.h"
 #include "common/Settings.h"
 #include "gui/TlsUtility.h"
 #include "gui/core/NetworkMonitor.h"

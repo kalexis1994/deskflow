@@ -10,6 +10,7 @@
 #include "LogLevel.h"
 #include "NetworkProtocol.h"
 #include "UrlConstants.h"
+#include "base/Log.h"
 #include "common/KeyboardModifier.h"
 
 #include <QCoreApplication>
@@ -28,7 +29,7 @@ Settings *Settings::instance()
 void Settings::setSettingsFile(const QString &settingsFile)
 {
   if (Settings::settingsFile() == settingsFile) {
-    qDebug("settings file already set, skipping");
+    LOG_DEBUG("settings file already set, skipping");
     return;
   }
 
@@ -39,7 +40,7 @@ void Settings::setSettingsFile(const QString &settingsFile)
   instance()->m_settings = new QSettings(settingsFile, QSettings::IniFormat, instance());
   instance()->m_settingsWatcher->addPath(settingsFile);
   instance()->m_settingsProxy->load(settingsFile);
-  qInfo().noquote() << "settings file changed:" << instance()->m_settings->fileName();
+  LOG_INFO("settings file changed: %s", instance()->m_settings->fileName().toUtf8().constData());
 
   instance()->upgradeSettings();
   instance()->cleanSettings();
@@ -51,7 +52,7 @@ void Settings::setSettingsFile(const QString &settingsFile)
 void Settings::setStateFile(const QString &stateFile)
 {
   if (instance()->m_stateSettings->fileName() == stateFile) {
-    qDebug("state file already set, skipping");
+    LOG_DEBUG("state file already set, skipping");
     return;
   }
 
@@ -59,7 +60,7 @@ void Settings::setStateFile(const QString &stateFile)
     instance()->m_stateSettings->deleteLater();
 
   instance()->m_stateSettings = new QSettings(stateFile, QSettings::IniFormat, instance());
-  qInfo().noquote() << "state file changed:" << instance()->m_stateSettings->fileName();
+  LOG_INFO("state file changed: %s", instance()->m_stateSettings->fileName().toUtf8().constData());
 }
 
 void Settings::clearState()
@@ -73,7 +74,7 @@ Settings::Settings(QObject *parent) : QObject(parent), m_settingsWatcher{new QFi
   QString fileToLoad;
 #ifdef DESKFLOW_OS_WIN
   const auto portableFile = portableSettingsFile();
-  qDebug().noquote() << "checking for portable settings file at:" << portableFile;
+  LOG_DEBUG("checking for portable settings file at: %s", portableFile.toUtf8().constData());
   if (QFile(portableFile).exists())
     fileToLoad = portableFile;
 #else
@@ -93,7 +94,7 @@ Settings::Settings(QObject *parent) : QObject(parent), m_settingsWatcher{new QFi
   connect(m_settingsWatcher, &QFileSystemWatcher::fileChanged, this, &Settings::checkIfSettingsWritableChange);
   m_settingsProxy = std::make_shared<QSettingsProxy>();
   m_settingsProxy->load(fileToLoad);
-  qInfo().noquote() << "initial settings file:" << m_settings->fileName();
+  LOG_INFO("initial settings file: %s", m_settings->fileName().toUtf8().constData());
 
   const auto xdgStateHome = qEnvironmentVariable("XDG_STATE_HOME");
   const auto stateBase = !xdgStateHome.isEmpty()
@@ -302,7 +303,7 @@ void Settings::checkIfSettingsWritableChange()
   bool writable = Settings::isWritable();
   if (writable == m_settingsWritable)
     return;
-  qDebug() << QString("Setting are now %1").arg(writable ? "writable" : "readonly");
+  LOG_DEBUG("settings are now %s", writable ? "writable" : "read-only");
   instance()->m_settingsWritable = writable;
   Q_EMIT instance()->settingsWritableChanged(writable);
 }
@@ -392,7 +393,7 @@ NetworkProtocol Settings::networkProtocol()
 void Settings::save(bool emitSaving)
 {
   if (!Settings::isWritable())
-    qWarning().noquote() << "settings not saved, file is read-only:" << Settings::settingsFile();
+    LOG_WARN("settings not saved, file is read-only: %s", Settings::settingsFile().toUtf8().constData());
   if (emitSaving)
     Q_EMIT instance()->serverSettingsChanged();
   instance()->m_settings->sync();

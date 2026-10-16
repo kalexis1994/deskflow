@@ -15,7 +15,7 @@
 
 #include <string>
 
-#define CLOG (Log::getInstance())
+#define CLOG (::Log::getInstance())
 #define BYE "\nTry `%s --help' for more information."
 
 class ILogOutputter;
