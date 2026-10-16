@@ -8,13 +8,13 @@
 
 #include "arch/OsDetection.h"
 
-#include <QObject>
-#include <QThread>
+#include <memory>
+#include <mutex>
+#include <string>
 
 class Event;
 class IEventQueue;
 class FileLogOutputter;
-class QCoreApplication;
 
 namespace deskflow::core::ipc {
 class DaemonIpcServer;
@@ -26,28 +26,30 @@ class MSWindowsWatchdog;
 
 extern const char *const kLogFilename;
 
-class DaemonApp : public QObject
+class DaemonApp
 {
-  Q_OBJECT
-
 public:
   explicit DaemonApp(IEventQueue &events);
-  ~DaemonApp() override;
+  ~DaemonApp();
 
-  void run(QThread &daemonThread);
+  DaemonApp(const DaemonApp &) = delete;
+  DaemonApp &operator=(const DaemonApp &) = delete;
+
+  //! Runs the daemon (as a service unless in the foreground) on the calling thread until it stops
+  void run();
   void setForeground();
   void initLogging();
   void connectIpcServer(deskflow::core::ipc::DaemonIpcServer &ipcServer);
 
-  static QString logFilename();
+  static std::string logFilename();
 
 private:
   void daemonize();
   void handleError(const char *message);
   int mainLoop();
   int daemonLoop();
-  void saveLogLevel(const QString &logLevel) const;
-  void setConfigFile(const QString &configFile);
+  void saveLogLevel(const std::string &logLevel) const;
+  void setConfigFile(const std::string &configFile);
   void applyWatchdogCommand() const;
   void clearWatchdogCommand();
   void clearSettings();
@@ -61,6 +63,7 @@ private:
   IEventQueue &m_events;
   FileLogOutputter *m_pFileLogOutputter = nullptr;
   deskflow::core::ipc::DaemonIpcServer *m_ipcServer = nullptr;
-  QString m_configFile;
+  mutable std::mutex m_configMutex; // the IPC thread and the daemon thread both use the config file
+  std::string m_configFile;
   bool m_foreground = false;
 };

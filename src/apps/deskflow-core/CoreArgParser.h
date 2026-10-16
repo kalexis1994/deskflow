@@ -1,34 +1,41 @@
 /*
  * Deskflow -- mouse and keyboard sharing utility
+ * SPDX-FileCopyrightText: (C) 2026 Deskflow Developers
  * SPDX-FileCopyrightText: (C) 2025 Chris Rizzitello <sithlord48@gmail.com>
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
 #pragma once
-#include <QCommandLineParser>
 
-/**
- * @brief The CoreArgParser class
- * This class processes the argments for the "core" app
- */
+#include <map>
+#include <string>
+#include <vector>
+
+struct CoreOption;
+
+//! The core's command line: `deskflow-core server|client [options]`
+/*!
+Accepts what QCommandLineParser accepted before: `-s file`, `--settings file`,
+`--settings=file`, single-dash long names (`-settings`), options before or after the
+mode, and `--` to end the options.
+*/
 class CoreArgParser
 {
 public:
   /**
-   * @brief CoreArgParser calling this funciton will parse apps and set the setting and version options
+   * @brief CoreArgParser parses the arguments (program name first) and sets the help and version options
    * For any other settings to be set you must call parse();
    * @sa parse();
-   * @param args List of args to parse
    */
-  explicit CoreArgParser(const QStringList &args = {});
+  explicit CoreArgParser(const std::vector<std::string> &args = {});
   /**
    * @brief parse
    * This method will parse all options other then help and version
    */
   void parse();
-  QString helpText() const;
-  QString versionText() const;
-  QString errorText() const;
+  std::string helpText() const;
+  std::string versionText() const;
+  std::string errorText() const;
   bool help() const;
   bool version() const;
   bool serverMode() const;
@@ -37,10 +44,12 @@ public:
 
 private:
   [[noreturn]] void showHelpText() const;
-  QCommandLineParser m_parser;
-  QString m_helpText;
+  bool isSet(const CoreOption &option) const;
+  std::string value(const CoreOption &option) const;
+
+  std::map<const CoreOption *, std::string> m_set;
+  std::vector<std::string> m_positional;
+  std::string m_error;
   bool m_clientMode = false;
   bool m_serverMode = false;
-  bool m_singleInstance = true;
-  static const QString s_headerText;
 };

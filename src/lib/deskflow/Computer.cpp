@@ -13,33 +13,133 @@
 #include "deskflow/IPlatformComputer.h"
 #include <cassert>
 
-#include <QProcess>
+#include <string>
+#include <vector>
 
 #ifdef DESKFLOW_OS_WIN
+#include "arch/Utf8.h"
 #include "arch/win32/ArchMiscWindows.h"
 #include "platform/MSWindowsProcess.h"
+#else
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 namespace deskflow {
 
 namespace {
 
-bool runComputerCommand(const QString &commandLine)
+#ifndef DESKFLOW_OS_WIN
+//! Splits a command line the way QProcess::splitCommand did: spaces separate
+//! arguments, double quotes group them, and three quotes in a row are one literal quote.
+std::vector<std::string> splitCommand(const std::string &command)
+{
+  std::vector<std::string> args;
+  std::string arg;
+  int quoteCount = 0;
+  bool inQuote = false;
+
+  for (const char c : command) {
+    if (c == '"') {
+      ++quoteCount;
+      if (quoteCount == 3) {
+        quoteCount = 0;
+        arg += c;
+      }
+      continue;
+    }
+    if (quoteCount) {
+      if (quoteCount == 1)
+        inQuote = !inQuote;
+      quoteCount = 0;
+    }
+    if (!inQuote && (c == ' ' || c == '\t' || c == '\n' || c == '\r')) {
+      if (!arg.empty()) {
+        args.push_back(arg);
+        arg.clear();
+      }
+    } else {
+      arg += c;
+    }
+  }
+  if (!arg.empty())
+    args.push_back(arg);
+  return args;
+}
+
+//! Starts a program that outlives us and isn't our child (as QProcess::startDetached)
+bool startDetached(const std::vector<std::string> &args)
+{
+  int errorPipe[2];
+  if (::pipe(errorPipe) != 0)
+    return false;
+  fcntl(errorPipe[1], F_SETFD, FD_CLOEXEC);
+
+  const pid_t child = ::fork();
+  if (child < 0) {
+    ::close(errorPipe[0]);
+    ::close(errorPipe[1]);
+    return false;
+  }
+
+  if (child == 0) {
+    // the intermediate child exits at once, so the program is adopted by init
+    ::close(errorPipe[0]);
+    ::setsid();
+    if (::fork() == 0) {
+      std::vector<char *> argv;
+      for (const auto &arg : args)
+        argv.push_back(const_cast<char *>(arg.c_str()));
+      argv.push_back(nullptr);
+      ::execvp(argv[0], argv.data());
+      const int error = errno;
+      [[maybe_unused]] const auto ignored = ::write(errorPipe[1], &error, sizeof(error));
+      ::_exit(127);
+    }
+    ::_exit(0);
+  }
+
+  ::close(errorPipe[1]);
+  int status = 0;
+  ::waitpid(child, &status, 0);
+  int execError = 0;
+  const auto bytes = ::read(errorPipe[0], &execError, sizeof(execError)); // EOF once exec succeeded
+  ::close(errorPipe[0]);
+  return bytes == 0;
+}
+#endif
+
+bool runComputerCommand(const std::string &commandLine)
 {
 #ifdef DESKFLOW_OS_WIN
   using deskflow::platform::MSWindowsProcess;
   if (ArchMiscWindows::isProcessElevated()) {
     LOG_DEBUG("current process is elevated, starting detached process as session user");
-    return MSWindowsProcess::startDetachedAsSessionUser(commandLine.toStdWString());
+    return MSWindowsProcess::startDetachedAsSessionUser(deskflow::utf8ToWide(commandLine));
   }
-#endif
 
-  auto args = QProcess::splitCommand(commandLine);
-  if (args.isEmpty()) {
+  // Windows parses the command line itself, so it runs exactly as the user wrote it
+  auto command = deskflow::utf8ToWide(commandLine);
+  if (command.empty())
+    return false;
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  PROCESS_INFORMATION process{};
+  const DWORD flags = (GetConsoleWindow() ? 0 : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT;
+  if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, flags, nullptr, nullptr, &startup, &process))
+    return false;
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+  return true;
+#else
+  const auto args = splitCommand(commandLine);
+  if (args.empty()) {
     return false;
   }
-  const auto program = args.takeFirst();
-  return QProcess::startDetached(program, args);
+  return startDetached(args);
+#endif
 }
 
 } // namespace
@@ -155,7 +255,7 @@ void Computer::enter(KeyModifierMask toggleMask)
   if (CoreSettings::value(CoreSettings::Core::EnableEnterCommand).toBool()) {
     const auto commandLine = CoreSettings::value(CoreSettings::Core::ComputerEnterCommand).toString();
     LOG_DEBUG("running computer enter command: %s", commandLine.c_str());
-    if (!runComputerCommand(QString::fromStdString(commandLine)))
+    if (!runComputerCommand(commandLine))
       LOG_ERR("failed to run computer enter command");
   }
 }
@@ -182,7 +282,7 @@ bool Computer::leave()
   if (CoreSettings::value(CoreSettings::Core::EnableExitCommand).toBool()) {
     const auto commandLine = CoreSettings::value(CoreSettings::Core::ComputerExitCommand).toString();
     LOG_DEBUG("running computer exit command: %s", commandLine.c_str());
-    if (!runComputerCommand(QString::fromStdString(commandLine)))
+    if (!runComputerCommand(commandLine))
       LOG_ERR("failed to run computer exit command");
   }
 

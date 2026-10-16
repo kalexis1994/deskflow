@@ -23,11 +23,9 @@
 #include "deskflow/unix/AppUtilUnix.h"
 #endif
 
-#include <QObject>
-#include <QThread>
-
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 namespace deskflow {
 class Computer;
@@ -37,7 +35,7 @@ class FileLogOutputter;
 class IEventQueue;
 class SocketMultiplexer;
 
-class App : public QObject, private IApp
+class App : private IApp
 {
 public:
   class XNoEiSupport : public std::runtime_error
@@ -49,7 +47,7 @@ public:
     }
   };
 
-  explicit App(IEventQueue *events, const QString &processName);
+  explicit App(IEventQueue *events, const std::string &processName);
   App(App const &) = delete;
   App(App &&) = delete;
   ~App() override;
@@ -79,7 +77,8 @@ public:
     return m_appUtil;
   }
 
-  void run(QThread &coreThread);
+  //! Runs the core on the calling thread until it quits; the exit code is in getExitCode()
+  void run();
   void quit() const;
   void setupFileLogging();
   void loggingFilterWarning() const;
@@ -105,7 +104,7 @@ public:
     return *s_instance;
   }
 
-  QString processName() const
+  const std::string &processName() const
   {
     return m_pname;
   }
@@ -140,7 +139,7 @@ private:
   FileLogOutputter *m_fileLog = nullptr;
   ARCH_APP_UTIL m_appUtil;
   std::unique_ptr<SocketMultiplexer> m_socketMultiplexer;
-  QString m_pname;
+  std::string m_pname;
   int m_exitCode = s_exitSuccess;
 };
 

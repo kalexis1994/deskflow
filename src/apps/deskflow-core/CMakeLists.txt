@@ -36,8 +36,14 @@ target_link_libraries(
   platform
   server
   app
-  Qt6::Widgets
   ${libs})
+
+if(UNIX AND NOT APPLE)
+  # The Linux portal clipboard and DBus helpers still use Qt and want its application
+  # object (docs/dev/remove-qt.md, phase 5b); Windows and macOS cores have no Qt.
+  target_compile_definitions(${target} PRIVATE DESKFLOW_CORE_QT_EVENT_LOOP)
+  target_link_libraries(${target} Qt6::Gui)
+endif()
 
 install(
   TARGETS ${target}

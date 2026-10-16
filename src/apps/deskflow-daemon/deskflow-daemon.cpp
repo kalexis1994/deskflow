@@ -9,12 +9,14 @@
 #include "arch/OsDetection.h"
 
 #include "arch/Arch.h"
+#include "arch/Utf8.h"
 #include "base/EventQueue.h"
 #include "base/Log.h"
 #include "common/Constants.h"
 #include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
 #include "common/VersionInfo.h"
+#include "deskflow/ProcessUtils.h"
 #include "deskflow/ipc/DaemonIpcServer.h"
 
 #if defined(DESKFLOW_OS_WIN)
@@ -24,13 +26,40 @@
 #include <Windows.h>
 #endif
 
-#include <QCommandLineParser>
-#include <QCoreApplication>
-#include <QThread>
+#include <cstdio>
+#include <string>
 
 using namespace deskflow::core;
 
 void handleError(const char *message = "Unrecognized error.");
+
+namespace {
+
+const auto kDaemonName = std::string(kAppName) + " Daemon";
+
+const auto kHelpText = "Usage: " + std::string(kAppId) +
+                       "-daemon [options]\n\n"
+                       "Options:\n"
+                       "  -h, --help        Displays help on commandline options.\n"
+                       "  -v, --version     Displays version information.\n"
+                       "  -f, --foreground  Run in the foreground (show console)\n";
+
+//! Shows text where the user can see it: the daemon is a Win32 program without a console
+void showMessage(const std::string &text, bool error = false)
+{
+#if defined(DESKFLOW_OS_WIN)
+  if (!GetConsoleWindow()) {
+    MessageBoxW(
+        nullptr, deskflow::utf8ToWide(text).c_str(), deskflow::utf8ToWide(kDaemonName).c_str(),
+        MB_OK | (error ? MB_ICONERROR : MB_ICONINFORMATION)
+    );
+    return;
+  }
+#endif
+  std::fputs(text.c_str(), error ? stderr : stdout);
+}
+
+} // namespace
 
 int main(int argc, char **argv)
 {
@@ -41,28 +70,37 @@ int main(int argc, char **argv)
   ArchMiscWindows::setInstanceWin32(GetModuleHandle(nullptr));
 #endif
 
-  QCoreApplication::setApplicationName(QStringLiteral("%1 Daemon").arg(kAppName));
-  QCoreApplication app(argc, argv);
-
   Arch arch;
   arch.init();
 
   Log log;
   EventQueue events;
 
-  // Daemon deliberately does not have a parent, as it will be moved to a new thread.
   DaemonApp daemon(events);
 
-  QCommandLineParser parser;
-  parser.addHelpOption();
-  parser.addVersionOption();
+  // The options QCommandLineParser handled before (process() also exits on --help,
+  // --version and unknown options)
+  bool foreground = false;
+  const auto args = deskflow::commandLineArguments(argc, argv);
+  for (size_t i = 1; i < args.size(); ++i) {
+    const auto &arg = args[i];
+    if (arg == "-h" || arg == "--help" || arg == "-help" || arg == "-?" || arg == "/?") {
+      showMessage(kHelpText);
+      return s_exitSuccess;
+    }
+    if (arg == "-v" || arg == "--version" || arg == "-version") {
+      showMessage(kDaemonName + " " + kDisplayVersion + "\n");
+      return s_exitSuccess;
+    }
+    if (arg == "-f" || arg == "--foreground" || arg == "-foreground") {
+      foreground = true;
+      continue;
+    }
+    showMessage("Unknown option '" + arg + "'.\n\n" + kHelpText, true);
+    return s_exitArgs;
+  }
 
-  const auto foregroundOption = QCommandLineOption({"f", "foreground"}, "Run in the foreground (show console)");
-  parser.addOption(foregroundOption);
-
-  parser.process(app);
-
-  if (parser.isSet(foregroundOption)) {
+  if (foreground) {
     daemon.setForeground();
   }
 
@@ -74,7 +112,7 @@ int main(int argc, char **argv)
   // useful for troubleshooting Windows services.
   // It's important to write the version number to the log file so we can be certain the old daemon
   // was uninstalled, since sometimes Windows services can get stuck and fail to be removed.
-  LOG_PRINT("%s v%s", qPrintable(QCoreApplication::applicationName()), kDisplayVersion);
+  LOG_PRINT("%s v%s", kDaemonName.c_str(), kDisplayVersion);
   LOG_INFO("settings file: %s", CoreSettings::settingsFile().c_str());
 
   // Default log level to system setting (found in Registry).
@@ -93,20 +131,16 @@ int main(int argc, char **argv)
     }
 #endif
 
-    ipc::DaemonIpcServer ipcServer(DaemonApp::logFilename().toStdString());
+    ipc::DaemonIpcServer ipcServer(DaemonApp::logFilename());
     daemon.connectIpcServer(ipcServer);
     ipcServer.listen();
 
-    QThread daemonThread;
-    QObject::connect(&daemonThread, &QThread::finished, &app, &QCoreApplication::quit);
-    daemon.run(daemonThread);
-
-    const auto exitCode = QCoreApplication::exec();
-    daemonThread.wait();
+    // The IPC server has its own thread; the daemon (and the service dispatcher) runs on this one.
+    daemon.run();
     ipcServer.stop();
 
-    LOG_DEBUG("daemon exited, code: %d", exitCode);
-    return exitCode;
+    LOG_DEBUG("daemon exited, code: %d", s_exitSuccess);
+    return s_exitSuccess;
 
   } catch (std::exception &e) {
     handleError(e.what());

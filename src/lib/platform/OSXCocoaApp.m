@@ -42,3 +42,10 @@ void stopCocoaLoop()
 {
   [NSApp stop:dummyWindow];
 }
+
+void initCocoaApp()
+{
+  @autoreleasepool {
+    [NSApplication sharedApplication];
+  }
+}

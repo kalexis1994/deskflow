@@ -14,6 +14,8 @@ extern "C"
 #endif
   void runCocoaApp();
   void stopCocoaLoop();
+  //! Creates NSApp without running it, as QApplication did for the core
+  void initCocoaApp();
 
 #if defined(__cplusplus)
 }

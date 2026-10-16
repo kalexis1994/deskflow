@@ -29,8 +29,7 @@ if(WIN32)
     platform
     app
     common
-    ${libs}
-    Qt6::Core)
+    ${libs})
 
   install(
     TARGETS ${target}

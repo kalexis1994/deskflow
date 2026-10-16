@@ -32,7 +32,6 @@
 #include "server/Server.h"
 
 // must be before computer header includes
-#include <QFileInfo>
 
 #if defined(DESKFLOW_OS_WIN)
 #include "platform/MSWindowsComputer.h"
@@ -58,7 +57,7 @@ using namespace deskflow::server;
 // ServerApp
 //
 
-ServerApp::ServerApp(IEventQueue *events, const QString &processName) : App(events, processName)
+ServerApp::ServerApp(IEventQueue *events, const std::string &processName) : App(events, processName)
 {
   m_name = CoreSettings::value(CoreSettings::Core::ComputerName).toString();
   // do nothing
@@ -75,7 +74,7 @@ void ServerApp::parseArgs()
   try {
     m_deskflowAddress->resolve();
   } catch (SocketAddressException &e) {
-    LOG_CRIT("%s: %s" BYE, qPrintable(processName()), e.what(), qPrintable(processName()));
+    LOG_CRIT("%s: %s" BYE, processName().c_str(), e.what(), processName().c_str());
     bye(s_exitArgs);
   }
 }
@@ -106,7 +105,7 @@ void ServerApp::loadConfig()
   }
 
   if (!loadConfig(path)) {
-    LOG_CRIT("%s: failed to load config: %s", qPrintable(processName()), path.c_str());
+    LOG_CRIT("%s: failed to load config: %s", processName().c_str(), path.c_str());
     bye(s_exitConfig);
   }
 }

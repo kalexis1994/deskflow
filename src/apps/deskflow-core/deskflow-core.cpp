@@ -1,5 +1,6 @@
 /*
  * Deskflow -- mouse and keyboard sharing utility
+ * SPDX-FileCopyrightText: (C) 2026 Deskflow Developers
  * SPDX-FileCopyrightText: (C) 2025 Chris Rizzitello <sithlord48@gmail.com>
  * SPDX-FileCopyrightText: (C) 2012 - 2016, 2025 - 2026 Synergy App Ltd
  * SPDX-FileCopyrightText: (C) 2002 Chris Schoeneman
@@ -15,6 +16,7 @@
 #include "common/Constants.h"
 #include "common/ExitCodes.h"
 #include "deskflow/ClientApp.h"
+#include "deskflow/ProcessUtils.h"
 #include "deskflow/ServerApp.h"
 #include "deskflow/ipc/CoreIpcServer.h"
 
@@ -22,12 +24,23 @@
 #include "arch/win32/ArchMiscWindows.h"
 #endif
 
-#include <QApplication>
-#include <QFileInfo>
-#include <QSharedMemory>
-#include <QTextStream>
-#include <QThread>
+#if defined(DESKFLOW_OS_MACOS)
+#include "platform/OSXCocoaApp.h"
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
+#if defined(DESKFLOW_CORE_QT_EVENT_LOOP)
+#include <QGuiApplication>
+#include <QTimer>
+#endif
+
+#include <atomic>
+#include <cstdio>
+#include <thread>
+
+namespace {
+
+#if defined(DESKFLOW_CORE_QT_EVENT_LOOP)
 void qtMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &message)
 {
   const auto utf8 = message.toUtf8();
@@ -52,13 +65,35 @@ void qtMessageHandler(QtMsgType type, const QMessageLogContext &context, const Q
     abort();
   }
 }
+#endif
 
-void showHelp(const CoreArgParser &parser)
+//! What the main thread does while the core runs on its own thread
+/*!
+The core used to run under QApplication, whose event loop kept the main thread busy.
+On macOS the main thread now runs its CFRunLoop for the same reason (NSApp exists as
+before). On Linux the portal clipboard (QImage) and the DBus helpers still use Qt,
+which wants its application object, as before a GUI one; see docs/dev/remove-qt.md,
+phase 5b. Elsewhere it just waits.
+*/
+void runMainThreadUntil(const std::atomic<bool> &done)
 {
-  QTextStream(stdout) << parser.helpText();
+#if defined(DESKFLOW_CORE_QT_EVENT_LOOP)
+  QTimer poll;
+  QObject::connect(&poll, &QTimer::timeout, [&done] {
+    if (done)
+      QCoreApplication::quit();
+  });
+  poll.start(100);
+  QCoreApplication::exec();
+#elif defined(DESKFLOW_OS_MACOS)
+  while (!done)
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
+#else
+  (void)done;
+#endif
 }
 
-App *createApp(const CoreArgParser &parser, EventQueue &events, const QString &processName)
+App *createApp(const CoreArgParser &parser, EventQueue &events, const std::string &processName)
 {
   if (parser.serverMode()) {
     return new ServerApp(&events, processName);
@@ -68,49 +103,52 @@ App *createApp(const CoreArgParser &parser, EventQueue &events, const QString &p
   return nullptr;
 }
 
+} // namespace
+
 int main(int argc, char **argv)
 {
 #if defined(DESKFLOW_OS_WIN)
   ArchMiscWindows::setInstanceWin32(GetModuleHandle(nullptr));
 #endif
 
-  QApplication::setApplicationName(QStringLiteral("%1 Core").arg(kAppName));
-  QApplication app(argc, argv);
+#if defined(DESKFLOW_CORE_QT_EVENT_LOOP)
+  QCoreApplication::setApplicationName(QStringLiteral("%1 Core").arg(kAppName));
+  QGuiApplication qtApp(argc, argv);
+#endif
+#if defined(DESKFLOW_OS_MACOS)
+  initCocoaApp();
+#endif
 
   Arch arch;
   arch.init();
 
   Log log;
+#if defined(DESKFLOW_CORE_QT_EVENT_LOOP)
   qInstallMessageHandler(qtMessageHandler);
+#endif
 
-  CoreArgParser parser(QCoreApplication::arguments());
+  const auto args = deskflow::commandLineArguments(argc, argv);
+  CoreArgParser parser(args);
 
   // Print any parser errors
-  if (!parser.errorText().isEmpty()) {
-    QTextStream(stdout) << parser.errorText() << "\n";
+  if (const auto error = parser.errorText(); !error.empty()) {
+    std::printf("%s\n", error.c_str());
   }
 
   if (parser.help()) {
-    showHelp(parser);
+    std::fputs(parser.helpText().c_str(), stdout);
     return s_exitSuccess;
   }
 
   if (parser.version()) {
-    QTextStream(stdout) << parser.versionText();
+    std::fputs(parser.versionText().c_str(), stdout);
     return s_exitSuccess;
   }
 
   // Before we check any more args we need to check for a duplicate process.
-  // Create a shared memory segment with a unique key
-  // This is to prevent a new instance from running if one is already running
-  QSharedMemory sharedMemory(kCoreBinName);
-
-  // Attempt to attach first and detach in order to clean up stale shm chunks
-  // This can happen if the previous instance was killed or crashed
-  if (sharedMemory.attach())
-    sharedMemory.detach();
-
-  if (!sharedMemory.create(1) && parser.singleInstanceOnly()) {
+  // The token goes away with this process, even if it crashes.
+  const deskflow::SingleInstance instance(kCoreBinName);
+  if (!instance.isFirst() && parser.singleInstanceOnly()) {
     LOG_WARN("an instance of deskflow core is already running");
     return s_exitDuplicate;
   }
@@ -118,7 +156,7 @@ int main(int argc, char **argv)
   parser.parse();
 
   EventQueue events;
-  const auto processName = QFileInfo(argv[0]).fileName();
+  const auto processName = deskflow::programName(args.empty() ? std::string(kCoreBinName) : args.front());
 
   App *coreApp = createApp(parser, events, processName);
 
@@ -126,16 +164,17 @@ int main(int argc, char **argv)
   ipcServer.onStopProcessRequested = [coreApp] { coreApp->quit(); };
   ipcServer.listen();
 
-  QThread coreThread;
-  QObject::connect(&coreThread, &QThread::finished, &app, &QApplication::quit);
-  coreApp->run(coreThread);
+  std::atomic<bool> coreFinished = false;
+  std::thread coreThread([coreApp, &coreFinished] {
+    LOG_DEBUG("core thread started");
+    coreApp->run();
+    LOG_DEBUG("core thread finished");
+    coreFinished = true;
+  });
+  runMainThreadUntil(coreFinished);
+  coreThread.join();
 
-  int exitCode = QApplication::exec();
-  coreThread.wait();
-
-  if (exitCode == s_exitSuccess) {
-    exitCode = coreApp->getExitCode();
-  }
+  const int exitCode = coreApp->getExitCode();
 
   // its stop handler uses the app; the server itself lives on while the core shuts down
   ipcServer.stop();

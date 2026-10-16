@@ -25,7 +25,7 @@ Constraints for every phase:
 | 5 | `net`: `QCryptographicHash`, fingerprint database I/O | `Fingerprint` with its own `Type` and byte vector (OpenSSL already computed the digests), `FingerprintDatabase` on `std::fstream`, `SecureUtils` returning `std::string`; `ipcSendToClient` takes `std::string` | done: `net` has no Qt code and no longer links `Qt6::Network` (Qt headers still arrive through `deskflow/ipc/CoreIpc.h` until 6) |
 | 5b | `platform`: `MSWindowsWatchdog` (process output decoding) on Windows; portals, DBus and X11 helpers on Linux; one macOS file | `Unicode::completeUTF8Length` for chunked output, `Unicode::UTF8ToLatin1`/`Latin1ToUTF8`, `base/Endian.h` for the BMP headers | Windows and macOS done (no Qt left in their `platform` code); X11 text converter done. Linux still uses Qt for portal clipboard images (`QImage`, `QDataStream`) and DBus (`XDGPortalRegistry`, `XDGPowerManager`, `XWindowsKeyState`), which need real replacements (GDBus, an image library) and a Linux build to test |
 | 6 | IPC: `QLocalServer`/`QLocalSocket`, `IpcServer` signals | `deskflow/ipc/LocalServer` (overlapped named pipes on Windows, a `poll` loop on a Unix socket, its own thread) under the same line protocol; `std::function` handlers instead of signals; `Enums.h` and `Coordinate.h` without moc | done: on Windows `arch`, `base`, `io`, `mt`, `common`, `net`, `client`, `server` and `platform` compile without any Qt include path; only `app` and the two entry points still use Qt (7) |
-| 7 | `deskflow-core`/`deskflow-daemon` entry points: `QApplication`, `QThread`, `QCommandLineParser` | plain `main`, `std::thread`, own argument parsing, the existing `EventQueue` | |
+| 7 | `deskflow-core`/`deskflow-daemon` entry points: `QApplication`, `QThread`, `QCommandLineParser` | plain `main`, `std::thread`, own argument parsing (same syntax and help text), a named mutex / lock file instead of `QSharedMemory`, `CreateProcessW`/`fork` instead of `QProcess` | done: on Windows `deskflow-core.exe` and `deskflow-daemon.exe` import no Qt DLL. The Linux core still creates a `QGuiApplication` for the Qt code left from 5b |
 | 8 | Unit tests (`QtTest`) | a header-only framework | |
 | 9 | Drop the Qt GUI (`src/lib/gui`, `src/apps/deskflow-gui`) from the build | the Tauri app | |
 
@@ -73,6 +73,24 @@ Windows, `$TMPDIR/<name>` (or `/tmp/<name>`) elsewhere. Differences, on purpose:
 checks the pipe's permissions. Its endpoints have their own names, so it never takes
 over a running Deskflow's.
 
+## Entry points without Qt (phase 7)
+
+- The core runs on a `std::thread`. The main thread used to run `QApplication`'s
+  event loop; now it waits (Windows), runs its `CFRunLoop` with `NSApp` created
+  (macOS), or still runs a `QGuiApplication` (Linux, until 5b is done there).
+- The daemon runs on its main thread, where the service dispatcher belongs; the IPC
+  server has its own thread.
+- Arguments are read as UTF-8 from `GetCommandLineW` on Windows, as Qt did, so a
+  settings path under a non-ASCII user name survives.
+- Duplicate detection: a named mutex in the session namespace (Windows) or a
+  `flock` on `$TMPDIR/deskflow-core.exe.lock`, both released when the process
+  exits, even on a crash.
+- The computer enter/exit commands start with `CreateProcessW` on the command line
+  as written (Windows) or a double fork after `QProcess::splitCommand`'s rules (Unix).
+
+`CoreArgParserTests` checks the accepted forms (`-s x`, `--settings=x`, `-settings x`,
+options before the mode, `--`), the errors, the help layout and the single instance.
+
 ## Things Qt was quietly providing
 
 Found while removing it; any library that stops linking Qt needs them from elsewhere:
@@ -89,13 +107,18 @@ Found while removing it; any library that stops linking Qt needs them from elsew
   `min`/`max` macros from `Windows.h` and needs `(std::min)(...)`.
 - `net` linked `Qt6::Network` without using it; the Qt GUI got its `QNetworkInterface`
   through that and now links `Qt6::Network` itself.
+- `QApplication` made the core per-monitor DPI aware on Windows; without it Windows
+  scales the screen size and cursor positions on scaled displays. The core's
+  manifest now declares `PerMonitorV2`.
+- `uint` is a Qt typedef.
 - `common/Settings.h` brought `QString`, `QFile`, `QTextStream` and the `kAppName`
   constants into every file that read a setting; those files now include what they use.
 
 ## Building on Windows
 
-Visual Studio 2022 Build Tools (MSVC, bundled vcpkg and Ninja), plus a Qt SDK until
-phase 7 is done (`python -m aqt install-qt windows desktop 6.10.3 win64_msvc2022_64`):
+Visual Studio 2022 Build Tools (MSVC, bundled vcpkg and Ninja), plus a Qt SDK for the
+classic GUI and the tests until phases 8 and 9 are done
+(`python -m aqt install-qt windows desktop 6.10.3 win64_msvc2022_64`):
 
 ```bat
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"

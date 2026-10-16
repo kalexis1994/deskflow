@@ -31,10 +31,33 @@
 
 #endif
 
-#include <QCoreApplication>
-#include <QFileInfo>
+#include <algorithm>
+#include <filesystem>
 
 using namespace deskflow::core;
+
+namespace {
+
+#if defined(DESKFLOW_OS_WIN)
+//! Where this program is, with forward slashes, as QCoreApplication::applicationDirPath()
+std::string applicationDirPath()
+{
+  std::wstring path(MAX_PATH, L'\0');
+  for (;;) {
+    const auto length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+    if (length < path.size()) {
+      path.resize(length);
+      break;
+    }
+    path.resize(path.size() * 2);
+  }
+  auto dir = deskflow::pathToUtf8(std::filesystem::path(path).parent_path());
+  std::replace(dir.begin(), dir.end(), '\\', '/');
+  return dir;
+}
+#endif
+
+} // namespace
 
 DaemonApp::DaemonApp(IEventQueue &events) : m_events(events)
 {
@@ -43,57 +66,65 @@ DaemonApp::DaemonApp(IEventQueue &events) : m_events(events)
 
 DaemonApp::~DaemonApp() = default;
 
-void DaemonApp::saveLogLevel(const QString &logLevel) const
+void DaemonApp::saveLogLevel(const std::string &logLevel) const
 {
-  LOG_DEBUG("log level changed: %s", logLevel.toUtf8().constData());
-  CLOG->setFilter(logLevel.toUtf8().constData());
-  CoreSettings::setValue(CoreSettings::Daemon::LogLevel, logLevel.toStdString());
+  LOG_DEBUG("log level changed: %s", logLevel.c_str());
+  CLOG->setFilter(logLevel);
+  CoreSettings::setValue(CoreSettings::Daemon::LogLevel, logLevel);
 }
 
-void DaemonApp::setConfigFile(const QString &configFile)
+void DaemonApp::setConfigFile(const std::string &configFile)
 {
-  LOG_DEBUG("config file updated: %s", configFile.toUtf8().constData());
-  m_configFile = configFile;
-  CoreSettings::setValue(CoreSettings::Daemon::ConfigFile, configFile.toStdString());
+  LOG_DEBUG("config file updated: %s", configFile.c_str());
+  {
+    std::scoped_lock lock{m_configMutex};
+    m_configFile = configFile;
+  }
+  CoreSettings::setValue(CoreSettings::Daemon::ConfigFile, configFile);
 }
 
 void DaemonApp::applyWatchdogCommand() const
 {
 #if defined(DESKFLOW_OS_WIN)
-  if (m_configFile.isEmpty()) {
+  std::string configFile;
+  {
+    std::scoped_lock lock{m_configMutex};
+    configFile = m_configFile;
+  }
+  if (configFile.empty()) {
     LOG_ERR("cannot apply watchdog command: no config file set");
     return;
   }
 
-  // QFileInfo::exists on a UNC path triggers SMB auth from this SYSTEM-context
+  // Checking whether a UNC path exists triggers SMB auth from this SYSTEM-context
   // process, leaking the machine NTLM hash to whoever controls the remote host.
   // Any local user can reach this via the IPC pipe, so reject remote paths up front.
-  if (m_configFile.startsWith(QStringLiteral("\\\\")) || m_configFile.startsWith(QStringLiteral("//"))) {
-    LOG_ERR("cannot apply watchdog command: remote config file paths are not allowed: %s", qPrintable(m_configFile));
+  if (configFile.starts_with(R"(\\)") || configFile.starts_with("//")) {
+    LOG_ERR("cannot apply watchdog command: remote config file paths are not allowed: %s", configFile.c_str());
     return;
   }
 
-  if (!QFileInfo::exists(m_configFile)) {
-    LOG_ERR("cannot apply watchdog command: config file does not exist: %s", qPrintable(m_configFile));
+  if (std::error_code ec; !std::filesystem::exists(deskflow::utf8Path(configFile), ec)) {
+    LOG_ERR("cannot apply watchdog command: config file does not exist: %s", configFile.c_str());
     return;
   }
 
-  const auto config = deskflow::IniFile::load(deskflow::utf8Path(m_configFile.toStdString()));
+  const auto config = deskflow::IniFile::load(deskflow::utf8Path(configFile));
   const auto coreMode = config.value(CoreSettings::Core::CoreMode).toInt();
   const auto elevate = config.value(CoreSettings::Daemon::Elevate, !CoreSettings::isPortableMode()).toBool();
 
-  QString modeArg;
+  std::string modeArg;
   if (coreMode == CoreSettings::CoreMode::Server) {
-    modeArg = QStringLiteral("server");
+    modeArg = "server";
   } else if (coreMode == CoreSettings::CoreMode::Client) {
-    modeArg = QStringLiteral("client");
+    modeArg = "client";
   } else {
     LOG_ERR("cannot apply watchdog command: invalid core mode in config: %d", coreMode);
     return;
   }
 
-  const auto corePath = QStringLiteral("%1/%2").arg(QCoreApplication::applicationDirPath(), kCoreBinName);
-  const auto command = QStringLiteral("\"%1\" %2 --settings \"%3\"").arg(corePath, modeArg, m_configFile).toStdString();
+  const auto corePath = applicationDirPath() + "/" + kCoreBinName;
+  const auto command = "\"" + corePath + "\" " + modeArg + " --settings \"" + configFile + "\"";
 
   LOG_DEBUG("applying watchdog command (elevate: %s)", elevate ? "yes" : "no");
   m_pWatchdog->setProcessConfig(command, elevate);
@@ -107,7 +138,10 @@ void DaemonApp::clearWatchdogCommand()
   LOG_DEBUG("clearing watchdog command");
 
   // Clear the persisted config path so the daemon does not auto-start the core on next boot.
-  m_configFile.clear();
+  {
+    std::scoped_lock lock{m_configMutex};
+    m_configFile.clear();
+  }
   CoreSettings::setValue(CoreSettings::Daemon::ConfigFile);
 
 #if defined(DESKFLOW_OS_WIN)
@@ -120,7 +154,10 @@ void DaemonApp::clearWatchdogCommand()
 void DaemonApp::clearSettings()
 {
   LOG_INFO("clearing daemon settings");
-  m_configFile.clear();
+  {
+    std::scoped_lock lock{m_configMutex};
+    m_configFile.clear();
+  }
   CoreSettings::setValue(CoreSettings::Daemon::ConfigFile);
   CoreSettings::setValue(CoreSettings::Daemon::LogFile);
   CoreSettings::setValue(CoreSettings::Daemon::LogLevel);
@@ -129,37 +166,16 @@ void DaemonApp::clearSettings()
 void DaemonApp::connectIpcServer(ipc::DaemonIpcServer &ipcServer)
 {
   // The handlers run on the IPC thread, as the direct Qt connections did before.
-  ipcServer.onLogLevelChanged = [this](const std::string &logLevel) { saveLogLevel(QString::fromStdString(logLevel)); };
-  ipcServer.onConfigFileChanged = [this](const std::string &configFile) {
-    setConfigFile(QString::fromStdString(configFile));
-  };
+  ipcServer.onLogLevelChanged = [this](const std::string &logLevel) { saveLogLevel(logLevel); };
+  ipcServer.onConfigFileChanged = [this](const std::string &configFile) { setConfigFile(configFile); };
   ipcServer.onStartProcessRequested = [this] { applyWatchdogCommand(); };
   ipcServer.onStopProcessRequested = [this] { clearWatchdogCommand(); };
   ipcServer.onClearSettingsRequested = [this] { clearSettings(); };
 }
 
-void DaemonApp::run(QThread &daemonThread)
+void DaemonApp::run()
 {
   LOG_INFO("starting daemon");
-
-  // Important: Move the daemon app to the daemon thread before creating any more Qt objects
-  // owned by the daemon app, as they will be created on the daemon thread.
-  moveToThread(&daemonThread);
-
-  connect(&daemonThread, &QThread::started, this, [this, &daemonThread]() {
-    LOG_DEBUG("daemon thread started");
-
-    if (m_foreground) {
-      LOG_DEBUG("running daemon in foreground");
-      mainLoop();
-    } else {
-      LOG_DEBUG("running daemon in background (daemonizing)");
-      ARCH->daemonize([this] { return daemonLoop(); });
-    }
-
-    daemonThread.quit();
-    LOG_DEBUG("daemon thread finished");
-  });
 
 #if defined(DESKFLOW_OS_WIN)
   m_pWatchdog = std::make_unique<MSWindowsWatchdog>(m_foreground, *m_pFileLogOutputter);
@@ -167,13 +183,22 @@ void DaemonApp::run(QThread &daemonThread)
   if (const auto persistedConfig = CoreSettings::value(CoreSettings::Daemon::ConfigFile).toString();
       !persistedConfig.empty()) {
     LOG_DEBUG("using last known config file: %s", persistedConfig.c_str());
-    m_configFile = QString::fromStdString(persistedConfig);
+    {
+      std::scoped_lock lock{m_configMutex};
+      m_configFile = persistedConfig;
+    }
     applyWatchdogCommand();
   }
 #endif
 
-  LOG_DEBUG("starting daemon thread");
-  daemonThread.start();
+  if (m_foreground) {
+    LOG_DEBUG("running daemon in foreground");
+    mainLoop();
+  } else {
+    LOG_DEBUG("running daemon in background (daemonizing)");
+    ARCH->daemonize([this] { return daemonLoop(); });
+  }
+  LOG_DEBUG("daemon finished");
 }
 
 int DaemonApp::daemonLoop()
@@ -232,9 +257,9 @@ int DaemonApp::mainLoop()
   return s_exitSuccess;
 }
 
-QString DaemonApp::logFilename()
+std::string DaemonApp::logFilename()
 {
-  return QString::fromStdString(CoreSettings::value(CoreSettings::Daemon::LogFile).toString());
+  return CoreSettings::value(CoreSettings::Daemon::LogFile).toString();
 }
 
 void DaemonApp::setForeground()
@@ -253,7 +278,7 @@ void DaemonApp::initLogging()
   }
 #endif
 
-  m_pFileLogOutputter = new FileLogOutputter(qPrintable(logFilename())); // NOSONAR - Adopted by `Log`
+  m_pFileLogOutputter = new FileLogOutputter(logFilename()); // NOSONAR - Adopted by `Log`
   CLOG->insert(m_pFileLogOutputter);
 }
 

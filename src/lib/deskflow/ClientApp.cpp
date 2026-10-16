@@ -29,8 +29,6 @@
 #include "platform/MSWindowsComputer.h"
 #endif
 
-#include <QFileInfo> // Must include before XWindowsComputer to avoid conflicts with xlib.h
-
 #if WINAPI_XWINDOWS
 #include "platform/XWindowsComputer.h"
 #endif
@@ -48,7 +46,7 @@
 #include <sstream>
 #include <string>
 
-ClientApp::ClientApp(IEventQueue *events, const QString &processName) : App(events, processName)
+ClientApp::ClientApp(IEventQueue *events, const std::string &processName) : App(events, processName)
 {
   // do nothing
 }
@@ -69,26 +67,26 @@ void ClientApp::parseArgs()
       try {
         NetworkAddress netAddr(trimmedAddr, port);
         netAddr.resolve();
-        m_serverAddresses.append(netAddr);
+        m_serverAddresses.push_back(netAddr);
         LOG_DEBUG("added server address: %s", trimmedAddr.c_str());
       } catch (SocketAddressException &e) {
         // allow an address that we can't look up if we're restartable.
         // we'll try to resolve the address each time we connect to the
         // server.  a bad port will never get better.
         if (e.getError() == SocketAddressException::SocketError::BadPort) {
-          LOG_CRIT("%s: %s" BYE, qPrintable(processName()), e.what(), qPrintable(processName()));
+          LOG_CRIT("%s: %s" BYE, processName().c_str(), e.what(), processName().c_str());
           bye(s_exitFailed);
         } else {
           // Still add it - we'll try to resolve later
           NetworkAddress netAddr(trimmedAddr, port);
-          m_serverAddresses.append(netAddr);
+          m_serverAddresses.push_back(netAddr);
           LOG_WARN("could not resolve address '%s': %s (will retry later)", trimmedAddr.c_str(), e.what());
         }
       }
     }
 
-    if (m_serverAddresses.isEmpty()) {
-      LOG_CRIT("%s: no valid server addresses specified" BYE, qPrintable(processName()), qPrintable(processName()));
+    if (m_serverAddresses.empty()) {
+      LOG_CRIT("%s: no valid server addresses specified" BYE, processName().c_str(), processName().c_str());
       bye(s_exitFailed);
     }
 
@@ -365,7 +363,7 @@ int ClientApp::runInner(StartupFunc startup)
 
 NetworkAddress &ClientApp::getCurrentServerAddress()
 {
-  if (m_serverAddresses.isEmpty()) {
+  if (m_serverAddresses.empty()) {
     throw std::runtime_error("No server addresses configured");
   }
   return m_serverAddresses[m_currentServerIndex];

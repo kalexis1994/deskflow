@@ -72,3 +72,14 @@ create_test(
   SOURCE IpcServerTests.cpp
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/deskflow"
 )
+
+# The core's own argument parser lives with its executable
+create_test(
+  NAME CoreArgParserTests
+  DEPENDS app
+  LIBS arch base ${extra_libs}
+  SOURCE CoreArgParserTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/deskflow"
+)
+target_sources(CoreArgParserTests PRIVATE ${CMAKE_SOURCE_DIR}/src/apps/deskflow-core/CoreArgParser.cpp)
+target_include_directories(CoreArgParserTests PRIVATE ${CMAKE_SOURCE_DIR}/src/apps/deskflow-core)

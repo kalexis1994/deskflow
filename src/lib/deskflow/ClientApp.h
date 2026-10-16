@@ -11,7 +11,7 @@
 #include "deskflow/App.h"
 #include "net/NetworkAddress.h"
 
-#include <QList>
+#include <vector>
 
 namespace deskflow {
 class Computer;
@@ -26,7 +26,7 @@ class ISocketFactory;
 class ClientApp : public App
 {
 public:
-  explicit ClientApp(IEventQueue *events, const QString &processName = QString());
+  explicit ClientApp(IEventQueue *events, const std::string &processName = {});
   ~ClientApp() override = default;
 
   //
@@ -92,8 +92,8 @@ private:
   bool m_suspended = false;
   Client *m_client = nullptr;
   deskflow::Computer *m_clientComputer = nullptr;
-  QList<NetworkAddress> m_serverAddresses;
+  std::vector<NetworkAddress> m_serverAddresses;
   size_t m_currentServerIndex = 0;
   size_t m_lastServerAddressIndex = 0;
-  uint m_retryCount = 0;
+  unsigned int m_retryCount = 0;
 };
