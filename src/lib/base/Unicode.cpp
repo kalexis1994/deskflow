@@ -443,3 +443,61 @@ void Unicode::toUTF8(std::string &dst, uint32_t c, bool *errors)
     assert(0 && "character out of range");
   }
 }
+
+std::string Unicode::UTF8ToLatin1(const std::string &src, bool *errors)
+{
+  resetError(errors);
+
+  auto n = static_cast<uint32_t>(src.size());
+  std::string dst;
+  dst.reserve(n);
+
+  const auto *data = reinterpret_cast<const uint8_t *>(src.c_str());
+  while (n > 0) {
+    const uint32_t c = fromUTF8(data, n);
+    if (c == s_invalid || c > 0xff) {
+      setError(errors);
+      dst += '?';
+    } else {
+      dst += static_cast<char>(c);
+    }
+  }
+
+  return dst;
+}
+
+std::string Unicode::Latin1ToUTF8(const std::string_view &src)
+{
+  std::string dst;
+  dst.reserve(src.size() * 2);
+  for (const char ch : src) {
+    const auto c = static_cast<uint8_t>(ch);
+    if (c < 0x80) {
+      dst += static_cast<char>(c);
+    } else {
+      dst += static_cast<char>(0xc0 | (c >> 6));
+      dst += static_cast<char>(0x80 | (c & 0x3f));
+    }
+  }
+  return dst;
+}
+
+std::size_t Unicode::completeUTF8Length(const std::string_view &src)
+{
+  // look back at most 3 bytes for the start of the last character
+  const std::size_t size = src.size();
+  for (std::size_t back = 1; back <= 4 && back <= size; ++back) {
+    const auto c = static_cast<uint8_t>(src[size - back]);
+    if ((c & 0xc0) == 0x80)
+      continue; // continuation byte, keep looking for the lead
+    std::size_t expected = 1;
+    if (c >= 0xf0 && c < 0xf8)
+      expected = 4;
+    else if (c >= 0xe0)
+      expected = c < 0xf0 ? 3 : 1;
+    else if (c >= 0xc0)
+      expected = 2;
+    return expected > back ? size - back : size;
+  }
+  return size;
+}

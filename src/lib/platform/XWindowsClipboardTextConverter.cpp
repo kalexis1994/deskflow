@@ -7,7 +7,7 @@
 
 #include "platform/XWindowsClipboardTextConverter.h"
 
-#include <QString>
+#include "base/Unicode.h"
 
 //
 // XWindowsClipboardTextConverter
@@ -36,10 +36,10 @@ int XWindowsClipboardTextConverter::getDataSize() const
 
 std::string XWindowsClipboardTextConverter::fromIClipboard(const std::string &data) const
 {
-  return QString::fromStdString(data).toLatin1().toStdString();
+  return Unicode::UTF8ToLatin1(data);
 }
 
 std::string XWindowsClipboardTextConverter::toIClipboard(const std::string &data) const
 {
-  return QString::fromLatin1(data).toUtf8().toStdString();
+  return Unicode::Latin1ToUTF8(data);
 }

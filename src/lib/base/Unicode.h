@@ -7,8 +7,10 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 //! Unicode utility functions
 /*!
@@ -57,6 +59,24 @@ public:
   set to true iff any character could not be decoded.
   */
   static std::string UTF16ToUTF8(const std::string_view &, bool *errors = nullptr);
+
+  //! Convert from UTF-8 to Latin-1
+  /*!
+  Characters outside Latin-1 and undecodable bytes become '?', as
+  QString::toLatin1 does.  If errors is not nullptr then *errors is set to
+  true iff any character was replaced.
+  */
+  static std::string UTF8ToLatin1(const std::string &, bool *errors = nullptr);
+
+  //! Convert from Latin-1 to UTF-8
+  static std::string Latin1ToUTF8(const std::string_view &);
+
+  //! Length of the text without a UTF-8 sequence cut off at its end
+  /*!
+  For text read in chunks: the bytes past this length start a character
+  whose remaining bytes haven't arrived yet.
+  */
+  static std::size_t completeUTF8Length(const std::string_view &);
 
   //@}
 

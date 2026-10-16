@@ -14,6 +14,9 @@ class UnicodeTests : public QObject
 private Q_SLOTS:
   void initTestCase();
   void UTF16ToUTF8();
+  void latin1MatchesQt();
+  void completeUTF8Length();
+  void littleEndian();
 
 private:
   Log m_log;

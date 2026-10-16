@@ -7,10 +7,12 @@
 #include "platform/MSWindowsWatchdog.h"
 
 #include "arch/Arch.h"
+#include "arch/Utf8.h"
 #include "arch/win32/XArchWindows.h"
 #include "base/Log.h"
 #include "base/LogOutputters.h"
 #include "base/TMethodJob.h"
+#include "base/Unicode.h"
 #include "common/Constants.h"
 #include "common/LogLevel.h"
 #include "deskflow/App.h"
@@ -24,8 +26,6 @@
 #include <Windows.h>
 #include <shlobj.h>
 #include <tchar.h>
-
-#include <QStringDecoder>
 
 //
 // Free functions
@@ -346,10 +346,9 @@ void MSWindowsWatchdog::outputLoop(const void *)
   BYTE raw[kBufSize];
   DWORD bytesRead = 0;
 
-  // Warning: Manual decoding while we still use Win32 APIs for process launching and output reading.
-  // Using a byte decoder should help to prevent mojibake when we get a partial UTF-8 sequence in a read chunk.
-  // In future when we move to Qt process APIs, this can all be simplified.
-  QStringDecoder decoder(QStringDecoder::Utf8);
+  // The core writes UTF-8; a read can end in the middle of a character, so the
+  // incomplete tail waits for the next read instead of turning into mojibake.
+  std::string pending;
 
   while (m_running) {
     const BOOL ok = ::ReadFile(m_outputReadPipe, raw, kBufSize, &bytesRead, nullptr);
@@ -365,16 +364,19 @@ void MSWindowsWatchdog::outputLoop(const void *)
       continue;
     }
 
-    const QString decoded =
-        decoder.decode(QByteArray::fromRawData(reinterpret_cast<const char *>(raw), int(bytesRead)));
+    pending.append(reinterpret_cast<const char *>(raw), bytesRead);
+    const auto complete = Unicode::completeUTF8Length(pending);
+    const auto decoded = pending.substr(0, complete);
+    pending.erase(0, complete);
+    if (decoded.empty())
+      continue;
 
     // The file log outputter adds its own newlines, so trim the decoded string to avoid double newlines.
-    const auto trimmed = decoded.trimmed();
-    m_fileLogOutputter.write(LogLevel::Level::Print, trimmed.toStdString());
+    m_fileLogOutputter.write(LogLevel::Level::Print, deskflow::trimmed(decoded));
 
     if (m_foreground) {
       // Doesn't add it's own newlines, so use the original ones from the process output.
-      ::OutputDebugString(decoded.toStdWString().c_str());
+      ::OutputDebugStringW(deskflow::utf8ToWide(decoded).c_str());
     }
   }
 }

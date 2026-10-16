@@ -9,7 +9,8 @@
 
 #include "platform/OSXClipboard.h"
 
-#include <QtTypes>
+#include <cstddef>
+#include <cstdint>
 
 class OSXClipboardBMPConverter : public IOSXClipboardConverter
 {
@@ -26,11 +27,11 @@ public:
   static std::string convertString(const std::string &data, CFStringEncoding fromEncoding, CFStringEncoding toEncoding);
 
 private:
-  static constexpr quint32 kBiBitfields = 3;
-  static constexpr quint32 kBiAlphabitfields = 6;
-  static constexpr quint32 kBmpHeaderDIBPad = 10;
-  static constexpr quint32 kBmpFileHeaderSize = 14;
-  static constexpr quint32 kFallbackPixelOffset = 40;
+  static constexpr uint32_t kBiBitfields = 3;
+  static constexpr uint32_t kBiAlphabitfields = 6;
+  static constexpr uint32_t kBmpHeaderDIBPad = 10;
+  static constexpr uint32_t kBmpFileHeaderSize = 14;
+  static constexpr uint32_t kFallbackPixelOffset = 40;
 
-  static quint32 dibPixelOffset(const quint8 *dib, qsizetype dibSize);
+  static uint32_t dibPixelOffset(const uint8_t *dib, size_t dibSize);
 };

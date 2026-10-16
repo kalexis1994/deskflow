@@ -8,9 +8,8 @@
 
 #include "platform/MSWindowsClipboardBitmapConverter.h"
 
+#include "base/Endian.h"
 #include "base/Log.h"
-
-#include <QtEndian>
 
 #include <cstdlib>
 #include <limits>
@@ -29,7 +28,7 @@ bool normaliseMalformedMacDib(const std::string &data, std::string &normalisedDa
 
   const auto width = static_cast<size_t>(header->biWidth);
   const auto height = static_cast<size_t>(std::abs(static_cast<int64_t>(header->biHeight)));
-  if (height == 0 || width > (std::numeric_limits<size_t>::max() - sizeof(BITMAPINFOHEADER)) / 4 / height) {
+  if (height == 0 || width > ((std::numeric_limits<size_t>::max)() - sizeof(BITMAPINFOHEADER)) / 4 / height) {
     return false;
   }
   const auto expectedSize = sizeof(BITMAPINFOHEADER) + width * height * 4;
@@ -43,8 +42,8 @@ bool normaliseMalformedMacDib(const std::string &data, std::string &normalisedDa
   }
 
   normalisedData = data.substr(0, sizeof(BITMAPINFOHEADER));
-  qToLittleEndian<quint32>(sizeof(BITMAPINFOHEADER), reinterpret_cast<quint8 *>(&normalisedData[0]));
-  qToLittleEndian<quint32>(BI_RGB, reinterpret_cast<quint8 *>(&normalisedData[0]) + 16);
+  deskflow::toLittleEndian<uint32_t>(sizeof(BITMAPINFOHEADER), &normalisedData[0]);
+  deskflow::toLittleEndian<uint32_t>(BI_RGB, &normalisedData[16]);
   normalisedData += data.substr(sizeof(BITMAPINFOHEADER));
   LOG_INFO("normalised malformed macOS clipboard image to BI_RGB");
   return true;

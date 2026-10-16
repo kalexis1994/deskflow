@@ -23,7 +23,7 @@ Constraints for every phase:
 | 3 | `qDebug`/`qInfo`/`qWarning`/`qCritical` in the core | `LOG_*`; `CLOG` falls back to a console log when no `Log` exists; the Qt GUI forwards `LOG_*` to its Qt handler; GUI-only code (`I18N`, `KeySequence`, `Action`, `Hotkey`) moved from `common` to `gui` | done (the core's Qt message handler stays until 7) |
 | 4 | `QSettings` and `Settings` (a `QObject` singleton) | `common/IniFile` (reads and writes `QSettings`' INI format: sections, `\`-keys, quoting, escapes, lists, `@Invalid()`) and `common/CoreSettings` (same keys and defaults, static API, `std::string`); `NetworkProtocol.h`, `KeyboardModifier.h`, `PlatformInfo.h` without Qt; the Qt `Settings` and `QSettingsProxy` moved to `gui` | done (`common` still links `Qt6::Core` for the moc'd enums in `Enums.h`/`Coordinate.h`, see 6) |
 | 5 | `net`: `QCryptographicHash`, fingerprint database I/O | `Fingerprint` with its own `Type` and byte vector (OpenSSL already computed the digests), `FingerprintDatabase` on `std::fstream`, `SecureUtils` returning `std::string`; `ipcSendToClient` takes `std::string` | done: `net` has no Qt code and no longer links `Qt6::Network` (Qt headers still arrive through `deskflow/ipc/CoreIpc.h` until 6) |
-| 5b | `platform`: `MSWindowsWatchdog` (process output decoding) on Windows; portals, DBus and X11 helpers on Linux; one macOS file | `std::string`, `arch/Utf8.h` | |
+| 5b | `platform`: `MSWindowsWatchdog` (process output decoding) on Windows; portals, DBus and X11 helpers on Linux; one macOS file | `Unicode::completeUTF8Length` for chunked output, `Unicode::UTF8ToLatin1`/`Latin1ToUTF8`, `base/Endian.h` for the BMP headers | Windows and macOS done (no Qt left in their `platform` code); X11 text converter done. Linux still uses Qt for portal clipboard images (`QImage`, `QDataStream`) and DBus (`XDGPortalRegistry`, `XDGPowerManager`, `XWindowsKeyState`), which need real replacements (GDBus, an image library) and a Linux build to test |
 | 6 | IPC: `QLocalServer`/`QLocalSocket`, `IpcServer` signals | named pipes (Windows) and Unix sockets, same line protocol | |
 | 7 | `deskflow-core`/`deskflow-daemon` entry points: `QApplication`, `QThread`, `QCommandLineParser` | plain `main`, `std::thread`, own argument parsing, the existing `EventQueue` | |
 | 8 | Unit tests (`QtTest`) | a header-only framework | |
@@ -63,6 +63,8 @@ Found while removing it; any library that stops linking Qt needs them from elsew
   `base/BaseException.h`.
 - Libraries declared fewer link dependencies than they use (e.g. `arch` needs
   `version.lib`); it went unnoticed while every test also linked something bigger.
+- Qt's `qt_windows.h` defines `NOMINMAX`; code that stops including Qt gets the
+  `min`/`max` macros from `Windows.h` and needs `(std::min)(...)`.
 - `net` linked `Qt6::Network` without using it; the Qt GUI got its `QNetworkInterface`
   through that and now links `Qt6::Network` itself.
 - `common/Settings.h` brought `QString`, `QFile`, `QTextStream` and the `kAppName`

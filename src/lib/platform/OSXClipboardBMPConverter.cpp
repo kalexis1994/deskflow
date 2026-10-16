@@ -7,20 +7,19 @@
 
 #include "platform/OSXClipboardBMPConverter.h"
 
+#include "base/Endian.h"
 #include "base/Log.h"
 
-#include <QtEndian>
-
-quint32 OSXClipboardBMPConverter::dibPixelOffset(const quint8 *dib, qsizetype dibSize)
+uint32_t OSXClipboardBMPConverter::dibPixelOffset(const uint8_t *dib, size_t dibSize)
 {
-  quint32 pixelOffset = 0;
+  uint32_t pixelOffset = 0;
   if (dibSize >= 16) {
-    const auto biSize = qFromLittleEndian<quint32>(dib);
+    const auto biSize = deskflow::fromLittleEndian<uint32_t>(dib);
     if (biSize >= 12 && biSize <= dibSize) {
       pixelOffset = biSize;
       if (biSize >= kFallbackPixelOffset) {
-        const auto biBitCount = qFromLittleEndian<quint16>(dib + 14);
-        const auto biCompression = qFromLittleEndian<quint32>(dib + 16);
+        const auto biBitCount = deskflow::fromLittleEndian<uint16_t>(dib + 14);
+        const auto biCompression = deskflow::fromLittleEndian<uint32_t>(dib + 16);
         if (biSize == kFallbackPixelOffset) {
           if (biCompression == kBiBitfields) {
             pixelOffset += 12;
@@ -29,7 +28,7 @@ quint32 OSXClipboardBMPConverter::dibPixelOffset(const quint8 *dib, qsizetype di
           }
         }
         if (biBitCount > 0 && biBitCount <= 8) {
-          const auto biClrUsed = qFromLittleEndian<quint32>(dib + 32);
+          const auto biClrUsed = deskflow::fromLittleEndian<uint32_t>(dib + 32);
           const auto numColors = biClrUsed != 0 ? biClrUsed : (1u << biBitCount);
           pixelOffset += numColors * 4;
         }
@@ -56,18 +55,18 @@ std::string OSXClipboardBMPConverter::fromIClipboard(const std::string &bmp) con
     return std::string();
   }
 
-  auto pixelOffset = dibPixelOffset(reinterpret_cast<const quint8 *>(bmp.data()), bmp.size());
+  auto pixelOffset = dibPixelOffset(reinterpret_cast<const uint8_t *>(bmp.data()), bmp.size());
   if (pixelOffset == 0) {
     pixelOffset = kFallbackPixelOffset;
   }
 
-  quint8 header[kBmpFileHeaderSize];
+  uint8_t header[kBmpFileHeaderSize];
   header[0] = 'B';
   header[1] = 'M';
-  qToLittleEndian<quint32>(static_cast<quint32>(kBmpFileHeaderSize + bmp.size()), header + 2);
-  qToLittleEndian<quint16>(0, header + 6);
-  qToLittleEndian<quint16>(0, header + 8);
-  qToLittleEndian<quint32>(kBmpFileHeaderSize + pixelOffset, header + kBmpHeaderDIBPad);
+  deskflow::toLittleEndian<uint32_t>(static_cast<uint32_t>(kBmpFileHeaderSize + bmp.size()), header + 2);
+  deskflow::toLittleEndian<uint16_t>(uint16_t{0}, header + 6);
+  deskflow::toLittleEndian<uint16_t>(uint16_t{0}, header + 8);
+  deskflow::toLittleEndian<uint32_t>(kBmpFileHeaderSize + pixelOffset, header + kBmpHeaderDIBPad);
   return std::string(reinterpret_cast<const char *>(header), kBmpFileHeaderSize) + bmp;
 }
 
@@ -77,7 +76,7 @@ std::string OSXClipboardBMPConverter::toIClipboard(const std::string &bmp) const
     LOG_DEBUG("rejecting clipboard bmp, too small to parse, size: %zu bytes", bmp.size());
     return std::string();
   }
-  const auto *raw = reinterpret_cast<const quint8 *>(bmp.data());
+  const auto *raw = reinterpret_cast<const uint8_t *>(bmp.data());
   if (raw[0] != 'B' || raw[1] != 'M') {
     LOG_DEBUG("rejecting clipboard bmp, missing bm magic");
     return std::string();
@@ -86,7 +85,7 @@ std::string OSXClipboardBMPConverter::toIClipboard(const std::string &bmp) const
   // macOS auto-promotes pasteboard images as 32-bit BITMAPV5HEADER + BI_BITFIELDS,
   // so the full DIB (extended header, masks, palette) must reach the receiver. The
   // earlier code truncated to 40 bytes and dropped the BGRA bitfield masks.
-  const auto offset = qFromLittleEndian<quint32>(raw + kBmpHeaderDIBPad);
+  const auto offset = deskflow::fromLittleEndian<uint32_t>(raw + kBmpHeaderDIBPad);
   const auto naturalOffset = dibPixelOffset(raw + kBmpFileHeaderSize, bmp.size() - kBmpFileHeaderSize);
   std::string result;
   const bool hasGap = naturalOffset != 0 && offset > kBmpFileHeaderSize + naturalOffset && offset <= bmp.size();
