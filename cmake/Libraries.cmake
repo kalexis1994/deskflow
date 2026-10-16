@@ -16,7 +16,16 @@ macro(configure_libs)
       /D_WINDOWS
       /D_CRT_SECURE_NO_WARNINGS
       /D_XKEYCHECK_H
+      # Qt6::Platform adds these to every target that links Qt; set them for the whole
+      # project so code builds the same with or without Qt: wide-character Windows APIs,
+      # UTF-8 source files and standard-conforming MSVC.
+      /DUNICODE
+      /D_UNICODE
+      /D_ENABLE_EXTENDED_ALIGNED_STORAGE
     )
+    if(MSVC)
+      add_compile_options(/utf-8 /permissive- /Zc:__cplusplus)
+    endif()
   endif()
 
   # Check if <format> header is available

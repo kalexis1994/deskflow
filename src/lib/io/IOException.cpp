@@ -12,7 +12,7 @@
 // IOClosedException
 //
 
-QString IOClosedException::getWhat() const throw()
+std::string IOClosedException::getWhat() const throw()
 {
   return format("IOClosedException", "already closed");
 }
@@ -21,7 +21,7 @@ QString IOClosedException::getWhat() const throw()
 // IOEndOfStreamException
 //
 
-QString IOEndOfStreamException::getWhat() const throw()
+std::string IOEndOfStreamException::getWhat() const throw()
 {
   return format("IOEndOfStreamException", "reached end of stream");
 }
@@ -30,7 +30,7 @@ QString IOEndOfStreamException::getWhat() const throw()
 // IOWouldBlockException
 //
 
-QString IOWouldBlockException::getWhat() const throw()
+std::string IOWouldBlockException::getWhat() const throw()
 {
   return format("IOWouldBlockException", "stream operation would block");
 }

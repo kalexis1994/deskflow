@@ -7,6 +7,7 @@
  */
 
 #include "client/ServerProxy.h"
+#include <cassert>
 
 #include "base/IEventQueue.h"
 #include "base/Log.h"

@@ -26,7 +26,7 @@ class DisplayOpenFailureException : public DisplayException
   using DisplayException::DisplayException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 //! X11 Display unavailable exception
@@ -42,5 +42,5 @@ public:
   //@}
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };

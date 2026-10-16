@@ -6,6 +6,7 @@
  */
 
 #include "platform/MSWindowsHook.h"
+#include <cassert>
 #include "base/DirectionTypes.h"
 #include "base/Log.h"
 #include "deskflow/DisplayException.h"

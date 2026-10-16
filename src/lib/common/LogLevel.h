@@ -7,12 +7,16 @@
  */
 
 #pragma once
-#include <QObject>
-#include <QString>
 
-class LogLevel : private QObject
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <string>
+#include <string_view>
+#include <vector>
+
+class LogLevel
 {
-  Q_OBJECT
   //! Log levels
   /*!
   The logging priority levels in order of highest to lowest priority.
@@ -28,74 +32,48 @@ public:
     Debug,      //!< For important debugging messages
     Verbose     //!< For verbose debugging messages
   };
-  Q_ENUM(Level)
 
-  static QString toOption(const LogLevel::Level &level)
+  //! Name of a level as written in settings and log lines ("INFO"); empty if out of range
+  static std::string toOption(const LogLevel::Level &level)
   {
     return toOption(static_cast<int>(level));
   }
 
-  static QString toOption(const int &level)
+  static std::string toOption(const int &level)
   {
-    if (level < 0 || level > m_levelOptions.size())
-      return "";
-    return m_levelOptions.at(level);
+    if (level < 0 || level >= static_cast<int>(kOptions.size()))
+      return {};
+    return std::string(kOptions.at(level));
   }
 
-  static LogLevel::Level fromOption(const QString &level)
+  //! Level for a name, ignoring case; Info if the name is unknown
+  static LogLevel::Level fromOption(std::string_view option)
   {
-    const auto index = m_levelOptions.indexOf(level, 0, Qt::CaseInsensitive);
-    if (index < 0 || index >= m_levelOptions.count())
-      return LogLevel::Level::Info;
-    return LogLevel::Level(index);
+    for (size_t i = 0; i < kOptions.size(); ++i) {
+      if (equalsIgnoreCase(kOptions[i], option))
+        return LogLevel::Level(static_cast<int>(i));
+    }
+    return LogLevel::Level::Info;
   }
 
-  static QString toString(const LogLevel::Level &level)
+  static bool isOption(std::string_view option)
   {
-    return toString(static_cast<int>(level));
+    return std::any_of(kOptions.begin(), kOptions.end(), [option](auto o) { return equalsIgnoreCase(o, option); });
   }
 
-  static QString toString(const int &level)
+  static std::vector<std::string> logLevelOptions()
   {
-    if (level < 0 || level > m_levelNames.size())
-      return "";
-    return tr(m_levelNames.at(level).toUtf8());
-  }
-
-  static QStringList logLevelOptions()
-  {
-    return m_levelOptions;
-  }
-
-  static QStringList logLevelNames()
-  {
-    return m_levelNames;
+    return {kOptions.begin(), kOptions.end()};
   }
 
 private:
-  // clang-format off
-  /**
-   * @brief m_levelOptions, Valid values for the log level options, Never translated
-   */
-  inline static const QStringList m_levelOptions {
-    QStringLiteral("FATAL")
-    , QStringLiteral("ERROR")
-    , QStringLiteral("WARNING")
-    , QStringLiteral("INFO")
-    , QStringLiteral("DEBUG")
-    , QStringLiteral("VERBOSE")
-  };
+  static bool equalsIgnoreCase(std::string_view a, std::string_view b)
+  {
+    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+             return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+           });
+  }
 
-  /**
-   * @brief m_levelNames, Strings used to present level names to the user, Expected to be translated
-   */
-  inline static const QStringList m_levelNames = {
-    QT_TR_NOOP("Fatal")
-    , QT_TR_NOOP("Error")
-    , QT_TR_NOOP("Warning")
-    , QT_TR_NOOP("Info")
-    , QT_TR_NOOP("Debug")
-    , QT_TR_NOOP("Verbose")
-  };
-  // clang-format on
+  inline static constexpr std::array<std::string_view, 6> kOptions{"FATAL",  "ERROR", "WARNING",
+                                                                   "INFO",   "DEBUG", "VERBOSE"};
 };

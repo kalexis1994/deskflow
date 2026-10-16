@@ -6,6 +6,7 @@
  */
 
 #include "arch/Arch.h"
+#include <cassert>
 #include "base/Log.h"
 
 #include "platform/XWindowsClipboard.h"

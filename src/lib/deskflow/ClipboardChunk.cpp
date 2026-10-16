@@ -10,6 +10,7 @@
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/ProtocolUtil.h"
 #include "io/IStream.h"
+#include <charconv>
 #include <cstring>
 #include <limits>
 
@@ -101,8 +102,10 @@ TransferState ClipboardChunk::assemble(
   }
 
   if (mark == ChunkType::DataStart) {
-    bool ok = false;
-    const auto expected = QString::fromStdString(data).toULongLong(&ok);
+    // the whole header must be a decimal number
+    unsigned long long expected = 0;
+    const auto [end, ec] = std::from_chars(data.data(), data.data() + data.size(), expected);
+    const bool ok = ec == std::errc() && end == data.data() + data.size() && !data.empty();
     if (!ok || expected > std::numeric_limits<size_t>::max()) {
       LOG_ERR("clipboard invalid size header: %s", data.c_str());
       reset();

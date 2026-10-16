@@ -7,6 +7,7 @@
  */
 
 #include "deskflow/ProtocolUtil.h"
+#include <cassert>
 #include "base/Log.h"
 #include "deskflow/DeskflowException.h"
 #include "deskflow/ProtocolTypes.h"
@@ -568,7 +569,7 @@ void ProtocolUtil::readBytes(deskflow::IStream *stream, uint32_t len, std::strin
 // XIOReadMismatch
 //
 
-QString XIOReadMismatch::getWhat() const throw()
+std::string XIOReadMismatch::getWhat() const throw()
 {
   return format("XIOReadMismatch", "ProtocolUtil::readf() mismatch");
 }

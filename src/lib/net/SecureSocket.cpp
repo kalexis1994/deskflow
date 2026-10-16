@@ -6,6 +6,7 @@
  */
 
 #include "arch/OsDetection.h"
+#include <cassert>
 #include "SecureSocket.h"
 #include "SecureUtils.h"
 

@@ -26,5 +26,5 @@ class MTThreadUnavailableException : public MTException
   using MTException::MTException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };

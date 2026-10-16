@@ -200,19 +200,21 @@ void SettingsDialog::resetAllSettings()
 
 void SettingsDialog::updateText()
 {
-  const auto logLevels = LogLevel::logLevelNames().count();
+  // display names live here now that LogLevel itself is Qt-free
+  const QStringList names = {tr("Fatal"), tr("Error"), tr("Warning"), tr("Info"), tr("Debug"), tr("Verbose")};
+  const auto logLevels = names.count();
   const QStringList toolTips = {tr("Required messages"),        tr("Non-fatal errors"), tr("General warnings"),
                                 tr("General events [Default]"), tr("Debug entries"),    tr("Verbose debug output")};
   if (ui->comboLogLevel->count() == 0) {
     const auto logLevelOptions = LogLevel::logLevelOptions();
     for (int i = 0; i < logLevels; i++) {
-      ui->comboLogLevel->addItem(LogLevel::toString(i));
-      ui->comboLogLevel->setItemData(i, logLevelOptions.at(i), Qt::UserRole);
+      ui->comboLogLevel->addItem(names.at(i));
+      ui->comboLogLevel->setItemData(i, QString::fromStdString(logLevelOptions.at(i)), Qt::UserRole);
       ui->comboLogLevel->setItemData(i, toolTips.at(i), Qt::ToolTipRole);
     }
   } else {
     for (int i = 0; i < logLevels; i++) {
-      ui->comboLogLevel->setItemData(i, LogLevel::toString(i), Qt::DisplayRole);
+      ui->comboLogLevel->setItemData(i, names.at(i), Qt::DisplayRole);
       ui->comboLogLevel->setItemData(i, toolTips.at(i), Qt::ToolTipRole);
     }
   }
@@ -455,7 +457,7 @@ bool SettingsDialog::isDefault() const
 {
   const auto processMode = Settings::defaultValue(Settings::Core::ProcessMode).value<Settings::ProcessMode>();
   const auto logLevelIndex =
-      static_cast<int>(LogLevel::fromOption(Settings::defaultValue(Settings::Log::Level).toString()));
+      static_cast<int>(LogLevel::fromOption(Settings::defaultValue(Settings::Log::Level).toString().toStdString()));
 
   return (
       (ui->sbPort->value() == Settings::defaultValue(Settings::Core::Port).toInt()) &&
@@ -488,7 +490,7 @@ void SettingsDialog::resetToDefault()
 {
   ui->sbPort->setValue(Settings::defaultValue(Settings::Core::Port).toInt());
   ui->comboLogLevel->setCurrentIndex(
-      static_cast<int>(LogLevel::fromOption(Settings::defaultValue(Settings::Log::Level).toString()))
+      static_cast<int>(LogLevel::fromOption(Settings::defaultValue(Settings::Log::Level).toString().toStdString()))
   );
   ui->groupLogToFile->setChecked(Settings::defaultValue(Settings::Log::ToFile).toBool());
   ui->lineLogFilename->setText(Settings::defaultValue(Settings::Log::File).toString());

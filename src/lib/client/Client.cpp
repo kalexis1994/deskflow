@@ -7,6 +7,7 @@
  */
 
 #include "client/Client.h"
+#include <cassert>
 
 #include "arch/Arch.h"
 #include "base/IEventQueue.h"

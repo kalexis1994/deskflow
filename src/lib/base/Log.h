@@ -13,7 +13,7 @@
 #include <list>
 #include <mutex>
 
-#include <QString>
+#include <string>
 
 #define CLOG (Log::getInstance())
 #define BYE "\nTry `%s --help' for more information."
@@ -86,7 +86,7 @@ public:
   true if the priority \c name was recognized;  if \c name is nullptr
   then it simply returns true.
   */
-  bool setFilter(const QString &name);
+  bool setFilter(const std::string &name);
 
   //! Set the minimum priority filter (by ordinal).
   void setFilter(LogLevel::Level);

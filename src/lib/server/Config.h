@@ -475,7 +475,7 @@ public:
 
 protected:
   // BaseException overrides
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 
 private:
   std::string m_error;

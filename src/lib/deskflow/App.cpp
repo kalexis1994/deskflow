@@ -6,6 +6,7 @@
  */
 
 #include "arch/OsDetection.h"
+#include <cassert>
 #include "deskflow/App.h"
 
 #include "DisplayInvalidException.h"
@@ -126,7 +127,7 @@ void App::setupFileLogging()
 {
   if (Settings::value(Settings::Log::ToFile).toBool()) {
     const auto file = Settings::value(Settings::Log::File).toString();
-    m_fileLog = new FileLogOutputter(file); // NOSONAR - Adopted by `Log`
+    m_fileLog = new FileLogOutputter(file.toStdString()); // NOSONAR - Adopted by `Log`
     CLOG->insert(m_fileLog);
     LOG_VERBOSE("logging to file (%s) enabled", qPrintable(file));
   }
@@ -137,7 +138,7 @@ void App::loggingFilterWarning() const
   if ((CLOG->getFilter() > CLOG->getConsoleMaxLevel()) && (Settings::value(Settings::Log::ToFile).toBool())) {
     LOG_WARN(
         "log messages above %s are NOT sent to console (use file logging)",
-        qPrintable(LogLevel::toOption(CLOG->getConsoleMaxLevel()))
+        LogLevel::toOption(CLOG->getConsoleMaxLevel()).c_str()
     );
   }
 }
@@ -147,7 +148,7 @@ void App::initApp()
   parseArgs();
 
   // set log filter
-  if (const auto logLevel = Settings::logLevelText(); !CLOG->setFilter(logLevel)) {
+  if (const auto logLevel = Settings::logLevelText(); !CLOG->setFilter(logLevel.toStdString())) {
     LOG_CRIT(
         "%s: unrecognized log level `%s'" BYE, qPrintable(processName()), qPrintable(logLevel),
         qPrintable(processName())

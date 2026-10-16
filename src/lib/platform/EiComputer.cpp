@@ -7,6 +7,7 @@
  */
 
 #include "platform/EiComputer.h"
+#include <cassert>
 
 #include "base/IEventQueue.h"
 #include "base/Log.h"

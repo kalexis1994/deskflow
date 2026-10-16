@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <QString>
+#include <string>
 #include <functional>
 
 //! Interface for architecture dependent daemonizing
@@ -61,7 +61,7 @@ public:
   /*!
   Gets the command line with which the application was started.
   */
-  virtual QString commandLine() const = 0;
+  virtual std::string commandLine() const = 0;
 
   //@}
 };

@@ -22,6 +22,7 @@ private Q_SLOTS:
   void assembleRefusesExpectedSizeBeyondLimit();
   void assembleDiscardsOversizeTransferThenAcceptsNext();
   void assembleAcceptsStartDuringOversizeTransfer();
+  void assembleRequiresDecimalSizeHeader();
 
 private:
   Log m_log;

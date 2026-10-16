@@ -20,7 +20,7 @@ public:
   ~ArchLogUnix() override = default;
 
   // IArchLog overrides
-  void openLog(const QString &name) override;
+  void openLog(const std::string &name) override;
   void closeLog() override;
-  void writeLog(LogLevel::Level, const QString &) override;
+  void writeLog(LogLevel::Level, const std::string &) override;
 };

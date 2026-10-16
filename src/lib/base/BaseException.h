@@ -11,9 +11,6 @@
 #include <stdexcept>
 #include <string>
 
-#include <QByteArray>
-#include <QString>
-
 //! Exception base class
 /*!
 This is the base class of most exception types.
@@ -24,7 +21,7 @@ public:
   //! Use getWhat() as the result of what()
   BaseException();
   //! Use \c msg as the result of what()
-  explicit BaseException(const QString &msg);
+  explicit BaseException(const std::string &msg);
   ~BaseException() throw() override = default;
 
   //! Reason for exception
@@ -32,7 +29,7 @@ public:
 
 protected:
   //! Get a human readable string describing the exception
-  virtual QString getWhat() const noexcept
+  virtual std::string getWhat() const noexcept
   {
     return {};
   }
@@ -43,8 +40,8 @@ protected:
   no format can be found, then replaces positional parameters in
   the format string and returns the result.
   */
-  virtual QString format(const char *id, const char *defaultFormat, ...) const noexcept;
+  virtual std::string format(const char *id, const char *defaultFormat, ...) const noexcept;
 
 private:
-  mutable QByteArray m_what;
+  mutable std::string m_what;
 };

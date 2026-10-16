@@ -6,6 +6,7 @@
  */
 
 #include "base/Log.h" //Include First
+#include <cassert>
 
 #include "base/String.h"
 #include "platform/XWindowsUtil.h"

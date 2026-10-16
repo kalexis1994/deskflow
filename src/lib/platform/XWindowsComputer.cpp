@@ -7,6 +7,7 @@
  */
 
 #include "common/Settings.h" // must include first
+#include <cassert>
 
 #include "platform/XWindowsComputer.h"
 

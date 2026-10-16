@@ -82,7 +82,7 @@ public:
       // do nothing
     }
     bool m_retry = false;
-    QString m_what;
+    std::string m_what;
   };
 
 public:

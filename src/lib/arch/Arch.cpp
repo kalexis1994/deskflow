@@ -7,6 +7,7 @@
  */
 
 #include "arch/OsDetection.h"
+#include <cassert>
 #include "arch/Arch.h"
 
 #include <thread>

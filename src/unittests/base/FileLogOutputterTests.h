@@ -21,6 +21,7 @@ private Q_SLOTS:
   void write_multipleMessages_appendsEachLine();
   void write_sizeLimitExceeded_preservesPreviousLog();
   void write_rotatedLogExists_replacesIt();
+  void write_nonAsciiPath_writesThatFile();
 
 private:
   QString rotatedFileName() const;

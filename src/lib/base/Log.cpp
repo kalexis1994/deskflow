@@ -7,6 +7,7 @@
  */
 
 #include "base/Log.h"
+#include <cassert>
 #include "base/LogOutputters.h"
 #include "common/Constants.h"
 #include "common/LogLevel.h"
@@ -20,7 +21,8 @@
 #include <format>
 #endif
 
-#include <QDateTime>
+#include <chrono>
+#include <ctime>
 
 const int kPriorityPrefixLength = 3;
 
@@ -51,6 +53,26 @@ LogLevel::Level getPriority(const char *&fmt)
   return static_cast<LogLevel::Level>(fmt[2] - '0');
 }
 
+//! Local time as "2026-10-13T07:54:05.554", the format the log has always used
+std::string currentTimestamp()
+{
+  using namespace std::chrono;
+  const auto now = system_clock::now();
+  const auto ms = duration_cast<milliseconds>(now.time_since_epoch()).count() % 1000;
+  const std::time_t t = system_clock::to_time_t(now);
+  std::tm local{};
+#if defined(_WIN32)
+  localtime_s(&local, &t);
+#else
+  localtime_r(&t, &local);
+#endif
+  char date[32];
+  std::strftime(date, sizeof(date), "%Y-%m-%dT%H:%M:%S", &local);
+  char result[40];
+  std::snprintf(result, sizeof(result), "%s.%03d", date, static_cast<int>(ms));
+  return result;
+}
+
 std::vector<char> makeMessage(const char *filename, int lineNumber, const char *message, LogLevel::Level priority)
 {
 
@@ -59,9 +81,9 @@ std::vector<char> makeMessage(const char *filename, int lineNumber, const char *
 
   const auto currentPriority = static_cast<int>(priority);
 
-  auto timeStr = QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toStdString();
+  auto timeStr = currentTimestamp();
 
-  auto sectionName = LogLevel::toOption(priority).toStdString();
+  auto sectionName = LogLevel::toOption(priority);
 
   size_t messageLength = strnlen(message, SIZE_MAX);
   size_t bufferSize = baseSize + timeStr.length() + sectionName.length() + messageLength;
@@ -208,9 +230,9 @@ void Log::pop_front(bool alwaysAtHead)
   }
 }
 
-bool Log::setFilter(const QString &maxPriority)
+bool Log::setFilter(const std::string &maxPriority)
 {
-  if (maxPriority.isEmpty()) {
+  if (maxPriority.empty()) {
     return false;
   }
   setFilter(LogLevel::fromOption(maxPriority));

@@ -13,7 +13,7 @@
 // BadClientException
 //
 
-QString BadClientException::getWhat() const throw()
+std::string BadClientException::getWhat() const throw()
 {
   return "BadClientException";
 }
@@ -22,7 +22,7 @@ QString BadClientException::getWhat() const throw()
 // InvalidProtocolException
 //
 
-QString InvalidProtocolException::getWhat() const throw()
+std::string InvalidProtocolException::getWhat() const throw()
 {
   return "InvalidProtocolException; Check the options section of the server "
          "configuration file has a valid protocol defined.\nProtocol must be barrier (default) or synergy."
@@ -48,7 +48,7 @@ int IncompatibleClientException::getMinor() const noexcept
   return m_minor;
 }
 
-QString IncompatibleClientException::getWhat() const throw()
+std::string IncompatibleClientException::getWhat() const throw()
 {
   return format(
       "IncompatibleClientException", "incompatible client %{1}.%{2}", deskflow::string::sprintf("%d", m_major).c_str(),
@@ -70,7 +70,7 @@ const std::string &DuplicateClientException::getName() const noexcept
   return m_name;
 }
 
-QString DuplicateClientException::getWhat() const throw()
+std::string DuplicateClientException::getWhat() const throw()
 {
   return format("DuplicateClientException", "duplicate client %{1}", m_name.c_str());
 }
@@ -89,7 +89,7 @@ const std::string &UnknownClientException::getName() const noexcept
   return m_name;
 }
 
-QString UnknownClientException::getWhat() const throw()
+std::string UnknownClientException::getWhat() const throw()
 {
   return format("UnknownClientException", "unknown client %{1}", m_name.c_str());
 }
@@ -108,7 +108,7 @@ int ExitAppException::getCode() const noexcept
   return m_code;
 }
 
-QString ExitAppException::getWhat() const throw()
+std::string ExitAppException::getWhat() const throw()
 {
   return format("ExitAppException", "exiting with code %{1}", deskflow::string::sprintf("%d", m_code).c_str());
 }

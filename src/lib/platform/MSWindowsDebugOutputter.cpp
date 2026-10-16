@@ -10,9 +10,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-#include <QString>
+#include "arch/Utf8.h"
 
-void MSWindowsDebugOutputter::open(const QString &title)
+void MSWindowsDebugOutputter::open(const std::string &title)
 {
   // do nothing
 }
@@ -22,9 +22,9 @@ void MSWindowsDebugOutputter::close()
   // do nothing
 }
 
-bool MSWindowsDebugOutputter::write(LogLevel::Level level, const QString &msg)
+bool MSWindowsDebugOutputter::write(LogLevel::Level level, const std::string &msg)
 {
-  std::wstring out = msg.toStdWString() + L"\n";
+  std::wstring out = deskflow::utf8ToWide(msg) + L"\n";
   OutputDebugString(out.c_str());
   return true;
 }

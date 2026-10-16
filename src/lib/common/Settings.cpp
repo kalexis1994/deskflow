@@ -112,7 +112,7 @@ Settings::Settings(QObject *parent) : QObject(parent), m_settingsWatcher{new QFi
 void Settings::upgradeSettings()
 {
   if (const auto logValue = m_settings->value(Settings::Log::Level).toString();
-      !LogLevel::logLevelOptions().contains(logValue, Qt::CaseInsensitive))
+      !LogLevel::isOption(logValue.toStdString()))
     m_settings->setValue(Settings::Log::Level, defaultValue(Settings::Log::Level));
   const auto screenKeys = m_settings->allKeys().filter("screen_");
   for (const auto &key : screenKeys) {
@@ -330,7 +330,7 @@ QVariant Settings::defaultValue(const QString &key)
     return QStringLiteral("%1/%2.log").arg(QDir::homePath(), kAppId);
 
   if (key == Log::Level)
-    return QVariant::fromValue(LogLevel::Level::Info).toString();
+    return QStringLiteral("Info"); // name of LogLevel::Level::Info, as Qt's metatype system wrote it
 
   if (key == Daemon::Elevate)
     return !Settings::isPortableMode();

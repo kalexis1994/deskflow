@@ -20,7 +20,7 @@ BaseException::BaseException() : std::runtime_error("")
   // do nothing
 }
 
-BaseException::BaseException(const QString &msg) : std::runtime_error(msg.toStdString())
+BaseException::BaseException(const std::string &msg) : std::runtime_error(msg)
 {
   // do nothing
 }
@@ -31,21 +31,21 @@ const char *BaseException::what() const throw()
     return what;
   }
 
-  m_what = getWhat().toLocal8Bit();
-  return m_what.constData();
+  m_what = getWhat();
+  return m_what.c_str();
 }
 
-QString BaseException::format(const char * /*id*/, const char *fmt, ...) const noexcept
+std::string BaseException::format(const char * /*id*/, const char *fmt, ...) const noexcept
 {
   // FIXME -- lookup message string using id as an index.  set
   // fmt to that string if it exists.
 
   // format
-  QString result;
+  std::string result;
   va_list args;
   va_start(args, fmt);
   try {
-    result = QString::fromStdString(deskflow::string::vformat(fmt, args));
+    result = deskflow::string::vformat(fmt, args);
   } catch (...) {
     // ignore
     result.clear();

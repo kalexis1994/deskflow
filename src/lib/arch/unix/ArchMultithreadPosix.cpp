@@ -6,6 +6,7 @@
  */
 
 #include "arch/unix/ArchMultithreadPosix.h"
+#include <cassert>
 
 #include "arch/Arch.h"
 #include "arch/ArchException.h"

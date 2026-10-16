@@ -34,7 +34,7 @@ class IOClosedException : public IOException
   using IOException::IOException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 /**
@@ -45,7 +45,7 @@ class IOEndOfStreamException : public IOException
   using IOException::IOException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 /**
@@ -56,5 +56,5 @@ class IOWouldBlockException : public IOException
   using IOException::IOException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };

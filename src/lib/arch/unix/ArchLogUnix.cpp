@@ -8,15 +8,14 @@
 
 #include "arch/unix/ArchLogUnix.h"
 
-#include <QString>
 #include <syslog.h>
 //
 // ArchLogUnix
 //
 
-void ArchLogUnix::openLog(const QString &name)
+void ArchLogUnix::openLog(const std::string &name)
 {
-  openlog(qPrintable(name), 0, LOG_DAEMON);
+  openlog(name.c_str(), 0, LOG_DAEMON);
 }
 
 void ArchLogUnix::closeLog()
@@ -24,7 +23,7 @@ void ArchLogUnix::closeLog()
   closelog();
 }
 
-void ArchLogUnix::writeLog(LogLevel::Level level, const QString &msg)
+void ArchLogUnix::writeLog(LogLevel::Level level, const std::string &msg)
 {
   // convert level
   int priority;
@@ -48,5 +47,5 @@ void ArchLogUnix::writeLog(LogLevel::Level level, const QString &msg)
   }
 
   // log it
-  syslog(priority, "%s", qPrintable(msg));
+  syslog(priority, "%s", msg.c_str());
 }

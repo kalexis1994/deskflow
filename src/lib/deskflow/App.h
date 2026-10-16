@@ -9,6 +9,7 @@
 #pragma once
 
 #include "arch/OsDetection.h"
+#include <cassert>
 
 #include "base/EventQueue.h"
 #include "base/Log.h"

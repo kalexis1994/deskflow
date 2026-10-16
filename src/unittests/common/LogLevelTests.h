@@ -11,4 +11,5 @@ class LogLevelTests : public QObject
 private Q_SLOTS:
   void checkLogLevels_Valid();
   void checkLogLevels_Invalid();
+  void toOption_namesAndBounds();
 };

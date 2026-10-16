@@ -5,6 +5,7 @@
  */
 
 #include "CoreIpcServer.h"
+#include <cassert>
 
 #include "base/Log.h"
 #include "common/Constants.h"

@@ -6,6 +6,7 @@
  */
 
 #include <QString>
+#include <cassert>
 #ifndef __APPLE__
 #include <QDBusConnection>
 #include <QDBusInterface>

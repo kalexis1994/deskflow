@@ -11,9 +11,10 @@
 
 #include <iostream>
 
-#include <QFile>
-#include <QString>
-#include <QTextStream>
+#include "arch/Utf8.h"
+
+#include <filesystem>
+#include <fstream>
 
 constexpr auto s_logFileSizeLimit = 1024 * 1024; //!< Max Log size before rotating (1Mb)
 
@@ -21,7 +22,7 @@ constexpr auto s_logFileSizeLimit = 1024 * 1024; //!< Max Log size before rotati
 // StopLogOutputter
 //
 
-void StopLogOutputter::open(const QString &)
+void StopLogOutputter::open(const std::string &)
 {
   // do nothing
 }
@@ -31,7 +32,7 @@ void StopLogOutputter::close()
   // do nothing
 }
 
-bool StopLogOutputter::write(LogLevel::Level, const QString &)
+bool StopLogOutputter::write(LogLevel::Level, const std::string &)
 {
   return false;
 }
@@ -40,7 +41,7 @@ bool StopLogOutputter::write(LogLevel::Level, const QString &)
 // ConsoleLogOutputter
 //
 
-void ConsoleLogOutputter::open(const QString &title)
+void ConsoleLogOutputter::open(const std::string &title)
 {
   // do nothing
 }
@@ -50,13 +51,13 @@ void ConsoleLogOutputter::close()
   // do nothing
 }
 
-bool ConsoleLogOutputter::write(LogLevel::Level level, const QString &msg)
+bool ConsoleLogOutputter::write(LogLevel::Level level, const std::string &msg)
 {
   using enum LogLevel::Level;
   if ((level >= Fatal) && (level <= Warning))
-    std::cerr << qPrintable(msg) << std::endl;
+    std::cerr << msg << std::endl;
   else
-    std::cout << qPrintable(msg) << std::endl;
+    std::cout << msg << std::endl;
   std::cout.flush();
   return true;
 }
@@ -70,7 +71,7 @@ void ConsoleLogOutputter::flush() const
 // SystemLogOutputter
 //
 
-void SystemLogOutputter::open(const QString &title)
+void SystemLogOutputter::open(const std::string &title)
 {
   ARCH->openLog(title);
 }
@@ -80,7 +81,7 @@ void SystemLogOutputter::close()
   ARCH->closeLog();
 }
 
-bool SystemLogOutputter::write(LogLevel::Level level, const QString &msg)
+bool SystemLogOutputter::write(LogLevel::Level level, const std::string &msg)
 {
   ARCH->writeLog(level, msg);
   return true;
@@ -90,7 +91,7 @@ bool SystemLogOutputter::write(LogLevel::Level level, const QString &msg)
 // SystemLogger
 //
 
-SystemLogger::SystemLogger(const QString &title, bool blockConsole)
+SystemLogger::SystemLogger(const std::string &title, bool blockConsole)
 {
   // redirect log messages
   if (blockConsole) {
@@ -116,36 +117,37 @@ SystemLogger::~SystemLogger()
 // FileLogOutputter
 //
 
-FileLogOutputter::FileLogOutputter(const QString &logFile)
+FileLogOutputter::FileLogOutputter(const std::string &logFile)
 {
   setLogFilename(logFile);
 }
 
-void FileLogOutputter::setLogFilename(const QString &logFile)
+void FileLogOutputter::setLogFilename(const std::string &logFile)
 {
-  assert(logFile != nullptr);
   m_fileName = logFile;
 }
 
-bool FileLogOutputter::write(LogLevel::Level, const QString &message)
+bool FileLogOutputter::write(LogLevel::Level, const std::string &message)
 {
-  QFile file(m_fileName);
-  if (!file.open(QFile::WriteOnly | QFile::Append))
-    return false;
+  const auto path = deskflow::utf8Path(m_fileName);
+  {
+    std::ofstream file(path, std::ios::binary | std::ios::app);
+    if (!file)
+      return false;
+    file << message << '\n';
+  }
 
-  QTextStream(&file) << message << Qt::endl;
-  file.close();
-
-  if (file.size() > s_logFileSizeLimit) {
-    const auto oldFile = QStringLiteral("%1.1").arg(m_fileName);
-    QFile::remove(oldFile);
-    QFile::rename(m_fileName, oldFile);
+  std::error_code ec;
+  if (std::filesystem::file_size(path, ec) > s_logFileSizeLimit && !ec) {
+    const auto oldFile = deskflow::utf8Path(m_fileName + ".1");
+    std::filesystem::remove(oldFile, ec);
+    std::filesystem::rename(path, oldFile, ec);
   }
 
   return true;
 }
 
-void FileLogOutputter::open(const QString &title)
+void FileLogOutputter::open(const std::string &title)
 {
   // do nothing
 }

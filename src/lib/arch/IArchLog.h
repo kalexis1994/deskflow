@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <QString>
+#include <string>
 
 #include "common/LogLevel.h"
 
@@ -29,7 +29,7 @@ public:
   Opens the log for writing.  The log must be opened before being
   written to.
   */
-  virtual void openLog(const QString &name) = 0;
+  virtual void openLog(const std::string &name) = 0;
 
   //! Close the log
   /*!
@@ -41,6 +41,6 @@ public:
   /*!
   Writes the given string to the log with the given level.
   */
-  virtual void writeLog(LogLevel::Level, const QString &) = 0;
+  virtual void writeLog(LogLevel::Level, const std::string &) = 0;
   //@}
 };

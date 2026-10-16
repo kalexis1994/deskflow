@@ -7,6 +7,7 @@
  */
 
 #include "arch/win32/ArchNetworkWinsock.h"
+#include <cassert>
 #include "arch/Arch.h"
 #include "arch/ArchException.h"
 #include "arch/IArchMultithread.h"

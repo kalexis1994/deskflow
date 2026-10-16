@@ -19,10 +19,11 @@ Constraints for every phase:
 |---|-------|-------------|--------|
 | 0 | Baseline build and tests on Windows (Qt 6.10 SDK, OpenSSL via vcpkg) | 29/29 tests pass | done |
 | 1 | `Q_OS_*` macros (`QtSystemDetection`) | own `arch/OsDetection.h` (`DESKFLOW_OS_*`) with the same semantics | done |
-| 2 | `QString`/`QByteArray`/`QFile`/`QDateTime` in `base`, `arch`, `io`, `mt`, `server`, `client` | `std::string` (UTF-8), `std::filesystem`, `<chrono>` | |
+| 2 | `QString`/`QByteArray`/`QFile`/`QDateTime` in `base`, `arch`, `io`, `mt`; exceptions and log outputters everywhere | `std::string` (UTF-8), `std::filesystem`, `<chrono>`; `arch/Utf8.h` for UTF-16 and paths; `common-base` (Qt-free headers) | done: `arch`, `base`, `io`, `mt` build without any Qt include path; the rest of `server`/`client` depends on `Settings` (4) and IPC (6) |
 | 3 | `qDebug`/`qInfo`/`qWarning`/`qCritical` in the core | `LOG_*` | |
 | 4 | `QSettings` and `Settings` (a `QObject` singleton) | INI reader/writer compatible with `QSettings` (arrays, quoting, `@Invalid()`, lists) | |
 | 5 | `net`: `QCryptographicHash`, fingerprint database I/O | OpenSSL `EVP_Digest`, `std::fstream` | |
+| 5b | `platform`: `MSWindowsWatchdog` (process output decoding) on Windows; portals, DBus and X11 helpers on Linux; one macOS file | `std::string`, `arch/Utf8.h` | |
 | 6 | IPC: `QLocalServer`/`QLocalSocket`, `IpcServer` signals | named pipes (Windows) and Unix sockets, same line protocol | |
 | 7 | `deskflow-core`/`deskflow-daemon` entry points: `QApplication`, `QThread`, `QCommandLineParser` | plain `main`, `std::thread`, own argument parsing, the existing `EventQueue` | |
 | 8 | Unit tests (`QtTest`) | a header-only framework | |
@@ -30,6 +31,17 @@ Constraints for every phase:
 
 Linux-only follow-ups: `QDBus` in `platform/XDGPortalRegistry`, `XDGPowerManager`
 and `XWindowsKeyState`.
+
+## Things Qt was quietly providing
+
+Found while removing it; any library that stops linking Qt needs them from elsewhere:
+
+- `Qt6::Platform` adds `UNICODE`, `_UNICODE`, `_ENABLE_EXTENDED_ALIGNED_STORAGE` and, on
+  MSVC, `/utf-8 /permissive- /Zc:__cplusplus` to every consumer. They are now set for
+  the whole project in `cmake/Libraries.cmake`, so code builds the same either way.
+- Qt headers pull in `<cassert>`; files using `assert` now include it themselves.
+- `QString`-based code sometimes compiled only because a Qt header arrived through
+  `base/BaseException.h`.
 
 ## Building on Windows
 

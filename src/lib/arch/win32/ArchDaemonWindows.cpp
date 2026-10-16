@@ -6,9 +6,11 @@
  */
 
 #include "arch/win32/ArchDaemonWindows.h"
+#include <cassert>
 
 #include "arch/Arch.h"
 #include "arch/ArchException.h"
+#include "arch/Utf8.h"
 #include "arch/win32/ArchMiscWindows.h"
 #include "arch/win32/XArchWindows.h"
 #include "base/Log.h"
@@ -62,7 +64,9 @@ int ArchDaemonWindows::daemonize(DaemonFunc const &func)
 
   // construct the service entry
   SERVICE_TABLE_ENTRY entry[2];
-  entry[0].lpServiceName = const_cast<wchar_t *>(QString(kAppName).toStdWString().c_str());
+  // must outlive StartServiceCtrlDispatcher below
+  static std::wstring serviceName = deskflow::utf8ToWide(kAppName);
+  entry[0].lpServiceName = serviceName.data();
   entry[0].lpServiceProc = &ArchDaemonWindows::serviceMainEntry;
   entry[1].lpServiceName = nullptr;
   entry[1].lpServiceProc = nullptr;
@@ -293,7 +297,7 @@ void ArchDaemonWindows::serviceMain(DWORD argc, LPTSTR *argvIn)
     }
   }
 
-  m_commandLine = QString::fromStdWString(commandLine);
+  m_commandLine = deskflow::wideToUtf8(commandLine);
 
   try {
     // invoke daemon function
@@ -381,7 +385,7 @@ void WINAPI ArchDaemonWindows::serviceHandlerEntry(DWORD ctrl)
   s_daemon->serviceHandler(ctrl);
 }
 
-void ArchDaemonWindows::start(const QString &name)
+void ArchDaemonWindows::start(const std::string &name)
 {
   // open service manager
   SC_HANDLE mgr = OpenSCManager(nullptr, nullptr, GENERIC_READ);
@@ -390,7 +394,7 @@ void ArchDaemonWindows::start(const QString &name)
   }
 
   // open the service
-  SC_HANDLE service = OpenService(mgr, name.toStdWString().c_str(), SERVICE_START);
+  SC_HANDLE service = OpenService(mgr, deskflow::utf8ToWide(name).c_str(), SERVICE_START);
 
   if (service == nullptr) {
     CloseServiceHandle(mgr);
@@ -403,7 +407,7 @@ void ArchDaemonWindows::start(const QString &name)
   }
 }
 
-void ArchDaemonWindows::stop(const QString &name)
+void ArchDaemonWindows::stop(const std::string &name)
 {
   // open service manager
   SC_HANDLE mgr = OpenSCManager(nullptr, nullptr, GENERIC_READ);
@@ -412,7 +416,7 @@ void ArchDaemonWindows::stop(const QString &name)
   }
 
   // open the service
-  SC_HANDLE service = OpenService(mgr, name.toStdWString().c_str(), SERVICE_STOP | SERVICE_QUERY_STATUS);
+  SC_HANDLE service = OpenService(mgr, deskflow::utf8ToWide(name).c_str(), SERVICE_STOP | SERVICE_QUERY_STATUS);
 
   if (service == nullptr) {
     CloseServiceHandle(mgr);

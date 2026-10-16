@@ -16,7 +16,7 @@
 
 #include <functional>
 
-#include <QString>
+#include <string>
 
 #define ARCH_DAEMON ArchDaemonWindows
 
@@ -69,7 +69,7 @@ public:
 
   // IArchDaemon overrides
   int daemonize(DaemonFunc const &func) override;
-  QString commandLine() const override
+  std::string commandLine() const override
   {
     return m_commandLine;
   }
@@ -93,8 +93,8 @@ private:
   void serviceHandler(DWORD ctrl);
   static void WINAPI serviceHandlerEntry(DWORD ctrl);
 
-  void start(const QString &name);
-  void stop(const QString &name);
+  void start(const std::string &name);
+  void stop(const std::string &name);
 
 private:
   class ArchDaemonRunException
@@ -125,5 +125,5 @@ private:
 
   UINT m_quitMessage;
 
-  QString m_commandLine;
+  std::string m_commandLine;
 };

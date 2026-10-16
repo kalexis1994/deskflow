@@ -26,7 +26,7 @@ class BadClientException : public DeskflowException
   using DeskflowException::DeskflowException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 /**
@@ -37,7 +37,7 @@ class InvalidProtocolException : public DeskflowException
   using DeskflowException::DeskflowException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 //! Incompatible client exception
@@ -60,7 +60,7 @@ public:
   //@}
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 
 private:
   int m_major;
@@ -87,7 +87,7 @@ public:
   //@}
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 
 private:
   std::string m_name;
@@ -113,7 +113,7 @@ public:
   //@}
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 
 private:
   std::string m_name;
@@ -135,7 +135,7 @@ public:
   int getCode() const noexcept;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 
 private:
   int m_code;

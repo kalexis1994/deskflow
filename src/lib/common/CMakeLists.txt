@@ -9,6 +9,19 @@ endif()
 configure_file(Constants.h.in Constants.h @ONLY)
 configure_file(VersionInfo.h.in VersionInfo.h @ONLY)
 
+# Headers the low-level libraries (arch, base, io, mt) need, without Qt
+add_library(common-base INTERFACE
+  ExitCodes.h
+  LogLevel.h
+  ${CMAKE_CURRENT_BINARY_DIR}/Constants.h
+)
+
+target_include_directories(common-base
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/lib>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src/lib>
+)
+
 add_library(common STATIC
   Action.cpp
   Action.h
@@ -35,7 +48,7 @@ add_library(common STATIC
   ${CMAKE_CURRENT_BINARY_DIR}/VersionInfo.h
 )
 
-target_link_libraries(common PUBLIC Qt6::Core)
+target_link_libraries(common PUBLIC common-base Qt6::Core)
 
 target_include_directories(common
   PUBLIC

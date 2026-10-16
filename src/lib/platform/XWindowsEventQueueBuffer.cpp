@@ -7,6 +7,7 @@
  */
 
 #include "platform/XWindowsEventQueueBuffer.h"
+#include <cassert>
 
 #include "base/Event.h"
 #include "base/IEventQueue.h"

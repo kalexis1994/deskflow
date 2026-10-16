@@ -6,6 +6,7 @@
  */
 
 #include "mt/CondVar.h"
+#include <cassert>
 #include "arch/Arch.h"
 #include "base/Stopwatch.h"
 

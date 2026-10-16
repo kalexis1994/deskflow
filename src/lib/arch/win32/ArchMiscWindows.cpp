@@ -7,6 +7,7 @@
  */
 
 #include "arch/win32/ArchMiscWindows.h"
+#include <cassert>
 
 #include "arch/win32/XArchWindows.h"
 #include "base/Log.h"

@@ -6,6 +6,7 @@
  */
 
 #include "arch/OsDetection.h"
+#include <cassert>
 #include "deskflow/Computer.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"

@@ -12,7 +12,7 @@
 // MTThreadUnavailableException
 //
 
-QString MTThreadUnavailableException::getWhat() const throw()
+std::string MTThreadUnavailableException::getWhat() const throw()
 {
   return format("MTThreadUnavailableException", "cannot create thread");
 }

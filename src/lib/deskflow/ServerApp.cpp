@@ -7,6 +7,7 @@
  */
 
 #include "arch/OsDetection.h"
+#include <cassert>
 #include "deskflow/ServerApp.h"
 
 #include "arch/Arch.h"

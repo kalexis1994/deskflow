@@ -103,5 +103,5 @@ class XIOReadMismatch : public IOException
 {
 public:
   // BaseException overrides
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };

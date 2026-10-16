@@ -7,6 +7,7 @@
  */
 
 #include "platform/MSWindowsComputer.h"
+#include <cassert>
 
 #include "arch/Arch.h"
 #include "arch/win32/ArchMiscWindows.h"

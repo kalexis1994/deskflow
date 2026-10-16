@@ -12,7 +12,7 @@
 // DisplayOpenFailureException
 //
 
-QString DisplayOpenFailureException::getWhat() const throw()
+std::string DisplayOpenFailureException::getWhat() const throw()
 {
   return format("DisplayOpenFailureException", "unable to open display");
 }
@@ -21,7 +21,7 @@ QString DisplayOpenFailureException::getWhat() const throw()
 // X11DisplayUnavailableException
 //
 
-QString X11DisplayUnavailableException::getWhat() const throw()
+std::string X11DisplayUnavailableException::getWhat() const throw()
 {
   return format("X11DisplayUnavailableException", "unable to open x11 display");
 }

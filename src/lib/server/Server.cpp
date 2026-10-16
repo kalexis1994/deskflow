@@ -7,6 +7,7 @@
  */
 
 #include "server/Server.h"
+#include <cassert>
 
 #include "base/IEventQueue.h"
 #include "base/Log.h"

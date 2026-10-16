@@ -11,7 +11,7 @@
 #include "base/BaseException.h"
 #include "io/IOException.h"
 
-#include <QByteArray>
+#include <string>
 
 /**
  * @brief SocketException generic socket exception
@@ -55,7 +55,7 @@ public:
 
 protected:
   // BaseException overrides
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 
 private:
   SocketError m_error;
@@ -73,7 +73,7 @@ public:
   {
     // do nothing
   }
-  explicit SocketIOCloseException(const QString &msg) : IOCloseException(msg), m_state(kFirst)
+  explicit SocketIOCloseException(const std::string &msg) : IOCloseException(msg), m_state(kFirst)
   {
     // do nothing
   }
@@ -83,18 +83,18 @@ public:
   {
     if (m_state == kFirst) {
       m_state = kFormat;
-      m_formatted = getWhat().toLocal8Bit();
+      m_formatted = getWhat();
       m_state = kDone;
     }
     if (m_state == kDone) {
-      return m_formatted.constData();
+      return m_formatted.c_str();
     } else {
       return IOCloseException::what();
     }
   }
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 
 private:
   enum EState
@@ -104,7 +104,7 @@ private:
     kDone
   };
   mutable EState m_state;
-  mutable QByteArray m_formatted;
+  mutable std::string m_formatted;
 };
 
 /**
@@ -117,7 +117,7 @@ public:
   {
     // do nothing
   }
-  explicit SocketWithWhatException(const QString &msg) : SocketException(msg), m_state(kFirst)
+  explicit SocketWithWhatException(const std::string &msg) : SocketException(msg), m_state(kFirst)
   {
     // do nothing
   }
@@ -127,11 +127,11 @@ public:
   {
     if (m_state == kFirst) {
       m_state = kFormat;
-      m_formatted = getWhat().toLocal8Bit();
+      m_formatted = getWhat();
       m_state = kDone;
     }
     if (m_state == kDone) {
-      return m_formatted.constData();
+      return m_formatted.c_str();
     } else {
       return SocketException::what();
     }
@@ -145,7 +145,7 @@ private:
     kDone
   };
   mutable EState m_state;
-  mutable QByteArray m_formatted;
+  mutable std::string m_formatted;
 };
 
 /**
@@ -156,7 +156,7 @@ class SocketBindException : public SocketWithWhatException
   using SocketWithWhatException::SocketWithWhatException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 /**
@@ -168,7 +168,7 @@ class SocketAddressInUseException : public SocketWithWhatException
   using SocketWithWhatException::SocketWithWhatException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 /**
@@ -179,7 +179,7 @@ class SocketConnectException : public SocketWithWhatException
   using SocketWithWhatException::SocketWithWhatException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };
 
 /**
@@ -190,5 +190,5 @@ class SocketCreateException : public SocketWithWhatException
   using SocketWithWhatException::SocketWithWhatException;
 
 protected:
-  QString getWhat() const throw() override;
+  std::string getWhat() const throw() override;
 };

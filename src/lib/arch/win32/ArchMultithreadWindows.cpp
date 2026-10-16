@@ -11,6 +11,7 @@
 #endif
 
 #include "arch/win32/ArchMultithreadWindows.h"
+#include <cassert>
 #include "arch/Arch.h"
 #include "arch/ArchException.h"
 

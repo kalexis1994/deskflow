@@ -7,6 +7,7 @@
  */
 
 #include "server/ClientListener.h"
+#include <cassert>
 #include "server/Server.h"
 
 #include "arch/Arch.h"

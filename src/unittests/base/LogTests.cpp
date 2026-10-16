@@ -22,6 +22,19 @@ QString sanitizeBuffer(const std::stringstream &in)
   return rtn;
 }
 
+void LogTests::timestampFormat()
+{
+  std::stringstream buffer;
+  std::streambuf *old = std::cout.rdbuf(buffer.rdbuf());
+  m_log.print(nullptr, 0, LEVEL_INFO "stamp");
+  std::cout.rdbuf(old);
+
+  // local time with milliseconds, the format the log has always had (readers parse it)
+  static QRegularExpression stamp(QStringLiteral(R"(^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\] INFO: stamp)"));
+  const auto line = QString::fromStdString(buffer.str());
+  QVERIFY2(stamp.match(line).hasMatch(), qPrintable(line));
+}
+
 void LogTests::initTestCase()
 {
   std::setlocale(LC_NUMERIC, "C");

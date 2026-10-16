@@ -8,9 +8,9 @@
 
 #include "arch/win32/XArchWindows.h"
 
-#include <QString>
+#include "arch/Utf8.h"
 
-QString windowsErrorToQString(DWORD error)
+std::string windowsErrorToString(DWORD error)
 {
   LPWSTR buffer = nullptr; // Using FORMAT_MESSAGE_ALLOCATE_BUFFER
   DWORD size = FormatMessage(
@@ -19,18 +19,13 @@ QString windowsErrorToQString(DWORD error)
   );
 
   if (size == 0) {
-    return QString("Unknown Windows error: %1").arg(error);
+    return "Unknown Windows error: " + std::to_string(error);
   }
 
-  QString message = QString::fromWCharArray(buffer, int(size));
+  const auto message = deskflow::wideToUtf8(std::wstring_view(buffer, size));
 
   // Gotcha: Was allocated by FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER)
   LocalFree(buffer);
 
-  return QString("[%1] %2").arg(error).arg(message.trimmed());
-}
-
-std::string windowsErrorToString(DWORD error)
-{
-  return windowsErrorToQString(error).toStdString();
+  return "[" + std::to_string(error) + "] " + deskflow::trimmed(message);
 }

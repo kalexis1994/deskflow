@@ -283,6 +283,30 @@ void ClipboardChunksTests::assembleRefusesExpectedSizeBeyondLimit()
   QVERIFY(cached.empty());
 }
 
+void ClipboardChunksTests::assembleRequiresDecimalSizeHeader()
+{
+  // the size header must be all digits, as every sender writes it
+  for (const std::string bad : {"", "abc", "4x", " 4", "4 ", "-1", "+4", "99999999999999999999999"}) {
+    MemoryStream stream;
+    stream.push(encodeClipboardMsg(0, 1, ChunkType::DataStart, bad));
+    std::string cached;
+    ClipboardID id = kClipboardEnd;
+    uint32_t seq = 0;
+    ClipboardChunkAssemblyState state;
+    QVERIFY2(
+        ClipboardChunk::assemble(&stream, cached, id, seq, state, 1024) == TransferState::Error, bad.c_str()
+    );
+  }
+
+  MemoryStream stream;
+  stream.push(encodeClipboardMsg(0, 1, ChunkType::DataStart, "12"));
+  std::string cached;
+  ClipboardID id = kClipboardEnd;
+  uint32_t seq = 0;
+  ClipboardChunkAssemblyState state;
+  QCOMPARE(ClipboardChunk::assemble(&stream, cached, id, seq, state, 1024), TransferState::Started);
+}
+
 void ClipboardChunksTests::assembleDiscardsOversizeTransferThenAcceptsNext()
 {
   MemoryStream stream;

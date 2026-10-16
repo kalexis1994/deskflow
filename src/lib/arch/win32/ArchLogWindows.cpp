@@ -8,7 +8,7 @@
 
 #include "arch/win32/ArchLogWindows.h"
 
-#include <QString>
+#include "arch/Utf8.h"
 
 //
 // ArchLogWindows
@@ -19,10 +19,10 @@ ArchLogWindows::ArchLogWindows() : m_eventLog(nullptr)
   // do nothing
 }
 
-void ArchLogWindows::openLog(const QString &name)
+void ArchLogWindows::openLog(const std::string &name)
 {
   if (m_eventLog == nullptr) {
-    m_eventLog = RegisterEventSource(nullptr, name.toStdWString().c_str());
+    m_eventLog = RegisterEventSource(nullptr, deskflow::utf8ToWide(name).c_str());
   }
 }
 
@@ -34,7 +34,7 @@ void ArchLogWindows::closeLog()
   }
 }
 
-void ArchLogWindows::writeLog(LogLevel::Level level, const QString &msg)
+void ArchLogWindows::writeLog(LogLevel::Level level, const std::string &msg)
 {
   if (m_eventLog != nullptr) {
     // convert priority
@@ -63,9 +63,9 @@ void ArchLogWindows::writeLog(LogLevel::Level level, const QString &msg)
         m_eventLog, type, static_cast<WORD>(level),
         0, // event ID
         nullptr, 0,
-        (DWORD)(msg.length()) + 1, // raw data size
+        static_cast<DWORD>(msg.size()) + 1, // raw data size, in bytes
         nullptr,
-        const_cast<char *>(qPrintable(msg))
+        const_cast<char *>(msg.c_str())
     ); // raw data
   }
 }

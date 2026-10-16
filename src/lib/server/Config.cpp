@@ -8,6 +8,7 @@
 
 #include "server/Config.h"
 
+#include "arch/Utf8.h"
 #include "base/IEventQueue.h"
 #include "common/KeyboardModifier.h"
 #include "deskflow/KeyMap.h"
@@ -570,8 +571,7 @@ void Config::readSectionOptions(ConfigReadContext &s)
   while (s.readLine(line)) {
     if (line == "end") {
       return;
-    } else if (const auto l = QString::fromStdString(line).simplified();
-               !l.startsWith(QStringLiteral("keystroke")) && !l.startsWith(QStringLiteral("mousepress"))) {
+    } else if (const auto l = deskflow::trimmed(line); !l.starts_with("keystroke") && !l.starts_with("mousepress")) {
       continue;
     }
 
@@ -1568,7 +1568,7 @@ ServerConfigReadException::ServerConfigReadException(
   // do nothing
 }
 
-QString ServerConfigReadException::getWhat() const throw()
+std::string ServerConfigReadException::getWhat() const throw()
 {
   return format("ServerConfigReadException", "read error: %{1}", m_error.c_str());
 }

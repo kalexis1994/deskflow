@@ -36,7 +36,7 @@ int SocketAddressException::getPort() const noexcept
   return m_port;
 }
 
-QString SocketAddressException::getWhat() const throw()
+std::string SocketAddressException::getWhat() const throw()
 {
   static const char *s_errorID[] = {
       "SocketAddressUnknownException", "SocketAddressNotFoundException", "SocketAddressNoAddressException",
@@ -57,7 +57,7 @@ QString SocketAddressException::getWhat() const throw()
 // SocketIOCloseException
 //
 
-QString SocketIOCloseException::getWhat() const throw()
+std::string SocketIOCloseException::getWhat() const throw()
 {
   return format("SocketIOCloseException", "close: %{1}", what());
 }
@@ -66,7 +66,7 @@ QString SocketIOCloseException::getWhat() const throw()
 // SocketBindException
 //
 
-QString SocketBindException::getWhat() const throw()
+std::string SocketBindException::getWhat() const throw()
 {
   return format("SocketBindException", "cannot bind address: %{1}", what());
 }
@@ -75,7 +75,7 @@ QString SocketBindException::getWhat() const throw()
 // SocketAddressInUseException
 //
 
-QString SocketAddressInUseException::getWhat() const throw()
+std::string SocketAddressInUseException::getWhat() const throw()
 {
   return format("SocketAddressInUseException", "cannot bind address: %{1}", what());
 }
@@ -84,7 +84,7 @@ QString SocketAddressInUseException::getWhat() const throw()
 // SocketConnectException
 //
 
-QString SocketConnectException::getWhat() const throw()
+std::string SocketConnectException::getWhat() const throw()
 {
   return format("SocketConnectException", "cannot connect socket: %{1}", what());
 }
@@ -93,7 +93,7 @@ QString SocketConnectException::getWhat() const throw()
 // SocketCreateException
 //
 
-QString SocketCreateException::getWhat() const throw()
+std::string SocketCreateException::getWhat() const throw()
 {
   return format("SocketCreateException", "cannot create socket: %{1}", what());
 }

@@ -7,6 +7,7 @@
  */
 
 #include "base/EventQueue.h"
+#include <cassert>
 
 #include "arch/Arch.h"
 #include "base/EventQueueTimer.h"

@@ -18,7 +18,7 @@ void StreamChunker::sendClipboard(
 )
 {
   // send first message (data size)
-  std::string dataSize = QString::number(size).toStdString();
+  std::string dataSize = std::to_string(size);
   ClipboardChunk *sizeMessage = ClipboardChunk::start(id, sequence, dataSize);
 
   events->addEvent(Event(EventTypes::ClipboardSending, eventTarget, sizeMessage));
