@@ -24,7 +24,7 @@ Constraints for every phase:
 | 4 | `QSettings` and `Settings` (a `QObject` singleton) | `common/IniFile` (reads and writes `QSettings`' INI format: sections, `\`-keys, quoting, escapes, lists, `@Invalid()`) and `common/CoreSettings` (same keys and defaults, static API, `std::string`); `NetworkProtocol.h`, `KeyboardModifier.h`, `PlatformInfo.h` without Qt; the Qt `Settings` and `QSettingsProxy` moved to `gui` | done (`common` still links `Qt6::Core` for the moc'd enums in `Enums.h`/`Coordinate.h`, see 6) |
 | 5 | `net`: `QCryptographicHash`, fingerprint database I/O | `Fingerprint` with its own `Type` and byte vector (OpenSSL already computed the digests), `FingerprintDatabase` on `std::fstream`, `SecureUtils` returning `std::string`; `ipcSendToClient` takes `std::string` | done: `net` has no Qt code and no longer links `Qt6::Network` (Qt headers still arrive through `deskflow/ipc/CoreIpc.h` until 6) |
 | 5b | `platform`: `MSWindowsWatchdog` (process output decoding) on Windows; portals, DBus and X11 helpers on Linux; one macOS file | `Unicode::completeUTF8Length` for chunked output, `Unicode::UTF8ToLatin1`/`Latin1ToUTF8`, `base/Endian.h` for the BMP headers | Windows and macOS done (no Qt left in their `platform` code); X11 text converter done. Linux still uses Qt for portal clipboard images (`QImage`, `QDataStream`) and DBus (`XDGPortalRegistry`, `XDGPowerManager`, `XWindowsKeyState`), which need real replacements (GDBus, an image library) and a Linux build to test |
-| 6 | IPC: `QLocalServer`/`QLocalSocket`, `IpcServer` signals | named pipes (Windows) and Unix sockets, same line protocol | |
+| 6 | IPC: `QLocalServer`/`QLocalSocket`, `IpcServer` signals | `deskflow/ipc/LocalServer` (overlapped named pipes on Windows, a `poll` loop on a Unix socket, its own thread) under the same line protocol; `std::function` handlers instead of signals; `Enums.h` and `Coordinate.h` without moc | done: on Windows `arch`, `base`, `io`, `mt`, `common`, `net`, `client`, `server` and `platform` compile without any Qt include path; only `app` and the two entry points still use Qt (7) |
 | 7 | `deskflow-core`/`deskflow-daemon` entry points: `QApplication`, `QThread`, `QCommandLineParser` | plain `main`, `std::thread`, own argument parsing, the existing `EventQueue` | |
 | 8 | Unit tests (`QtTest`) | a header-only framework | |
 | 9 | Drop the Qt GUI (`src/lib/gui`, `src/apps/deskflow-gui`) from the build | the Tauri app | |
@@ -50,6 +50,28 @@ defaults. It differs from the GUI's `Settings` on purpose:
   `QSettings`' `.lock` file.
 
 `IniFileTests` checks the format both ways against `QSettings` itself.
+
+## IPC without Qt (phase 6)
+
+The endpoints are the ones `QLocalServer` used, so the Qt GUI, the Tauri app and
+older clients keep connecting: `\\.\pipe\deskflow-core` and `deskflow-daemon` on
+Windows, `$TMPDIR/<name>` (or `/tmp/<name>`) elsewhere. Differences, on purpose:
+
+- the pipe's DACL gives Everyone read and write (`FRFW`) where `QLocalServer`'s
+  world access gave `FILE_ALL_ACCESS`, which let any local user change the pipe's
+  permissions or owner; SYSTEM, administrators and the server's account keep full
+  access. Remote clients are rejected (`PIPE_REJECT_REMOTE_CLIENTS`); the daemon runs
+  as SYSTEM and takes a config file path from its clients;
+- a message split across reads is reassembled instead of dropped, and a message's
+  argument is everything after the first `=` (a config path may contain `=`);
+- writes are synchronous with a 5 s timeout, so a client that stops reading can't
+  block the core forever;
+- `ipcSendToClient` works from any thread and does nothing when no core IPC server
+  exists (tests, the Qt GUI running shared code).
+
+`IpcServerTests` talks to the server through `QLocalSocket`, the Qt GUI's client, and
+checks the pipe's permissions. Its endpoints have their own names, so it never takes
+over a running Deskflow's.
 
 ## Things Qt was quietly providing
 

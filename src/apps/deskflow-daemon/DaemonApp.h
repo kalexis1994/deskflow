@@ -14,7 +14,6 @@
 class Event;
 class IEventQueue;
 class FileLogOutputter;
-class QLocalServer;
 class QCoreApplication;
 
 namespace deskflow::core::ipc {
@@ -38,7 +37,7 @@ public:
   void run(QThread &daemonThread);
   void setForeground();
   void initLogging();
-  void connectIpcServer(const deskflow::core::ipc::DaemonIpcServer *ipcServer) const;
+  void connectIpcServer(deskflow::core::ipc::DaemonIpcServer &ipcServer);
 
   static QString logFilename();
 

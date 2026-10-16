@@ -63,3 +63,12 @@ if(BUILD_X11_SUPPORT)
   )
 endif()
 
+
+# The client side is Qt's QLocalSocket, what the Qt GUI connects with
+create_test(
+  NAME IpcServerTests
+  DEPENDS app
+  LIBS arch base ${extra_libs} Qt6::Network
+  SOURCE IpcServerTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/deskflow"
+)

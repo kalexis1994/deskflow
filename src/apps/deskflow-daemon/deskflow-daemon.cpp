@@ -93,9 +93,9 @@ int main(int argc, char **argv)
     }
 #endif
 
-    const auto ipcServer = new ipc::DaemonIpcServer(&app, qPrintable(DaemonApp::logFilename())); // NOSONAR - Qt managed
-    ipcServer->listen();
+    ipc::DaemonIpcServer ipcServer(DaemonApp::logFilename().toStdString());
     daemon.connectIpcServer(ipcServer);
+    ipcServer.listen();
 
     QThread daemonThread;
     QObject::connect(&daemonThread, &QThread::finished, &app, &QCoreApplication::quit);
@@ -103,6 +103,7 @@ int main(int argc, char **argv)
 
     const auto exitCode = QCoreApplication::exec();
     daemonThread.wait();
+    ipcServer.stop();
 
     LOG_DEBUG("daemon exited, code: %d", exitCode);
     return exitCode;

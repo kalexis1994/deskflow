@@ -5,21 +5,29 @@
  */
 
 #include "CoreIpcServer.h"
-#include <cassert>
 
 #include "base/Log.h"
 #include "common/Constants.h"
 
-#include <QLocalSocket>
+#include <atomic>
+#include <cassert>
 
 namespace deskflow::core::ipc {
 
-static CoreIpcServer *s_instance = nullptr;
+static std::atomic<CoreIpcServer *> s_instance = nullptr;
 
-CoreIpcServer::CoreIpcServer(QObject *parent) : IpcServer(parent, kCoreIpcName, QStringLiteral("core"))
+CoreIpcServer::CoreIpcServer(const std::string &serverName)
+    : IpcServer(serverName.empty() ? std::string(kCoreIpcName) : serverName, "core")
 {
   assert(s_instance == nullptr);
   s_instance = this;
+}
+
+CoreIpcServer::~CoreIpcServer()
+{
+  // no handler may run once this object is going away
+  stop();
+  s_instance = nullptr;
 }
 
 CoreIpcServer &CoreIpcServer::instance()
@@ -28,17 +36,21 @@ CoreIpcServer &CoreIpcServer::instance()
   return *s_instance;
 }
 
-void CoreIpcServer::processCommand(QLocalSocket *clientSocket, const QString &command, const QStringList &parts)
+bool CoreIpcServer::exists()
 {
-  Q_UNUSED(parts)
-  if (command == QStringLiteral("stop")) {
+  return s_instance != nullptr;
+}
+
+void CoreIpcServer::processCommand(ClientId client, const std::string &command, const std::vector<std::string> &)
+{
+  if (command == "stop") {
     LOG_DEBUG("core ipc server got stop message");
-    writeToClientSocket(clientSocket, QStringLiteral("ok"));
-    broadcastCommand(QStringLiteral("bye"));
-    Q_EMIT stopProcessRequested();
+    writeToClient(client, "ok");
+    broadcastCommand("bye");
+    notify(onStopProcessRequested);
     return;
   }
-  LOG_WARN("core ipc server got unknown command: %s", command.toUtf8().constData());
+  LOG_WARN("core ipc server got unknown command: %s", command.c_str());
 }
 
 } // namespace deskflow::core::ipc

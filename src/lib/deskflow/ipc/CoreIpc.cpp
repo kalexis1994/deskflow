@@ -8,23 +8,19 @@
 
 #include "CoreIpcServer.h"
 
-#include <QMetaEnum>
+#include "base/Log.h"
 
-void ipcSendToClient(const std::string &commandText, const std::string &argsText)
+void ipcSendToClient(const std::string &command, const std::string &args)
 {
-  const auto command = QString::fromStdString(commandText);
-  const auto args = QString::fromStdString(argsText);
-  // Queued because callers may not be on the main thread,
-  // and QLocalSocket can only be written to from its owning thread.
-  auto &server = deskflow::core::ipc::CoreIpcServer::instance();
-  QMetaObject::invokeMethod(
-      &server, [command, args] { deskflow::core::ipc::CoreIpcServer::instance().broadcastCommand(command, args); },
-      Qt::QueuedConnection
-  );
+  // Code shared with other programs (tests, the Qt GUI) runs without a core IPC server.
+  if (!deskflow::core::ipc::CoreIpcServer::exists()) {
+    LOG_VERBOSE("no core ipc server, not sending: %s", command.c_str());
+    return;
+  }
+  deskflow::core::ipc::CoreIpcServer::instance().broadcastCommand(command, args);
 }
 
 void ipcSendConnectionState(deskflow::core::ConnectionState state)
 {
-  const auto metaEnum = QMetaEnum::fromType<deskflow::core::ConnectionState>();
-  ipcSendToClient("connectionState", metaEnum.valueToKey(static_cast<int>(state)));
+  ipcSendToClient("connectionState", std::string(deskflow::enumToString(state)));
 }

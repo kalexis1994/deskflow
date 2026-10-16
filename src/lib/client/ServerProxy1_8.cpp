@@ -14,8 +14,6 @@
 #include <cstring>
 #include <string>
 
-#include <QString>
-
 ServerProxy1_8::ServerProxy1_8(Client *client, deskflow::IStream *stream, IEventQueue *events)
     : ServerProxy1_7(client, stream, events)
 {

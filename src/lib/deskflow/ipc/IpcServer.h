@@ -6,54 +6,84 @@
 
 #pragma once
 
-#include <QObject>
-#include <QSet>
+#include "deskflow/ipc/LocalServer.h"
 
-class QLocalServer;
-class QLocalSocket;
+#include <functional>
+#include <map>
+#include <mutex>
+#include <set>
+#include <string>
+#include <vector>
 
 namespace deskflow::core::ipc {
 
-class IpcServer : public QObject
-{
-  Q_OBJECT
+//! The line protocol the GUI talks to the core and daemon with
+/*!
+Messages are UTF-8 lines, `command` or `command=args`. A client first sends
+`hello=<version>+<sha>` and gets `hello=...` back (or `versionMismatch=...`), then
+any messages broadcast before it connected.
 
+The handlers run on the IPC thread; broadcastCommand() may be called from any thread.
+*/
+class IpcServer
+{
 public:
-  explicit IpcServer(QObject *parent, const QString &serverName, const QString &typeName);
-  ~IpcServer() override;
+  using ClientId = LocalServer::ClientId;
+
+  explicit IpcServer(const std::string &serverName, const std::string &typeName);
+  virtual ~IpcServer();
+
+  IpcServer(const IpcServer &) = delete;
+  IpcServer &operator=(const IpcServer &) = delete;
 
   void listen();
-  void broadcastCommand(const QString &command, const QString &args = "");
 
-Q_SIGNALS:
-  void logLevelChanged(const QString &logLevel);
-  void configFileChanged(const QString &configFile);
-  void startProcessRequested();
-  void stopProcessRequested();
-  void clearSettingsRequested();
+  //! Stops serving and waits for the IPC thread, so no handler runs after this
+  void stop();
+
+  void broadcastCommand(const std::string &command, const std::string &args = {});
+
+  // Requests from clients; set them before listen()
+  std::function<void(const std::string &logLevel)> onLogLevelChanged;
+  std::function<void(const std::string &configFile)> onConfigFileChanged;
+  std::function<void()> onStartProcessRequested;
+  std::function<void()> onStopProcessRequested;
+  std::function<void()> onClearSettingsRequested;
 
 protected:
-  /**!
-   * Write a message to the client socket and append a newline character.
-   *
-   * \param clientSocket The client socket to write to.
-   * \param message The message to write (without trailing newline).
-   */
-  void writeToClientSocket(QLocalSocket *&clientSocket, const QString &message) const;
+  //! Writes a message to a client, adding the newline
+  void writeToClient(ClientId client, const std::string &message);
+
+  //! Calls a handler if it is set
+  template <typename Handler, typename... Args> static void notify(const Handler &handler, Args &&...args)
+  {
+    if (handler)
+      handler(std::forward<Args>(args)...);
+  }
+
+  const std::string &typeName() const
+  {
+    return m_typeName;
+  }
 
 private:
-  void processMessage(QLocalSocket *clientSocket, const QString &message);
-  virtual void processCommand(QLocalSocket *clientSocket, const QString &command, const QStringList &parts) = 0;
-  void handleNewConnection();
-  void handleReadyRead();
-  void handleDisconnected();
-  void handleErrorOccurred();
+  void handleConnected(ClientId client);
+  void handleReceived(ClientId client, std::string_view data);
+  void handleDisconnected(ClientId client);
+  void processMessage(ClientId client, const std::string &message);
 
-  QLocalServer *m_server;
-  QSet<QLocalSocket *> m_clients;
-  QString m_serverName;
-  QStringList m_pendingMessages;
-  QByteArray m_typeName;
+  //! `parts` is the command and, when the message has an `=`, everything after it
+  virtual void processCommand(ClientId client, const std::string &command, const std::vector<std::string> &parts) = 0;
+
+  std::string m_serverName;
+  std::string m_typeName;
+
+  std::mutex m_mutex; // guards m_clients and m_pendingMessages
+  std::set<ClientId> m_clients;
+  std::vector<std::string> m_pendingMessages;
+  std::map<ClientId, std::string> m_partialLines; // IPC thread only
+
+  LocalServer m_server;
 };
 
 } // namespace deskflow::core::ipc

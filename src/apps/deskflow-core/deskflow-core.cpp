@@ -6,8 +6,8 @@
  * SPDX-License-Identifier: GPL-2.0-only WITH LicenseRef-OpenSSL-Exception
  */
 
-#include "arch/OsDetection.h"
 #include "CoreArgParser.h"
+#include "arch/OsDetection.h"
 
 #include "arch/Arch.h"
 #include "base/EventQueue.h"
@@ -122,11 +122,9 @@ int main(int argc, char **argv)
 
   App *coreApp = createApp(parser, events, processName);
 
-  const auto ipcServer = new deskflow::core::ipc::CoreIpcServer(&app); // NOSONAR - Qt managed
-  QObject::connect(
-      ipcServer, &deskflow::core::ipc::IpcServer::stopProcessRequested, coreApp, &App::quit, Qt::DirectConnection
-  );
-  ipcServer->listen();
+  deskflow::core::ipc::CoreIpcServer ipcServer;
+  ipcServer.onStopProcessRequested = [coreApp] { coreApp->quit(); };
+  ipcServer.listen();
 
   QThread coreThread;
   QObject::connect(&coreThread, &QThread::finished, &app, &QApplication::quit);
@@ -138,6 +136,9 @@ int main(int argc, char **argv)
   if (exitCode == s_exitSuccess) {
     exitCode = coreApp->getExitCode();
   }
+
+  // its stop handler uses the app; the server itself lives on while the core shuts down
+  ipcServer.stop();
   delete coreApp;
 
   LOG_DEBUG("core exited, code: %d", exitCode);

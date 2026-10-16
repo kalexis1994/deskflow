@@ -15,7 +15,6 @@
 #include "base/Unicode.h"
 #include "common/Constants.h"
 #include "common/LogLevel.h"
-#include "deskflow/App.h"
 #include "mt/Thread.h"
 #include "platform/MSWindowsHandle.h"
 

@@ -40,8 +40,7 @@ add_library(common STATIC
   ${CMAKE_CURRENT_BINARY_DIR}/VersionInfo.h
 )
 
-# Qt6::Core is only left for the moc'd enums in Enums.h and Coordinate.h (IPC, phase 6)
-target_link_libraries(common PUBLIC common-base base Qt6::Core)
+target_link_libraries(common PUBLIC common-base base)
 if(WIN32)
   # GetUserProfileDirectoryW, for the settings file's home directory
   target_link_libraries(common PRIVATE userenv)

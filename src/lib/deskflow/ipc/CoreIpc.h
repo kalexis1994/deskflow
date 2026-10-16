@@ -10,5 +10,6 @@
 
 #include <string>
 
+//! Sends a message to the GUIs connected to the core; queued until one connects. Any thread.
 void ipcSendToClient(const std::string &command, const std::string &args = {});
 void ipcSendConnectionState(deskflow::core::ConnectionState state);

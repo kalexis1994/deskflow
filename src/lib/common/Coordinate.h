@@ -6,14 +6,10 @@
 
 #pragma once
 
-#include <QObject>
 #include <cstdint>
 
 struct Coordinate
 {
-  Q_GADGET;
-
-public:
   int32_t x;
   int32_t y;
 };

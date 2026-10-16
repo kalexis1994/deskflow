@@ -31,8 +31,6 @@
 #include "net/SecureSocket.h"
 #include "net/TCPSocket.h"
 
-#include <QMetaEnum>
-
 #include <cstdlib>
 #include <cstring>
 
@@ -154,8 +152,7 @@ void Client::disconnect(const char *msg)
 
 void Client::refuseConnection(deskflow::core::ConnectionRefusal reason, const char *msg)
 {
-  const auto metaEnum = QMetaEnum::fromType<deskflow::core::ConnectionRefusal>();
-  ipcSendToClient("connectionRefused", metaEnum.valueToKey(static_cast<int>(reason)));
+  ipcSendToClient("connectionRefused", std::string(deskflow::enumToString(reason)));
 
   cleanup();
 

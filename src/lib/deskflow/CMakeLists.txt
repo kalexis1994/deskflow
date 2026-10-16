@@ -79,6 +79,8 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   StreamChunker.h
   KeyboardLayoutManager.cpp
   KeyboardLayoutManager.h
+  ipc/LocalServer.cpp
+  ipc/LocalServer.h
   ipc/IpcServer.cpp
   ipc/IpcServer.h
   ipc/DaemonIpcServer.cpp
@@ -92,7 +94,8 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
 target_link_libraries(${lib_name}
   PUBLIC
     common
-    Qt6::Network
+    # App and the core's entry points still use QObject/QThread (phase 7)
+    Qt6::Core
   PRIVATE
     platform
 )

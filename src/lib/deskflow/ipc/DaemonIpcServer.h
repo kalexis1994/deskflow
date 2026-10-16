@@ -8,27 +8,23 @@
 
 #include "IpcServer.h"
 
-#include <QObject>
-#include <QString>
-
-class QLocalSocket;
+#include <string>
 
 namespace deskflow::core::ipc {
 
 class DaemonIpcServer : public IpcServer
 {
-  Q_OBJECT
-
 public:
-  explicit DaemonIpcServer(QObject *parent, const QString &logFilename);
+  //! The name is only changed by tests, so they don't take over a running daemon's endpoint
+  explicit DaemonIpcServer(const std::string &logFilename, const std::string &serverName = {});
+  ~DaemonIpcServer() override;
 
 private:
-  void processCommand(QLocalSocket *clientSocket, const QString &command, const QStringList &parts) override;
-  void processLogLevel(QLocalSocket *&clientSocket, const QStringList &messageParts);
-  void processConfigFile(QLocalSocket *&clientSocket, const QStringList &messageParts);
+  void processCommand(ClientId client, const std::string &command, const std::vector<std::string> &parts) override;
+  void processLogLevel(ClientId client, const std::vector<std::string> &messageParts);
+  void processConfigFile(ClientId client, const std::vector<std::string> &messageParts);
 
-private:
-  const QString m_logFilename;
+  const std::string m_logFilename;
 };
 
 } // namespace deskflow::core::ipc

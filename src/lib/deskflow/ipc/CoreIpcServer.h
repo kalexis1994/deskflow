@@ -8,24 +8,21 @@
 
 #include "IpcServer.h"
 
-#include <QObject>
-#include <QSet>
-
-class QLocalSocket;
-
 namespace deskflow::core::ipc {
 
 class CoreIpcServer : public IpcServer
 {
-  Q_OBJECT
-
 public:
-  explicit CoreIpcServer(QObject *parent);
+  //! The name is only changed by tests, so they don't take over a running core's endpoint
+  explicit CoreIpcServer(const std::string &serverName = {});
+  ~CoreIpcServer() override;
 
+  //! The core's server; only valid while one exists
   static CoreIpcServer &instance();
+  static bool exists();
 
 private:
-  void processCommand(QLocalSocket *clientSocket, const QString &command, const QStringList &parts) override;
+  void processCommand(ClientId client, const std::string &command, const std::vector<std::string> &parts) override;
 };
 
 } // namespace deskflow::core::ipc

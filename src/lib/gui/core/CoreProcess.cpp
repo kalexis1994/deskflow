@@ -23,7 +23,6 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
-#include <QMetaEnum>
 #include <QMutexLocker>
 #include <QRegularExpression>
 
@@ -627,14 +626,12 @@ void CoreProcess::setProcessState(ProcessState state)
 void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString &args)
 {
   if (command == "connectionState") {
-    const auto metaEnum = QMetaEnum::fromType<ConnectionState>();
-    bool ok = false;
-    const auto state = static_cast<ConnectionState>(metaEnum.keyToValue(args.toUtf8().constData(), &ok));
-    if (!ok) {
+    const auto state = deskflow::enumFromString<ConnectionState>(args.toStdString());
+    if (!state) {
       qWarning("core ipc got unknown connection state: %s", args.toUtf8().constData());
       return;
     }
-    setConnectionState(state);
+    setConnectionState(*state);
   } else if (command == "connectedClients") {
     const auto clients = args.isEmpty() ? QStringList() : args.split(",");
     Q_EMIT connectedClientsChanged(clients);
@@ -647,12 +644,8 @@ void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString
   } else if (command == "unrecognisedClient") {
     Q_EMIT unrecognisedClient(args);
   } else if (command == "connectionRefused") {
-    const auto metaEnum = QMetaEnum::fromType<deskflow::core::ConnectionRefusal>();
-    bool ok = false;
-    const auto reason =
-        static_cast<deskflow::core::ConnectionRefusal>(metaEnum.keyToValue(args.toUtf8().constData(), &ok));
-    if (ok) {
-      Q_EMIT connectionRefused(reason);
+    if (const auto reason = deskflow::enumFromString<deskflow::core::ConnectionRefusal>(args.toStdString()); reason) {
+      Q_EMIT connectionRefused(*reason);
     } else {
       qWarning("core ipc got unknown connection refusal: %s", args.toUtf8().constData());
     }
