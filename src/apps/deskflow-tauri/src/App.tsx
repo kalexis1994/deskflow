@@ -6,6 +6,7 @@ import { LayoutEditor } from "./layout/LayoutEditor";
 import { ServerOptionsCard } from "./ServerOptionsCard";
 import { HotkeysCard } from "./hotkeys/HotkeysCard";
 import { FingerprintPromptCard, SecurityCard } from "./tls/Security";
+import { ClipboardCard } from "./clipboard/ClipboardCard";
 import type { Autostart, CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
@@ -51,6 +52,10 @@ export default function App() {
       {core.fingerprintPrompt && <FingerprintPromptCard key={core.fingerprintPrompt.fingerprint} prompt={core.fingerprintPrompt} onDone={() => {}} />}
 
       <Alerts core={core} ov={ov} error={df.error} onDismissError={df.dismissError} />
+
+      {ov.coreMode !== "none" && (
+        <ClipboardCard activity={core.clipboard ?? []} mode={ov.coreMode} self={ov.computerName} running={core.process === "running"} />
+      )}
 
       {ov.coreMode === "client" && (
         <ClientCard host={ov.remoteHost} port={ov.port} running={running} busy={df.busy} onSave={(remoteHost) => df.save({ remoteHost })} />

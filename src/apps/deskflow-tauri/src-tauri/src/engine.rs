@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
+use crate::clipboard::{self, ClipboardActivity};
 use crate::ipc::{self, Connection, Handshake};
 use crate::layout;
 use crate::paths;
@@ -64,6 +65,8 @@ pub struct CoreState {
     pub missing_layouts: Option<String>,
     pub core_version: Option<String>,
     pub last_error: Option<String>,
+    /// Recent shared clipboard activity, newest first (kept while the app runs).
+    pub clipboard: Vec<ClipboardActivity>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -322,6 +325,9 @@ impl Hub {
                 }
             }
             "missingKeyboardLayouts" => s.missing_layouts = Some(args),
+            "clipboard" => {
+                clipboard::push(&mut s.clipboard, &args, now_ms());
+            }
             _ => {}
         });
     }

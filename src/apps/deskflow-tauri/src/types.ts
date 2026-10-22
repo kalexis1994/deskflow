@@ -1,5 +1,7 @@
 // Mirrors the structs serialized by src-tauri/src/{settings,engine,lib}.rs
 
+import type { ClipboardActivity } from "./clipboard/describe";
+
 export type CoreMode = "none" | "client" | "server";
 export type ProcessMode = "service" | "desktop";
 
@@ -40,6 +42,8 @@ export interface CoreState {
   missingLayouts: string | null;
   coreVersion: string | null;
   lastError: string | null;
+  /** Recent shared clipboard activity, newest first. */
+  clipboard: ClipboardActivity[];
 }
 
 export interface FingerprintPrompt {

@@ -68,7 +68,82 @@ const core: CoreState = {
   missingLayouts: null,
   coreVersion: "1.27.0.5 · 3aec96d5",
   lastError: null,
+  clipboard:
+    params.get("clipboard") === "empty"
+      ? []
+      : params.get("mode") === "client"
+        ? [
+            {
+              event: "received",
+              computer: null,
+              reason: null,
+              formats: ["text", "HTML"],
+              dropped: [],
+              size: 1840,
+              chars: 312,
+              lines: 6,
+              image: null,
+              text: "Reunión del jueves\n- revisar el presupuesto de Q4\n- confirmar la sala 3B\n- mandar la minuta a todo el equipo antes del viernes",
+              at: Date.now() - 4_000,
+            },
+            {
+              event: "failed",
+              computer: null,
+              reason: "busy",
+              formats: [],
+              dropped: [],
+              size: null,
+              chars: null,
+              lines: null,
+              image: null,
+              text: null,
+              at: Date.now() - 120_000,
+            },
+          ]
+        : [
+          {
+            event: "shared",
+            computer: "laptop",
+            reason: null,
+            formats: ["text", "HTML"],
+            dropped: ["bitmap"],
+            size: 1840,
+            chars: 312,
+            lines: 6,
+            image: null,
+            text: "Reunión del jueves\n- revisar el presupuesto de Q4\n- confirmar la sala 3B\n- mandar la minuta a todo el equipo antes del viernes",
+            at: Date.now() - 4_000,
+          },
+          {
+            event: "shared",
+            computer: "escritorio",
+            reason: null,
+            formats: ["bitmap"],
+            dropped: [],
+            size: 2_073_654,
+            chars: null,
+            lines: null,
+            image: { width: 960, height: 540 },
+            text: null,
+            at: Date.now() - 95_000,
+          },
+          {
+            event: "skipped",
+            computer: "laptop",
+            reason: "nothingToShare",
+            formats: [],
+            dropped: [],
+            size: null,
+            chars: null,
+            lines: null,
+            image: null,
+            text: null,
+            at: Date.now() - 600_000,
+          },
+        ],
 };
+
+let clipboardPrefs = { preview: true, sharing: true, limitMb: 3 };
 
 const log = ["[2026-10-13T08:00:00.000] INFO: starting core", "[2026-10-13T08:00:00.100] INFO: started server, waiting for clients"];
 
@@ -135,6 +210,11 @@ mockIPC(
         tlsInfo = { ...tlsInfo, [key]: tlsInfo[key].filter((t) => t.hex !== a!.hex) };
         return tlsInfo;
       }
+      case "clipboard_prefs":
+        return clipboardPrefs;
+      case "set_clipboard_preview":
+        clipboardPrefs = { ...clipboardPrefs, preview: a!.enabled as boolean };
+        return clipboardPrefs;
       case "start_core":
       case "stop_core":
         return null;

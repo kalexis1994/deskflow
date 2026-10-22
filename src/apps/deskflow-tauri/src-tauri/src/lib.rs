@@ -1,3 +1,4 @@
+mod clipboard;
 mod computer;
 mod engine;
 mod hotkeys;
@@ -91,6 +92,18 @@ async fn save_layout(
         hub.inner().restart().await?;
     }
     Ok(view)
+}
+
+#[tauri::command]
+fn clipboard_prefs() -> Result<clipboard::ClipboardPrefs, String> {
+    clipboard::prefs()
+}
+
+/// Turns the text preview of clipboard activity on or off; the core picks it up on
+/// its next report, without a restart.
+#[tauri::command]
+fn set_clipboard_preview(enabled: bool) -> Result<clipboard::ClipboardPrefs, String> {
+    clipboard::set_preview(enabled)
 }
 
 #[tauri::command]
@@ -275,7 +288,9 @@ pub fn run() {
             trust_fingerprint,
             reject_fingerprint,
             forget_fingerprint,
-            autostart_status
+            autostart_status,
+            clipboard_prefs,
+            set_clipboard_preview
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
