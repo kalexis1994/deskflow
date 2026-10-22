@@ -76,6 +76,7 @@ Client::~Client()
   m_events->removeHandler(EventTypes::ComputerResume, getEventTarget());
 
   cleanupTimer();
+  cleanupClipboardRetry();
   cleanupComputer();
   cleanupConnecting();
   cleanupConnection();
@@ -249,16 +250,46 @@ bool Client::leave()
 
 void Client::setClipboard(ClipboardID id, const IClipboard *clipboard)
 {
-  m_computer->setClipboard(id, clipboard);
+  const auto data = IClipboard::marshall(clipboard);
+
+  // An empty clipboard from the server means it has nothing yet (it just started, or
+  // another computer's data hasn't arrived); writing it would erase what is here.
+  if (!deskflow::clipboard::hasContent(data)) {
+    LOG_DEBUG("ignoring empty clipboard %d from server", id);
+    return;
+  }
+
   m_ownClipboard[id] = false;
   m_sentClipboard[id] = false;
+  m_pendingSend[id] = false;
+
+  if (writeClipboard(id, data)) {
+    m_pendingWrite[id].reset();
+    LOG_INFO("clipboard %d updated from the server", id);
+  } else {
+    LOG_WARN("could not write clipboard %d (another program has it open), retrying", id);
+    m_pendingWrite[id] = data;
+    scheduleClipboardRetry();
+  }
+}
+
+bool Client::writeClipboard(ClipboardID id, const std::string &marshalled)
+{
+  Clipboard clipboard;
+  clipboard.unmarshall(marshalled, 0);
+  if (!m_computer->setClipboard(id, &clipboard))
+    return false;
+  m_echoGuard[id].applied(marshalled);
+  return true;
 }
 
 void Client::grabClipboard(ClipboardID id)
 {
-  m_computer->grabClipboard(id);
+  // Another computer copied. Its data follows; until then this computer keeps what it
+  // has rather than being emptied, so a failed or skipped transfer loses nothing.
   m_ownClipboard[id] = false;
   m_sentClipboard[id] = false;
+  m_pendingSend[id] = false;
 }
 
 void Client::setClipboardDirty(ClipboardID, bool)
@@ -385,25 +416,101 @@ void Client::sendClipboard(ClipboardID id)
   if (clipboard.open(m_timeClipboard[id])) {
     clipboard.close();
   }
-  m_computer->getClipboard(id, &clipboard);
+  if (!m_computer->getClipboard(id, &clipboard)) {
+    // never send what a failed read left behind: it would replace the copy everywhere
+    LOG_WARN("could not read clipboard %d (another program has it open), retrying", id);
+    m_pendingSend[id] = true;
+    scheduleClipboardRetry();
+    return;
+  }
+  m_pendingSend[id] = false;
 
   // check time
   if (m_timeClipboard[id] == 0 || clipboard.getTime() != m_timeClipboard[id]) {
-    // marshall the data
-    std::string data = clipboard.marshall();
-    if (data.size() >= m_maximumClipboardSize * 1024) {
-      LOG_WARN("not sending clipboard data, exceeds limit: %zu KB", m_maximumClipboardSize);
+    const auto data = clipboard.marshall();
+    if (!deskflow::clipboard::hasContent(data)) {
+      LOG_INFO("not sharing clipboard %d: nothing in it Deskflow can share (text, HTML or image)", id);
       return;
+    }
+
+    const auto fitted = deskflow::clipboard::fitToLimit(data, m_maximumClipboardSize * 1024);
+    if (!fitted.fits) {
+      LOG_WARN("not sending clipboard %d, even its text exceeds the limit of %zu KB", id, m_maximumClipboardSize);
+      return;
+    }
+    if (!fitted.dropped.empty()) {
+      LOG_INFO(
+          "clipboard %d exceeds the limit of %zu KB, sending it without: %s", id, m_maximumClipboardSize,
+          deskflow::clipboard::formatNames(fitted.dropped).c_str()
+      );
     }
 
     // save new time
     m_timeClipboard[id] = clipboard.getTime();
     // save and send data if different or not yet sent
-    if (!m_sentClipboard[id] || data != m_dataClipboard[id]) {
+    if (!m_sentClipboard[id] || fitted.data != m_dataClipboard[id]) {
       m_sentClipboard[id] = true;
-      m_dataClipboard[id] = data;
-      m_server->onClipboardChanged(id, &clipboard);
+      m_dataClipboard[id] = fitted.data;
+      Clipboard toSend;
+      toSend.unmarshall(fitted.data, clipboard.getTime());
+      m_server->onClipboardChanged(id, &toSend);
     }
+  }
+}
+
+void Client::scheduleClipboardRetry()
+{
+  static constexpr int kMaxRetries = 12;
+  static constexpr double kRetryDelay = 0.25; // seconds: 3 s in all
+
+  if (m_clipboardRetryTimer != nullptr)
+    return;
+  if (++m_clipboardRetries > kMaxRetries) {
+    LOG_ERR("giving up on the clipboard: another program keeps it open");
+    m_clipboardRetries = 0;
+    for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
+      m_pendingWrite[id].reset();
+      m_pendingSend[id] = false;
+    }
+    return;
+  }
+  m_clipboardRetryTimer = m_events->newOneShotTimer(kRetryDelay, nullptr);
+  m_events->addHandler(EventTypes::Timer, m_clipboardRetryTimer, [this](const auto &) { handleClipboardRetry(); });
+}
+
+void Client::handleClipboardRetry()
+{
+  cleanupClipboardRetry();
+
+  for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
+    if (m_pendingWrite[id]) {
+      if (writeClipboard(id, *m_pendingWrite[id])) {
+        LOG_INFO("clipboard %d updated from the server", id);
+        m_pendingWrite[id].reset();
+      }
+    }
+    // only while not on this computer: when it's active, leaving sends the clipboard
+    if (m_pendingSend[id] && !m_active) {
+      sendClipboard(id);
+    }
+  }
+
+  bool pending = false;
+  for (ClipboardID id = 0; id < kClipboardEnd; ++id)
+    pending = pending || m_pendingWrite[id] || (m_pendingSend[id] && !m_active);
+  if (pending) {
+    scheduleClipboardRetry();
+  } else {
+    m_clipboardRetries = 0;
+  }
+}
+
+void Client::cleanupClipboardRetry()
+{
+  if (m_clipboardRetryTimer != nullptr) {
+    m_events->removeHandler(EventTypes::Timer, m_clipboardRetryTimer);
+    m_events->deleteTimer(m_clipboardRetryTimer);
+    m_clipboardRetryTimer = nullptr;
   }
 }
 
@@ -575,6 +682,8 @@ void Client::handleConnected()
     m_ownClipboard[id] = false;
     m_sentClipboard[id] = false;
     m_timeClipboard[id] = 0;
+    m_pendingWrite[id].reset();
+    m_pendingSend[id] = false;
   }
 }
 
@@ -646,6 +755,18 @@ void Client::handleClipboardGrabbed(const Event &event)
   }
 
   const auto *info = static_cast<const IComputer::ClipboardInfo *>(event.getData());
+
+  // Deskflow writing the server's clipboard here, or another program putting the same
+  // content back (clipboard history, newline conversion), is not a new copy: sending it
+  // back would loop between the computers.
+  if (auto &guard = m_echoGuard[info->m_id]; guard.armed()) {
+    Clipboard local;
+    if (m_computer->getClipboard(info->m_id, &local) && guard.isEcho(local)) {
+      LOG_DEBUG("ignoring clipboard %d change, it's what the server sent", info->m_id);
+      return;
+    }
+    guard.clear();
+  }
 
   // grab ownership
   m_server->onGrabClipboard(info->m_id);

@@ -8,6 +8,7 @@
 #include "server/PrimaryClient.h"
 
 #include "base/Log.h"
+#include "deskflow/Clipboard.h"
 #include "deskflow/Computer.h"
 //
 // PrimaryClient
@@ -116,22 +117,44 @@ bool PrimaryClient::leave()
 void PrimaryClient::setClipboard(ClipboardID id, const IClipboard *clipboard)
 {
   // ignore if this clipboard is already clean
-  if (m_clipboardDirty[id]) {
-    // this clipboard is now clean
-    m_clipboardDirty[id] = false;
+  if (!m_clipboardDirty[id])
+    return;
 
-    // set clipboard
-    m_computer->setClipboard(id, clipboard);
+  const auto data = IClipboard::marshall(clipboard);
+  if (!deskflow::clipboard::hasContent(data)) {
+    // nothing to paste yet: keep what this computer has
+    LOG_DEBUG("not writing empty clipboard %d", id);
+    return;
+  }
+
+  if (m_computer->setClipboard(id, clipboard)) {
+    m_clipboardDirty[id] = false;
+    m_echoGuard[id].applied(data);
+    LOG_DEBUG("clipboard %d updated", id);
+  } else {
+    // stays dirty, so it's written again the next time it's sent here
+    LOG_WARN("could not write clipboard %d (another program has it open)", id);
   }
 }
 
 void PrimaryClient::grabClipboard(ClipboardID id)
 {
-  // grab clipboard
-  m_computer->grabClipboard(id);
-
-  // clipboard is dirty (because someone else owns it now)
+  // Another computer copied. Its data follows; until then this computer keeps what it
+  // has rather than being emptied, so a failed or skipped transfer loses nothing.
   m_clipboardDirty[id] = true;
+}
+
+bool PrimaryClient::isClipboardEcho(ClipboardID id) const
+{
+  if (!m_echoGuard[id].armed())
+    return false;
+  Clipboard local;
+  return m_computer->getClipboard(id, &local) && m_echoGuard[id].isEcho(local);
+}
+
+void PrimaryClient::clearClipboardEcho(ClipboardID id)
+{
+  m_echoGuard[id].clear();
 }
 
 void PrimaryClient::setClipboardDirty(ClipboardID id, bool dirty)

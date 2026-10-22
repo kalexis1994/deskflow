@@ -548,11 +548,9 @@ void ServerProxy::setClipboard()
     // forward
     Clipboard clipboard;
     clipboard.unmarshall(m_clipboardDataCached, 0);
-    m_client->setClipboard(id, &clipboard);
+    m_client->setClipboard(id, &clipboard); // logs whether the system clipboard took it
     m_clipboardDataCached.clear();
     m_clipboardDataCached.shrink_to_fit();
-
-    LOG_INFO("clipboard was updated");
   } else if (r == TransferState::Error) {
     requestDisconnect("invalid clipboard data from server");
   }

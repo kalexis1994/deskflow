@@ -83,3 +83,11 @@ create_test(
 )
 target_sources(CoreArgParserTests PRIVATE ${CMAKE_SOURCE_DIR}/src/apps/deskflow-core/CoreArgParser.cpp)
 target_include_directories(CoreArgParserTests PRIVATE ${CMAKE_SOURCE_DIR}/src/apps/deskflow-core)
+
+create_test(
+  NAME ClipboardUtilTests
+  DEPENDS app
+  LIBS arch base ${extra_libs}
+  SOURCE ClipboardUtilTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/deskflow"
+)

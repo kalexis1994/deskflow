@@ -13,10 +13,12 @@
 #include "base/Event.h"
 #include "base/EventTypes.h"
 #include "common/Enums.h"
+#include "deskflow/ClipboardUtil.h"
 #include "deskflow/IClipboard.h"
 #include "net/NetworkAddress.h"
 
 #include <climits>
+#include <optional>
 #include <string>
 
 class Event;
@@ -193,6 +195,12 @@ public:
 private:
   void saveRelativeRestorePosition();
   void sendClipboard(ClipboardID);
+  //! Writes another computer's clipboard here; false if the system clipboard couldn't be opened
+  bool writeClipboard(ClipboardID, const std::string &marshalled);
+  //! Retries clipboard reads and writes that failed because another program held the clipboard
+  void scheduleClipboardRetry();
+  void handleClipboardRetry();
+  void cleanupClipboardRetry();
   void sendEvent(deskflow::EventTypes);
   void sendConnectionFailedEvent(const char *msg);
   void setupConnecting();
@@ -235,6 +243,11 @@ private:
   bool m_sentClipboard[kClipboardEnd];
   IClipboard::Time m_timeClipboard[kClipboardEnd];
   std::string m_dataClipboard[kClipboardEnd];
+  deskflow::clipboard::EchoGuard m_echoGuard[kClipboardEnd];
+  std::optional<std::string> m_pendingWrite[kClipboardEnd]; // from the server, not written yet
+  bool m_pendingSend[kClipboardEnd] = {false, false};       // ours, not read yet
+  EventQueueTimer *m_clipboardRetryTimer = nullptr;
+  int m_clipboardRetries = 0;
   IEventQueue *m_events = nullptr;
   bool m_useSecureNetwork = false;
   bool m_enableClipboard = true;

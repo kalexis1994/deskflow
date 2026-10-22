@@ -326,6 +326,9 @@ private:
 
   // event processing
   void onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, uint32_t seqNum);
+  void scheduleClipboardRetry();
+  void handleClipboardRetry();
+  void cleanupClipboardRetry();
   void onScreensaver(bool activated);
   void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *computers);
   void onKeyUp(KeyID, KeyModifierMask, KeyButton, const char *computers);
@@ -370,6 +373,10 @@ private:
     std::string m_clipboardData;
     std::string m_clipboardOwner;
     uint32_t m_clipboardSeqNum = 0;
+    //! The owner copied but its data hasn't arrived: don't hand out the old content as if new
+    bool m_pending = false;
+    //! Reading the primary computer's clipboard failed and is retried
+    bool m_readPending = false;
   };
   // Order suggested by clang
 
@@ -391,6 +398,8 @@ private:
   BaseClientProxy *m_switchComputer = nullptr;
   double m_switchWaitDelay = 0.0;
   EventQueueTimer *m_switchWaitTimer = nullptr;
+  EventQueueTimer *m_clipboardRetryTimer = nullptr;
+  int m_clipboardRetries = 0;
 
   // delay for double-tap computer switching
   double m_switchTwoTapDelay = 0.0;

@@ -307,9 +307,9 @@ void Computer::warpCursor(int32_t x, int32_t y)
   m_computer->warpCursor(x, y);
 }
 
-void Computer::setClipboard(ClipboardID id, const IClipboard *clipboard)
+bool Computer::setClipboard(ClipboardID id, const IClipboard *clipboard)
 {
-  m_computer->setClipboard(id, clipboard);
+  return m_computer->setClipboard(id, clipboard);
 }
 
 void Computer::grabClipboard(ClipboardID id)

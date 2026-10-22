@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "deskflow/ClipboardUtil.h"
 #include "server/BaseClientProxy.h"
 
 namespace deskflow {
@@ -130,6 +131,11 @@ public:
   std::string getSecureInputApp() const override;
   void secureInputNotification(const std::string &app) const override;
 
+  //! Whether the local clipboard only holds what Deskflow last wrote there (see EchoGuard)
+  bool isClipboardEcho(ClipboardID id) const;
+  //! A real local copy happened
+  void clearClipboardEcho(ClipboardID id);
+
   deskflow::IStream *getStream() const override
   {
     return nullptr;
@@ -142,5 +148,6 @@ public:
 private:
   deskflow::Computer *m_computer;
   bool m_clipboardDirty[kClipboardEnd] = {false, false};
+  deskflow::clipboard::EchoGuard m_echoGuard[kClipboardEnd];
   int32_t m_fakeInputCount = 0;
 };

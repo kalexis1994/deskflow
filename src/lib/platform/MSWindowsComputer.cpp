@@ -184,7 +184,9 @@ void MSWindowsComputer::enable()
   m_fixTimer = m_events->newTimer(1.0, nullptr);
   m_events->addHandler(EventTypes::Timer, m_fixTimer, [this](const auto &) { handleFixes(); });
 
-  // install our clipboard snooper
+  // install our clipboard snooper; what is on the clipboard already wasn't copied while
+  // Deskflow was watching, so it isn't shared until it changes
+  m_clipboardSequenceNumber = GetClipboardSequenceNumber();
   if (!AddClipboardFormatListener(m_window)) {
     LOG_WARN("failed to add the clipboard format listener: %d", GetLastError());
   }
@@ -349,7 +351,14 @@ void MSWindowsComputer::checkClipboards()
   // next reboot we do this double check.  clipboard ownership
   // won't be reflected on other computers until we leave but at
   // least the clipboard itself will work.
-  if (m_ownClipboard && !MSWindowsClipboard::isOwnedByDeskflow()) {
+  //
+  // The sequence number also catches a change whose WM_CLIPBOARDUPDATE never came.
+  if (const auto sequenceNumber = GetClipboardSequenceNumber();
+      sequenceNumber && sequenceNumber != m_clipboardSequenceNumber) {
+    LOG_DEBUG("clipboard changed without a notification: sequence number %d", sequenceNumber);
+    m_clipboardSequenceNumber = sequenceNumber;
+    onClipboardChange();
+  } else if (m_ownClipboard && !MSWindowsClipboard::isOwnedByDeskflow()) {
     LOG_DEBUG("clipboard changed: lost ownership and no notification received");
     m_ownClipboard = false;
     sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardClipboard);
@@ -421,9 +430,10 @@ void *MSWindowsComputer::getEventTarget() const
 
 bool MSWindowsComputer::getClipboard(ClipboardID, IClipboard *dst) const
 {
+  // false when another program holds the clipboard open: callers must not take the
+  // untouched destination for the clipboard's content
   MSWindowsClipboard src(m_window);
-  Clipboard::copy(dst, &src);
-  return true;
+  return Clipboard::copy(dst, &src);
 }
 
 void MSWindowsComputer::getShape(int32_t &x, int32_t &y, int32_t &w, int32_t &h) const
@@ -1347,19 +1357,21 @@ bool MSWindowsComputer::onDisplayChange()
 
 void MSWindowsComputer::onClipboardChange()
 {
-  // now notify client that somebody changed the clipboard (unless
-  // we're the owner).
-  if (!MSWindowsClipboard::isOwnedByDeskflow()) {
-    if (m_ownClipboard) {
-      LOG_DEBUG("clipboard changed: lost ownership");
-      m_ownClipboard = false;
-      sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardClipboard);
-      sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardSelection);
+  // Deskflow's own writes carry its ownership format: nothing to tell anyone.
+  if (MSWindowsClipboard::isOwnedByDeskflow()) {
+    if (!m_ownClipboard) {
+      LOG_DEBUG("clipboard changed: %s owned", kAppId);
+      m_ownClipboard = true;
     }
-  } else if (!m_ownClipboard) {
-    LOG_DEBUG("clipboard changed: %s owned", kAppId);
-    m_ownClipboard = true;
+    return;
   }
+
+  // Every other change is a copy in some program, including the second and later ones
+  // in a row: each one is a new grab, not only the first after Deskflow wrote.
+  LOG_DEBUG("clipboard changed: copied in another program");
+  m_ownClipboard = false;
+  sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardClipboard);
+  sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardSelection);
 }
 
 void MSWindowsComputer::warpCursorNoFlush(int32_t x, int32_t y)

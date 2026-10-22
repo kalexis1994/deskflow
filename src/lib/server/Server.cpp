@@ -8,6 +8,7 @@
 
 #include "server/Server.h"
 #include "common/CoreSettings.h"
+#include "deskflow/ClipboardUtil.h"
 #include <cassert>
 
 #include "base/IEventQueue.h"
@@ -170,6 +171,7 @@ Server::~Server()
   m_events->removeHandler(PrimaryComputerFakeInputEnd, m_inputFilter);
   m_events->removeHandler(Timer, this);
   stopSwitch();
+  cleanupClipboardRetry();
 
   try {
     // force immediate disconnection of secondary clients
@@ -499,11 +501,13 @@ void Server::switchComputer(BaseClientProxy *dst, int32_t x, int32_t y, bool for
     if (m_enableClipboard) {
       // send the clipboard data to new active computer
       for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
-        // Hackity hackity hack
-        if (m_clipboards[id].m_clipboard.marshall().size() > (m_maximumClipboardSize * 1024)) {
+        const auto &clipboard = m_clipboards[id];
+        // not while the owner's new data is on its way (it follows when it arrives), and
+        // never nothing: an empty clipboard would erase the other computer's
+        if (clipboard.m_pending || !deskflow::clipboard::hasContent(clipboard.m_clipboardData)) {
           continue;
         }
-        m_active->setClipboard(id, &m_clipboards[id].m_clipboard);
+        m_active->setClipboard(id, &clipboard.m_clipboard);
       }
     }
 
@@ -1175,6 +1179,16 @@ void Server::handleClipboardGrabbed(const Event &event, BaseClientProxy *grabber
   }
   const auto *info = static_cast<const IComputer::ClipboardInfo *>(event.getData());
 
+  // Deskflow writing another computer's clipboard here, or another program putting the
+  // same content back, is not a new copy: sharing it would loop between the computers.
+  if (grabber == m_primaryClient) {
+    if (m_primaryClient->isClipboardEcho(info->m_id)) {
+      LOG_DEBUG("ignoring clipboard %d change, it's what another computer sent", info->m_id);
+      return;
+    }
+    m_primaryClient->clearClipboardEcho(info->m_id);
+  }
+
   // ignore grab if sequence number is old.  always allow primary
   // computer to grab.
   ClipboardInfo &clipboard = m_clipboards[info->m_id];
@@ -1191,12 +1205,9 @@ void Server::handleClipboardGrabbed(const Event &event, BaseClientProxy *grabber
   clipboard.m_clipboardOwner = getName(grabber);
   clipboard.m_clipboardSeqNum = info->m_sequenceNumber;
 
-  // clear the clipboard data (since it's not known at this point)
-  if (clipboard.m_clipboard.open(0)) {
-    clipboard.m_clipboard.empty();
-    clipboard.m_clipboard.close();
-  }
-  clipboard.m_clipboardData = clipboard.m_clipboard.marshall();
+  // The new data isn't known yet. The old data stays (nobody is emptied) but isn't
+  // handed out until the owner's arrives.
+  clipboard.m_pending = true;
 
   // tell all other computers to take ownership of clipboard.  tell the
   // grabber that it's clipboard isn't dirty.
@@ -1449,27 +1460,64 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
     return;
   }
 
-  // should be the expected client
-  assert(sender == m_clients.find(clipboard.m_clipboardOwner)->second);
-
-  // get data
-  sender->getClipboard(id, &clipboard.m_clipboard);
-
-  std::string data = clipboard.m_clipboard.marshall();
-  if (data.size() > m_maximumClipboardSize * 1024) {
-    LOG_WARN("not sending clipboard data, exceeds limit: %i KB", m_maximumClipboardSize);
+  // only the computer that copied last may set the clipboard (a late update from the
+  // previous owner would overwrite a newer copy)
+  if (const auto owner = m_clients.find(clipboard.m_clipboardOwner);
+      owner == m_clients.end() || owner->second != sender) {
+    LOG_INFO(
+        "ignored computer \"%s\" update of clipboard %d (owned by \"%s\")", getName(sender).c_str(), id,
+        clipboard.m_clipboardOwner.c_str()
+    );
     return;
   }
 
-  // ignore if data hasn't changed
-  if (data == clipboard.m_clipboardData) {
+  // get data; a failed read leaves nothing usable
+  Clipboard received;
+  if (!sender->getClipboard(id, &received)) {
+    if (sender == m_primaryClient) {
+      LOG_WARN("could not read clipboard %d (another program has it open), retrying", id);
+      clipboard.m_readPending = true;
+      scheduleClipboardRetry();
+    }
+    return;
+  }
+  clipboard.m_readPending = false;
+
+  const auto data = received.marshall();
+  if (!deskflow::clipboard::hasContent(data)) {
+    LOG_INFO(
+        "not sharing clipboard %d from \"%s\": nothing in it Deskflow can share (text, HTML or image)", id,
+        getName(sender).c_str()
+    );
+    clipboard.m_pending = false;
+    return;
+  }
+
+  const auto fitted = deskflow::clipboard::fitToLimit(data, m_maximumClipboardSize * 1024);
+  if (!fitted.fits) {
+    LOG_WARN("not sharing clipboard %d, even its text exceeds the limit of %zu KB", id, m_maximumClipboardSize);
+    clipboard.m_pending = false;
+    return;
+  }
+  if (!fitted.dropped.empty()) {
+    LOG_INFO(
+        "clipboard %d exceeds the limit of %zu KB, sharing it without: %s", id, m_maximumClipboardSize,
+        deskflow::clipboard::formatNames(fitted.dropped).c_str()
+    );
+  }
+
+  // ignore if data hasn't changed (line endings aside)
+  if (!clipboard.m_clipboardData.empty() && deskflow::clipboard::sameContent(fitted.data, clipboard.m_clipboardData)) {
     LOG_DEBUG("ignored computer \"%s\" update of clipboard %d (unchanged)", clipboard.m_clipboardOwner.c_str(), id);
+    clipboard.m_pending = false;
     return;
   }
 
   // got new data
   LOG_INFO("computer \"%s\" updated clipboard %d", clipboard.m_clipboardOwner.c_str(), id);
-  clipboard.m_clipboardData = data;
+  clipboard.m_clipboard.unmarshall(fitted.data, 0);
+  clipboard.m_clipboardData = fitted.data;
+  clipboard.m_pending = false;
 
   // tell all clients except the sender that the clipboard is dirty
   for (ClientList::const_iterator index = m_clients.begin(); index != m_clients.end(); ++index) {
@@ -1479,6 +1527,55 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
 
   // send the new clipboard to the active computer
   m_active->setClipboard(id, &clipboard.m_clipboard);
+}
+
+void Server::scheduleClipboardRetry()
+{
+  static constexpr int kMaxRetries = 12;
+  static constexpr double kRetryDelay = 0.25; // seconds: 3 s in all
+
+  if (m_clipboardRetryTimer != nullptr)
+    return;
+  if (++m_clipboardRetries > kMaxRetries) {
+    LOG_ERR("giving up on the clipboard: another program keeps it open");
+    m_clipboardRetries = 0;
+    for (auto &clipboard : m_clipboards) {
+      clipboard.m_readPending = false;
+      clipboard.m_pending = false;
+    }
+    return;
+  }
+  m_clipboardRetryTimer = m_events->newOneShotTimer(kRetryDelay, nullptr);
+  m_events->addHandler(EventTypes::Timer, m_clipboardRetryTimer, [this](const auto &) { handleClipboardRetry(); });
+}
+
+void Server::handleClipboardRetry()
+{
+  cleanupClipboardRetry();
+
+  bool pending = false;
+  for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
+    auto &clipboard = m_clipboards[id];
+    if (!clipboard.m_readPending)
+      continue;
+    if (clipboard.m_clipboardOwner != getName(m_primaryClient)) {
+      clipboard.m_readPending = false; // someone else copied since
+      continue;
+    }
+    onClipboardChanged(m_primaryClient, id, clipboard.m_clipboardSeqNum);
+    pending = pending || clipboard.m_readPending;
+  }
+  if (!pending)
+    m_clipboardRetries = 0;
+}
+
+void Server::cleanupClipboardRetry()
+{
+  if (m_clipboardRetryTimer != nullptr) {
+    m_events->removeHandler(EventTypes::Timer, m_clipboardRetryTimer);
+    m_events->deleteTimer(m_clipboardRetryTimer);
+    m_clipboardRetryTimer = nullptr;
+  }
 }
 
 void Server::onScreensaver(bool activated)
@@ -1935,6 +2032,14 @@ bool Server::removeClient(BaseClientProxy *client)
   m_events->removeHandler(ComputerShapeChanged, client->getEventTarget());
   m_events->removeHandler(ClipboardGrabbed, client->getEventTarget());
   m_events->removeHandler(ClipboardChanged, client->getEventTarget());
+
+  // a clipboard owned by a computer that left has no data coming
+  for (auto &clipboard : m_clipboards) {
+    if (clipboard.m_clipboardOwner == getName(client)) {
+      clipboard.m_clipboardOwner = getName(m_primaryClient);
+      clipboard.m_pending = false;
+    }
+  }
 
   // remove from list
   m_clients.erase(getName(client));

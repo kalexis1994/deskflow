@@ -55,6 +55,33 @@ Line numbers are from commit fef8ad027.
     `ClipboardInfo` (`ClientProxy1_0.cpp:434`, `ClientProxy1_6.cpp:76`); unchecked
     `readf` results (`ServerProxy.cpp:505, 565`); `>=` vs `>` limit checks.
 
+## Status
+
+Fixed (these work with an unmodified Deskflow on the other side; the server-side ones
+take effect where this build is the server):
+
+- 1: every change made by another program is a new grab on Windows, and a change
+  whose notification never came is caught by the clipboard sequence number when the
+  cursor leaves. What is on the clipboard when Deskflow starts isn't shared until it
+  changes.
+- 2: a clipboard that can't be opened is never read as empty or sent; reads and writes
+  are retried for 3 s (every 250 ms) and the log says what happened.
+- 3: a grab no longer empties anyone. The server keeps the previous data but doesn't
+  hand it out while the owner's new data is on its way, never sends an empty
+  clipboard, and clients ignore an empty one from the server (the old server sends
+  one right after a grab and when it starts).
+- 4: over the size limit the bitmap is dropped first, then the HTML, so the text still
+  goes; only when the text alone is too big is nothing sent.
+- 7: an update from a computer that isn't the owner is ignored in release builds too.
+- 8: a clipboard owned by a computer that disconnects goes back to the server.
+- Loops (deskflow/deskflow#10139): content Deskflow wrote coming back (clipboard
+  history, a clipboard manager, the other system's line endings) is recognized and not
+  sent back; "unchanged" also ignores line endings.
+- Clipboards with nothing Deskflow can share (copied files) are not sent, so they no
+  longer empty the other computers.
+
+Still open: 5, 6, 9, 10, 11, 12.
+
 ## Fix direction
 
 - Detect every change by clipboard sequence number, not by ownership transitions.
