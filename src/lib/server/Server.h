@@ -13,6 +13,7 @@
 #include "common/NetworkProtocol.h"
 #include "deskflow/Clipboard.h"
 #include "deskflow/ClipboardTypes.h"
+#include "deskflow/ClipboardUtil.h"
 #include "deskflow/KeyTypes.h"
 #include "deskflow/MouseTypes.h"
 #include "server/Config.h"
@@ -329,6 +330,8 @@ private:
   void scheduleClipboardRetry();
   void handleClipboardRetry();
   void cleanupClipboardRetry();
+  //! Tells the GUI about clipboard activity (only the clipboard, not the X11 selection)
+  void reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const;
   void onScreensaver(bool activated);
   void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *computers);
   void onKeyUp(KeyID, KeyModifierMask, KeyButton, const char *computers);

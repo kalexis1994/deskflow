@@ -6,7 +6,10 @@
 
 #include "deskflow/ClipboardUtil.h"
 
+#include "base/Endian.h"
+#include "common/CoreSettings.h"
 #include "deskflow/Clipboard.h"
+#include "deskflow/ipc/CoreIpc.h"
 
 #include <algorithm>
 #include <array>
@@ -161,6 +164,131 @@ std::string formatNames(const std::vector<IClipboard::Format> &formats)
     }
   }
   return names;
+}
+
+namespace {
+
+void appendJsonString(std::string &json, std::string_view value)
+{
+  static const char hex[] = "0123456789abcdef";
+  json += '"';
+  for (const char c : value) {
+    const auto byte = static_cast<unsigned char>(c);
+    switch (c) {
+    case '"':
+      json += "\\\"";
+      break;
+    case '\\':
+      json += "\\\\";
+      break;
+    case '\n':
+      json += "\\n";
+      break;
+    case '\r':
+      json += "\\r";
+      break;
+    case '\t':
+      json += "\\t";
+      break;
+    default:
+      if (byte < 0x20) {
+        json += "\\u00";
+        json += hex[byte >> 4];
+        json += hex[byte & 0xF];
+      } else {
+        json += c; // UTF-8 passes through
+      }
+    }
+  }
+  json += '"';
+}
+
+void appendFormatList(std::string &json, const std::vector<Format> &formats)
+{
+  json += '[';
+  for (std::size_t i = 0; i < formats.size(); ++i) {
+    if (i != 0)
+      json += ',';
+    appendJsonString(json, formatNames({formats[i]}));
+  }
+  json += ']';
+}
+
+bool isUtf8Continuation(char c)
+{
+  return (static_cast<unsigned char>(c) & 0xC0) == 0x80;
+}
+
+//! The first maxChars characters (code points) of UTF-8 text
+std::string utf8Prefix(const std::string &text, std::size_t maxChars, std::size_t &totalChars)
+{
+  totalChars = 0;
+  std::size_t cut = text.size();
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    if (isUtf8Continuation(text[i]))
+      continue;
+    if (totalChars == maxChars)
+      cut = std::min(cut, i);
+    ++totalChars;
+  }
+  return text.substr(0, cut);
+}
+
+} // namespace
+
+std::string activityJson(const Activity &activity, bool includeText)
+{
+  std::string json = "{\"event\":";
+  appendJsonString(json, activity.event);
+  if (!activity.computer.empty()) {
+    json += ",\"computer\":";
+    appendJsonString(json, activity.computer);
+  }
+  if (!activity.reason.empty()) {
+    json += ",\"reason\":";
+    appendJsonString(json, activity.reason);
+  }
+  json += ",\"dropped\":";
+  appendFormatList(json, activity.dropped);
+
+  std::vector<Format> present;
+  if (!activity.marshalled.empty()) {
+    const auto formats = unpack(activity.marshalled);
+    for (std::size_t i = 0; i < kAllFormats.size(); ++i) {
+      if (formats[i])
+        present.push_back(kAllFormats[i]);
+    }
+    json += ",\"size\":" + std::to_string(activity.marshalled.size());
+
+    if (const auto &text = formats[0]; text) {
+      std::size_t chars = 0;
+      const auto preview = utf8Prefix(*text, kPreviewChars, chars);
+      json += ",\"chars\":" + std::to_string(chars);
+      json += ",\"lines\":" + std::to_string(text->empty() ? 0 : std::count(text->begin(), text->end(), '\n') + 1);
+      if (includeText) {
+        json += ",\"text\":";
+        appendJsonString(json, preview);
+      }
+    }
+
+    // the bitmap is a DIB: BITMAPINFOHEADER first, width and height after its size
+    if (const auto &bitmap = formats[2]; bitmap && bitmap->size() >= 12) {
+      const auto width = static_cast<int32_t>(deskflow::fromLittleEndian<uint32_t>(bitmap->data() + 4));
+      const auto height = static_cast<int32_t>(deskflow::fromLittleEndian<uint32_t>(bitmap->data() + 8));
+      json += ",\"image\":{\"width\":" + std::to_string(width < 0 ? -width : width) +
+              ",\"height\":" + std::to_string(height < 0 ? -height : height) + "}";
+    }
+  }
+  json += ",\"formats\":";
+  appendFormatList(json, present);
+  json += '}';
+  return json;
+}
+
+void reportActivity(const Activity &activity)
+{
+  const bool preview = CoreSettings::value(CoreSettings::Core::ClipboardPreview).toBool();
+  ipcSendToClient("clipboard", activityJson(activity, preview), true);
 }
 
 void EchoGuard::applied(const std::string &marshalled)

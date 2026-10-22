@@ -61,6 +61,7 @@ constexpr std::array kDefaultFalseValues = {
 
 constexpr std::array kDefaultTrueValues = {
     CoreSettings::Core::UseHooks
+  , CoreSettings::Core::ClipboardPreview
   , CoreSettings::Security::TlsEnabled
   , CoreSettings::Security::CheckPeers
   , CoreSettings::Server::EnableClipboard

@@ -139,13 +139,18 @@ void IpcServer::processMessage(ClientId client, const std::string &message)
   }
 }
 
-void IpcServer::broadcastCommand(const std::string &command, const std::string &args)
+void IpcServer::broadcastCommand(const std::string &command, const std::string &args, bool latestOnly)
 {
   const auto message = args.empty() ? command : command + "=" + args;
 
   std::scoped_lock lock{m_mutex};
   if (m_clients.empty()) {
     LOG_VERBOSE("%s ipc server has no clients, message queued: %s", m_typeName.c_str(), message.c_str());
+    if (latestOnly) {
+      std::erase_if(m_pendingMessages, [&command](const std::string &pending) {
+        return pending == command || pending.starts_with(command + "=");
+      });
+    }
     m_pendingMessages.push_back(message);
     return;
   }

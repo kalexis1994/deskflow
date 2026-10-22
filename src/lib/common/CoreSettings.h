@@ -49,6 +49,8 @@ public:
     static constexpr std::string_view ComputerName = "core/computerName";
     static constexpr std::string_view Display = "core/display";
     static constexpr std::string_view UseHooks = "core/useHooks";
+    //! Whether clipboard activity sent to the GUI includes the start of copied text
+    static constexpr std::string_view ClipboardPreview = "core/clipboardPreview";
     static constexpr std::string_view EnableEnterCommand = "core/enableEnterCommand";
     static constexpr std::string_view ComputerEnterCommand = "core/enterCommand";
     static constexpr std::string_view EnableExitCommand = "core/enableExitCommand";

@@ -1490,6 +1490,7 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
         getName(sender).c_str()
     );
     clipboard.m_pending = false;
+    reportClipboard(id, {.event = "skipped", .computer = getName(sender), .reason = "nothingToShare"});
     return;
   }
 
@@ -1497,6 +1498,13 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   if (!fitted.fits) {
     LOG_WARN("not sharing clipboard %d, even its text exceeds the limit of %zu KB", id, m_maximumClipboardSize);
     clipboard.m_pending = false;
+    reportClipboard(
+        id, {.event = "skipped",
+             .computer = getName(sender),
+             .reason = "tooLarge",
+             .dropped = fitted.dropped,
+             .marshalled = data}
+    );
     return;
   }
   if (!fitted.dropped.empty()) {
@@ -1518,6 +1526,9 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   clipboard.m_clipboard.unmarshall(fitted.data, 0);
   clipboard.m_clipboardData = fitted.data;
   clipboard.m_pending = false;
+  reportClipboard(
+      id, {.event = "shared", .computer = getName(sender), .dropped = fitted.dropped, .marshalled = fitted.data}
+  );
 
   // tell all clients except the sender that the clipboard is dirty
   for (ClientList::const_iterator index = m_clients.begin(); index != m_clients.end(); ++index) {
@@ -1538,6 +1549,7 @@ void Server::scheduleClipboardRetry()
     return;
   if (++m_clipboardRetries > kMaxRetries) {
     LOG_ERR("giving up on the clipboard: another program keeps it open");
+    reportClipboard(kClipboardClipboard, {.event = "failed", .computer = getName(m_primaryClient), .reason = "busy"});
     m_clipboardRetries = 0;
     for (auto &clipboard : m_clipboards) {
       clipboard.m_readPending = false;
@@ -1567,6 +1579,13 @@ void Server::handleClipboardRetry()
   }
   if (!pending)
     m_clipboardRetries = 0;
+}
+
+void Server::reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const
+{
+  // the X11 selection changes with every text selected: only the clipboard is news
+  if (id == kClipboardClipboard)
+    deskflow::clipboard::reportActivity(activity);
 }
 
 void Server::cleanupClipboardRetry()

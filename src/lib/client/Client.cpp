@@ -266,6 +266,7 @@ void Client::setClipboard(ClipboardID id, const IClipboard *clipboard)
   if (writeClipboard(id, data)) {
     m_pendingWrite[id].reset();
     LOG_INFO("clipboard %d updated from the server", id);
+    reportClipboard(id, {.event = "received", .marshalled = data});
   } else {
     LOG_WARN("could not write clipboard %d (another program has it open), retrying", id);
     m_pendingWrite[id] = data;
@@ -430,12 +431,14 @@ void Client::sendClipboard(ClipboardID id)
     const auto data = clipboard.marshall();
     if (!deskflow::clipboard::hasContent(data)) {
       LOG_INFO("not sharing clipboard %d: nothing in it Deskflow can share (text, HTML or image)", id);
+      reportClipboard(id, {.event = "skipped", .reason = "nothingToShare"});
       return;
     }
 
     const auto fitted = deskflow::clipboard::fitToLimit(data, m_maximumClipboardSize * 1024);
     if (!fitted.fits) {
       LOG_WARN("not sending clipboard %d, even its text exceeds the limit of %zu KB", id, m_maximumClipboardSize);
+      reportClipboard(id, {.event = "skipped", .reason = "tooLarge", .dropped = fitted.dropped, .marshalled = data});
       return;
     }
     if (!fitted.dropped.empty()) {
@@ -454,6 +457,7 @@ void Client::sendClipboard(ClipboardID id)
       Clipboard toSend;
       toSend.unmarshall(fitted.data, clipboard.getTime());
       m_server->onClipboardChanged(id, &toSend);
+      reportClipboard(id, {.event = "sent", .dropped = fitted.dropped, .marshalled = fitted.data});
     }
   }
 }
@@ -467,6 +471,7 @@ void Client::scheduleClipboardRetry()
     return;
   if (++m_clipboardRetries > kMaxRetries) {
     LOG_ERR("giving up on the clipboard: another program keeps it open");
+    reportClipboard(kClipboardClipboard, {.event = "failed", .reason = "busy"});
     m_clipboardRetries = 0;
     for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
       m_pendingWrite[id].reset();
@@ -503,6 +508,13 @@ void Client::handleClipboardRetry()
   } else {
     m_clipboardRetries = 0;
   }
+}
+
+void Client::reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const
+{
+  // the X11 selection changes with every text selected: only the clipboard is news
+  if (id == kClipboardClipboard)
+    deskflow::clipboard::reportActivity(activity);
 }
 
 void Client::cleanupClipboardRetry()

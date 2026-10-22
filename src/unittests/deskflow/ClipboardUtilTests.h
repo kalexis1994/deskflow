@@ -21,6 +21,8 @@ private Q_SLOTS:
   void fitDropsBitmapThenHtml();
   void fitGivesUpWhenTextIsTooBig();
   void echoGuard();
+  void activityJsonDescribesContent();
+  void activityJsonPreviewIsOptionalAndShort();
 
 private:
   Log m_log;

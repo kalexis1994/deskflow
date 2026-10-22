@@ -23,6 +23,7 @@ private Q_SLOTS:
   void broadcastReachesEveryClient();
   void disconnectedClientsStopReceiving();
   void sendWithoutServer();
+  void latestOnlyKeepsOneQueued();
   void pipePermissions();
 
 private:

@@ -261,6 +261,24 @@ void IpcServerTests::sendWithoutServer()
   ipcSendToClient("ignored"); // e.g. shared code running in the GUI
 }
 
+void IpcServerTests::latestOnlyKeepsOneQueued()
+{
+  CoreIpcServer server(testName("latest"));
+  server.listen();
+
+  // clipboard activity is state: a GUI that connects later wants the last one only
+  ipcSendToClient("clipboard", "{\"event\":\"sent\",\"n\":1}", true);
+  ipcSendToClient("connectionState", "Connecting");
+  ipcSendToClient("clipboard", "{\"event\":\"sent\",\"n\":2}", true);
+
+  Client client;
+  QVERIFY(client.connect(testName("latest")));
+  QVERIFY(client.hello());
+  QCOMPARE(client.readLine(), QStringLiteral("connectionState=Connecting"));
+  QCOMPARE(client.readLine(), QStringLiteral("clipboard={\"event\":\"sent\",\"n\":2}"));
+  QCOMPARE(client.readLine(200), QStringLiteral("<nothing>"));
+}
+
 void IpcServerTests::pipePermissions()
 {
 #if defined(_WIN32)

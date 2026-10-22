@@ -6,8 +6,13 @@
 
 #include "ClipboardUtilTests.h"
 
+#include "base/Endian.h"
 #include "deskflow/Clipboard.h"
 #include "deskflow/ClipboardUtil.h"
+
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 using Format = IClipboard::Format;
 using namespace deskflow::clipboard;
@@ -168,6 +173,71 @@ void ClipboardUtilTests::echoGuard()
   guard.clear();
   QVERIFY(!guard.armed());
   QVERIFY(!guard.isEcho(local));
+}
+
+namespace {
+
+QJsonObject parsedJson(const std::string &json)
+{
+  QJsonParseError error;
+  const auto document = QJsonDocument::fromJson(QByteArray::fromStdString(json), &error);
+  if (error.error != QJsonParseError::NoError)
+    qWarning("invalid json: %s (%s)", json.c_str(), qPrintable(error.errorString()));
+  return document.object();
+}
+
+//! A DIB as the clipboard carries it: BITMAPINFOHEADER, then pixels
+std::string dib(int32_t width, int32_t height)
+{
+  std::string data(40 + 16, '\0');
+  deskflow::toLittleEndian<uint32_t>(40, data.data());
+  deskflow::toLittleEndian<uint32_t>(static_cast<uint32_t>(width), data.data() + 4);
+  deskflow::toLittleEndian<uint32_t>(static_cast<uint32_t>(height), data.data() + 8);
+  return data;
+}
+
+} // namespace
+
+void ClipboardUtilTests::activityJsonDescribesContent()
+{
+  const auto data = marshalled({.text = "line \"one\"\nline\ttwo", .bitmap = dib(1920, -1080), .hasBitmap = true});
+  const auto json = parsedJson(
+      activityJson({.event = "shared", .computer = "laptop", .dropped = {Format::HTML}, .marshalled = data}, true)
+  );
+
+  QCOMPARE(json["event"].toString(), QStringLiteral("shared"));
+  QCOMPARE(json["computer"].toString(), QStringLiteral("laptop"));
+  QCOMPARE(json["formats"].toArray(), QJsonArray({"text", "bitmap"}));
+  QCOMPARE(json["dropped"].toArray(), QJsonArray({"HTML"}));
+  QCOMPARE(json["size"].toInteger(), static_cast<qint64>(data.size()));
+  QCOMPARE(json["text"].toString(), QStringLiteral("line \"one\"\nline\ttwo")); // escaped and back
+  QCOMPARE(json["chars"].toInt(), 19);
+  QCOMPARE(json["lines"].toInt(), 2);
+  QCOMPARE(json["image"].toObject()["width"].toInt(), 1920);
+  QCOMPARE(json["image"].toObject()["height"].toInt(), 1080); // top-down DIBs have a negative height
+
+  // no content: just what happened
+  const auto skipped = parsedJson(activityJson({.event = "skipped", .reason = "nothingToShare"}, true));
+  QCOMPARE(skipped["reason"].toString(), QStringLiteral("nothingToShare"));
+  QVERIFY(!skipped.contains("size"));
+  QCOMPARE(skipped["formats"].toArray(), QJsonArray());
+}
+
+void ClipboardUtilTests::activityJsonPreviewIsOptionalAndShort()
+{
+  const auto secret = marshalled({.text = "correct horse battery staple"});
+  const auto hidden = parsedJson(activityJson({.event = "sent", .marshalled = secret}, false));
+  QVERIFY(!hidden.contains("text"));
+  QCOMPARE(hidden["chars"].toInt(), 28); // the size is still shown
+
+  // cut on a character boundary, never inside a UTF-8 sequence
+  std::string longText;
+  for (int i = 0; i < 300; ++i)
+    longText += "ñ";
+  const auto json = parsedJson(activityJson({.event = "sent", .marshalled = marshalled({.text = longText})}, true));
+  QCOMPARE(json["chars"].toInt(), 300);
+  QCOMPARE(json["text"].toString().size(), static_cast<qsizetype>(kPreviewChars));
+  QVERIFY(json["text"].toString().startsWith(QStringLiteral("ññ")));
 }
 
 QTEST_MAIN(ClipboardUtilTests)

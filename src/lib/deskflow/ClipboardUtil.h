@@ -79,4 +79,30 @@ private:
   std::optional<std::string> m_content;
 };
 
+//! Something that happened to the shared clipboard, for the GUI's clipboard panel
+struct Activity
+{
+  //! "sent" (this computer's copy went out), "received" (another computer's arrived
+  //! here), "shared" (the server took a computer's copy), "skipped" or "failed"
+  std::string event;
+  std::string computer;                    //!< the other computer, when known
+  std::string reason;                      //!< skipped/failed: tooLarge, nothingToShare, busy
+  std::vector<IClipboard::Format> dropped; //!< formats left out to fit the size limit
+  std::string marshalled;                  //!< the content, when there is one
+};
+
+//! The activity as one line of JSON:
+//! {"event","computer","reason","formats","dropped","size","chars","lines","image":{"width","height"},"text"}
+/*!
+"text" is the start of the copied text (at most kPreviewChars characters) and only
+present with includeText; nothing else of the content is ever included.
+*/
+std::string activityJson(const Activity &activity, bool includeText);
+
+//! Sends the activity to the GUI over IPC (clipboard=<json>); only the latest is kept
+//! for a GUI that connects later. Text preview as the core/clipboardPreview setting says.
+void reportActivity(const Activity &activity);
+
+inline constexpr std::size_t kPreviewChars = 200;
+
 } // namespace deskflow::clipboard

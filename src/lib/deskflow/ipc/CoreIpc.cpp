@@ -10,14 +10,14 @@
 
 #include "base/Log.h"
 
-void ipcSendToClient(const std::string &command, const std::string &args)
+void ipcSendToClient(const std::string &command, const std::string &args, bool latestOnly)
 {
   // Code shared with other programs (tests, the Qt GUI) runs without a core IPC server.
   if (!deskflow::core::ipc::CoreIpcServer::exists()) {
     LOG_VERBOSE("no core ipc server, not sending: %s", command.c_str());
     return;
   }
-  deskflow::core::ipc::CoreIpcServer::instance().broadcastCommand(command, args);
+  deskflow::core::ipc::CoreIpcServer::instance().broadcastCommand(command, args, latestOnly);
 }
 
 void ipcSendConnectionState(deskflow::core::ConnectionState state)

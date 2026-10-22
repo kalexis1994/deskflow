@@ -201,6 +201,8 @@ private:
   void scheduleClipboardRetry();
   void handleClipboardRetry();
   void cleanupClipboardRetry();
+  //! Tells the GUI about clipboard activity (only the clipboard, not the X11 selection)
+  void reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const;
   void sendEvent(deskflow::EventTypes);
   void sendConnectionFailedEvent(const char *msg);
   void setupConnecting();

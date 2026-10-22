@@ -41,7 +41,9 @@ public:
   //! Stops serving and waits for the IPC thread, so no handler runs after this
   void stop();
 
-  void broadcastCommand(const std::string &command, const std::string &args = {});
+  //! Sends to every client, or queues for the next one. With latestOnly, a queued
+  //! message replaces earlier queued ones of the same command (state, not history).
+  void broadcastCommand(const std::string &command, const std::string &args = {}, bool latestOnly = false);
 
   // Requests from clients; set them before listen()
   std::function<void(const std::string &logLevel)> onLogLevelChanged;
