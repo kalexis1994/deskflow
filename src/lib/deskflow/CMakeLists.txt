@@ -6,6 +6,12 @@
 
 set(lib_name app)
 
+# files on the clipboard are checked with SHA-256
+if(APPLE)
+  set(OPENSSL_USE_STATIC_LIBS TRUE)
+endif()
+find_package(OpenSSL ${REQUIRED_OPENSSL_VERSION} REQUIRED COMPONENTS Crypto)
+
 # arch
 if(WIN32)
   set(PLATFORM_CODE
@@ -79,6 +85,10 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   ServerApp.h
   StreamChunker.cpp
   StreamChunker.h
+  files/FileList.cpp
+  files/FileList.h
+  files/FileTransfer.cpp
+  files/FileTransfer.h
   KeyboardLayoutManager.cpp
   KeyboardLayoutManager.h
   ProcessUtils.cpp
@@ -100,7 +110,13 @@ target_link_libraries(${lib_name}
     common
   PRIVATE
     platform
+    OpenSSL::Crypto
 )
+
+if(WIN32)
+  # the logged-on user's token and folders, for a core that runs as SYSTEM
+  target_link_libraries(${lib_name} PRIVATE wtsapi32 shell32 ole32)
+endif()
 
 if(UNIX AND NOT APPLE)
   target_link_libraries(${lib_name} PRIVATE server ${LIBXKBREGISTRY_LINK_LIBRARIES})
