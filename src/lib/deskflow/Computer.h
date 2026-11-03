@@ -13,7 +13,10 @@
 #include "deskflow/MouseTypes.h"
 #include "deskflow/OptionTypes.h"
 
+#include <filesystem>
+#include <optional>
 #include <string>
+#include <vector>
 
 class IClipboard;
 class IPlatformComputer;
@@ -91,6 +94,11 @@ public:
   */
   //! false when the system clipboard couldn't be written
   bool setClipboard(ClipboardID, const IClipboard *);
+
+  //! See IPlatformComputer
+  bool canShareFiles() const;
+  std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const;
+  bool setClipboardFiles(const std::vector<std::filesystem::path> &files);
 
   //! Grab clipboard
   /*!

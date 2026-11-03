@@ -10,8 +10,11 @@
 #include "deskflow/ClipboardChunk.h"
 #include "deskflow/ProtocolUtil.h"
 #include "deskflow/StreamChunker.h"
+#include "deskflow/files/FileChannel.h"
 #include "io/IStream.h"
 #include "server/Server.h"
+
+#include <cstring>
 
 //
 // ClientProxy1_6
@@ -29,6 +32,104 @@ ClientProxy1_6::ClientProxy1_6(const std::string &name, deskflow::IStream *strea
 ClientProxy1_6::~ClientProxy1_6()
 {
   m_events->removeHandler(EventTypes::ClipboardSending, this);
+}
+
+bool ClientProxy1_6::parseMessage(const uint8_t *code)
+{
+  if (memcmp(code, kMsgCFileClipboard, 4) == 0) {
+    recvFileClipboard();
+    return true;
+  }
+  if (recvFileMessage(code))
+    return true;
+  return ClientProxy1_5::parseMessage(code);
+}
+
+void ClientProxy1_6::recvFileClipboard()
+{
+  using namespace deskflow::files;
+
+  uint32_t megabytes = 0;
+  ProtocolUtil::readf(getStream(), kMsgCFileClipboard + 4, &megabytes);
+  const auto maxBytes = m_server->fileClipboardMaxBytes();
+  if (maxBytes == 0 || megabytes == 0)
+    return; // never offered, or the client turned it off
+  const auto peerMaxBytes = static_cast<uint64_t>(megabytes) * 1024 * 1024;
+  if (m_files) {
+    m_files->setPeerMaxBytes(peerMaxBytes);
+    return;
+  }
+  LOG_INFO("client \"%s\" copies files, up to %u MB", getName().c_str(), megabytes);
+
+  FileChannel::Wire wire;
+  wire.list = [this](const std::string &id, const std::string &list) {
+    LOG_DEBUG("send file list %s to \"%s\", %zu bytes", id.c_str(), getName().c_str(), list.size());
+    ProtocolUtil::writef(getStream(), kMsgDFileList, &id, &list);
+  };
+  wire.chunk = [this](const std::string &id, uint32_t index, const std::string &data) {
+    ProtocolUtil::writef(getStream(), kMsgDFileChunk, &id, index, &data);
+  };
+  wire.done = [this](const std::string &id, uint32_t index, const std::string &digest) {
+    ProtocolUtil::writef(getStream(), kMsgDFileDone, &id, index, &digest);
+  };
+  wire.ack = [this](const std::string &id) { ProtocolUtil::writef(getStream(), kMsgDFileAck, &id); };
+  wire.cancel = [this](const std::string &id, const std::string &reason) {
+    LOG_DEBUG("send file cancel %s to \"%s\": %s", id.c_str(), getName().c_str(), reason.c_str());
+    ProtocolUtil::writef(getStream(), kMsgDFileCancel, &id, &reason);
+  };
+
+  FileChannel::Events events;
+  events.accept = [this](const std::string &id, const FileList &) { return m_server->acceptFiles(this, id); };
+  events.received = [this](const std::string &id, const std::vector<std::filesystem::path> &roots) {
+    m_server->filesReceived(this, id, roots);
+  };
+  events.receiveFailed = [this](const std::string &id, const std::string &reason) {
+    m_server->filesReceiveFailed(this, id, reason);
+  };
+  events.sent = [this](const std::string &id) { m_server->filesSent(this, id); };
+  events.sendFailed = [this](const std::string &id, const std::string &reason) {
+    m_server->filesSendFailed(this, id, reason);
+  };
+
+  FileChannel::Options options;
+  options.cacheRoot = userCacheRoot;
+  options.limits.maxBytes = maxBytes;
+  options.peerMaxBytes = peerMaxBytes;
+  m_files = std::make_unique<FileChannel>(std::move(wire), std::move(events), std::move(options));
+}
+
+bool ClientProxy1_6::recvFileMessage(const uint8_t *code)
+{
+  // read whole even with nothing to give it to: the next message follows
+  std::string id;
+  std::string data;
+  uint32_t index = 0;
+  if (memcmp(code, kMsgDFileList, 4) == 0) {
+    ProtocolUtil::readf(getStream(), kMsgDFileList + 4, &id, &data);
+    LOG_DEBUG("recv file list %s from \"%s\", %zu bytes", id.c_str(), getName().c_str(), data.size());
+    if (m_files)
+      m_files->onList(id, data);
+  } else if (memcmp(code, kMsgDFileChunk, 4) == 0) {
+    ProtocolUtil::readf(getStream(), kMsgDFileChunk + 4, &id, &index, &data);
+    if (m_files)
+      m_files->onChunk(id, index, data);
+  } else if (memcmp(code, kMsgDFileDone, 4) == 0) {
+    ProtocolUtil::readf(getStream(), kMsgDFileDone + 4, &id, &index, &data);
+    if (m_files)
+      m_files->onDone(id, index, data);
+  } else if (memcmp(code, kMsgDFileAck, 4) == 0) {
+    ProtocolUtil::readf(getStream(), kMsgDFileAck + 4, &id);
+    if (m_files)
+      m_files->onAck(id);
+  } else if (memcmp(code, kMsgDFileCancel, 4) == 0) {
+    ProtocolUtil::readf(getStream(), kMsgDFileCancel + 4, &id, &data);
+    LOG_DEBUG("recv file cancel %s from \"%s\": %s", id.c_str(), getName().c_str(), data.c_str());
+    if (m_files)
+      m_files->onCancel(id, data);
+  } else {
+    return false;
+  }
+  return true;
 }
 
 void ClientProxy1_6::setClipboard(ClipboardID id, const IClipboard *clipboard)

@@ -13,6 +13,10 @@ namespace deskflow {
 class IStream;
 }
 
+namespace deskflow::files {
+class FileChannel;
+}
+
 //! Generic proxy for client or primary
 class BaseClientProxy : public IClient
 {
@@ -82,6 +86,12 @@ public:
   virtual void secureInputNotification(const std::string &app) const = 0;
   std::string getName() const override;
   virtual deskflow::IStream *getStream() const = 0;
+
+  //! Copying files with this client, once it agreed to (docs/dev/file-clipboard.md)
+  virtual deskflow::files::FileChannel *fileChannel() const
+  {
+    return nullptr;
+  }
 
 private:
   std::string m_name;

@@ -62,6 +62,7 @@ constexpr std::array kDefaultFalseValues = {
 constexpr std::array kDefaultTrueValues = {
     CoreSettings::Core::UseHooks
   , CoreSettings::Core::ClipboardPreview
+  , CoreSettings::Core::FileClipboard
   , CoreSettings::Security::TlsEnabled
   , CoreSettings::Security::CheckPeers
   , CoreSettings::Server::EnableClipboard
@@ -499,6 +500,9 @@ CoreSettings::Value CoreSettings::defaultValue(std::string_view key)
 
   if (key == Server::ClipboardSize)
     return 3; // 3 MiB
+
+  if (key == Core::FileClipboardMaxSize)
+    return 500; // MiB
 
   return {};
 }

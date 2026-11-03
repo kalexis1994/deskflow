@@ -19,6 +19,7 @@
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/ProtocolUtil.h"
 #include "deskflow/StreamChunker.h"
+#include "deskflow/files/FileChannel.h"
 #include "io/IStream.h"
 
 #include <cstring>
@@ -309,6 +310,10 @@ ServerProxy::ConnectionResult ServerProxy::parseMessage(const uint8_t *code)
     setOptions();
   }
 
+  else if (fileMessage(code)) {
+    // handled
+  }
+
   else if (memcmp(code, kMsgCClose, 4) == 0) {
     // server wants us to hangup
     LOG_VERBOSE("recv close");
@@ -369,6 +374,76 @@ void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard
   LOG_DEBUG("sending clipboard %d seqnum=%d", id, m_seqNum);
 
   StreamChunker::sendClipboard(data, data.size(), id, m_seqNum, m_events, this);
+}
+
+void ServerProxy::sendFileClipboard(uint32_t maxMegabytes)
+{
+  LOG_DEBUG("taking part in copying files, up to %u MB", maxMegabytes);
+  ProtocolUtil::writef(m_stream, kMsgCFileClipboard, maxMegabytes);
+}
+
+void ServerProxy::sendFileList(const std::string &id, const std::string &list)
+{
+  LOG_DEBUG("send file list %s, %zu bytes", id.c_str(), list.size());
+  ProtocolUtil::writef(m_stream, kMsgDFileList, &id, &list);
+}
+
+void ServerProxy::sendFileChunk(const std::string &id, uint32_t index, const std::string &data)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileChunk, &id, index, &data);
+}
+
+void ServerProxy::sendFileDone(const std::string &id, uint32_t index, const std::string &digest)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileDone, &id, index, &digest);
+}
+
+void ServerProxy::sendFileAck(const std::string &id)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileAck, &id);
+}
+
+void ServerProxy::sendFileCancel(const std::string &id, const std::string &reason)
+{
+  LOG_DEBUG("send file cancel %s: %s", id.c_str(), reason.c_str());
+  ProtocolUtil::writef(m_stream, kMsgDFileCancel, &id, &reason);
+}
+
+bool ServerProxy::fileMessage(const uint8_t *code)
+{
+  // read whole even with nothing to give it to: the next message follows
+  auto *files = m_client->fileChannel();
+  std::string id;
+  std::string data;
+  uint32_t index = 0;
+  if (memcmp(code, kMsgDFileList, 4) == 0) {
+    ProtocolUtil::readf(m_stream, kMsgDFileList + 4, &id, &data);
+    LOG_DEBUG("recv file list %s, %zu bytes", id.c_str(), data.size());
+    if (files != nullptr)
+      files->onList(id, data);
+    else
+      sendFileCancel(id, "not taking part in copying files");
+  } else if (memcmp(code, kMsgDFileChunk, 4) == 0) {
+    ProtocolUtil::readf(m_stream, kMsgDFileChunk + 4, &id, &index, &data);
+    if (files != nullptr)
+      files->onChunk(id, index, data);
+  } else if (memcmp(code, kMsgDFileDone, 4) == 0) {
+    ProtocolUtil::readf(m_stream, kMsgDFileDone + 4, &id, &index, &data);
+    if (files != nullptr)
+      files->onDone(id, index, data);
+  } else if (memcmp(code, kMsgDFileAck, 4) == 0) {
+    ProtocolUtil::readf(m_stream, kMsgDFileAck + 4, &id);
+    if (files != nullptr)
+      files->onAck(id);
+  } else if (memcmp(code, kMsgDFileCancel, 4) == 0) {
+    ProtocolUtil::readf(m_stream, kMsgDFileCancel + 4, &id, &data);
+    LOG_DEBUG("recv file cancel %s: %s", id.c_str(), data.c_str());
+    if (files != nullptr)
+      files->onCancel(id, data);
+  } else {
+    return false;
+  }
+  return true;
 }
 
 void ServerProxy::flushCompressedMouse()

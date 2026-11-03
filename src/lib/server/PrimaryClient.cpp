@@ -70,6 +70,16 @@ bool PrimaryClient::isLockedToComputer() const
   return m_computer->isLockedToComputer();
 }
 
+std::optional<std::vector<std::filesystem::path>> PrimaryClient::getClipboardFiles() const
+{
+  return m_computer->getClipboardFiles();
+}
+
+bool PrimaryClient::setClipboardFiles(const std::vector<std::filesystem::path> &files)
+{
+  return m_computer->setClipboardFiles(files);
+}
+
 void *PrimaryClient::getEventTarget() const
 {
   return m_computer->getEventTarget();

@@ -18,6 +18,7 @@
 #include "net/NetworkAddress.h"
 
 #include <climits>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -25,7 +26,10 @@ class Event;
 class EventQueueTimer;
 namespace deskflow {
 class Computer;
+namespace files {
+class FileChannel;
 }
+} // namespace deskflow
 class ServerProxy;
 class IDataSocket;
 class ISocketFactory;
@@ -165,6 +169,12 @@ public:
   }
   size_t getMaximumClipboardReceiveSizeBytes() const;
 
+  //! Copying files with the server, when both take part
+  deskflow::files::FileChannel *fileChannel() const
+  {
+    return m_files.get();
+  }
+
   //@}
 
   // IComputer overrides
@@ -195,6 +205,12 @@ public:
 private:
   void saveRelativeRestorePosition();
   void sendClipboard(ClipboardID);
+  //! Takes part in copying files, up to what the server accepts
+  void enableFiles(uint64_t serverMaxBytes);
+  //! Sends the files of a copy made here, once per copy
+  void sendFiles();
+  //! A copy here or elsewhere: stops sending and receiving the older one
+  void filesSuperseded(const char *reason);
   //! Writes another computer's clipboard here; false if the system clipboard couldn't be opened
   bool writeClipboard(ClipboardID, const std::string &marshalled);
   //! Retries clipboard reads and writes that failed because another program held the clipboard
@@ -259,4 +275,6 @@ private:
   int32_t m_relativeRestoreY = 0;
   size_t m_maximumClipboardSize = INT_MAX;
   size_t m_resolvedAddressesCount = 0;
+  std::unique_ptr<deskflow::files::FileChannel> m_files;
+  bool m_filesSent = false; // this computer's copy went to the server (or had no files)
 };

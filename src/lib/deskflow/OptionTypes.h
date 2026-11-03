@@ -57,6 +57,8 @@ static const OptionID kOptionDefaultLockToComputerState = OPTION_CODE("LTSS");
 static const OptionID kOptionDisableLockToComputer = OPTION_CODE("DLTS");
 static const OptionID kOptionClipboardSharing = OPTION_CODE("CLPS");
 static const OptionID kOptionClipboardSharingSize = OPTION_CODE("CLSZ");
+//! The server copies files (docs/dev/file-clipboard.md); the value is the largest copy it accepts, in MiB
+static const OptionID kOptionFileClipboard = OPTION_CODE("FCLP");
 //@}
 
 //! @name Computer switch corner masks

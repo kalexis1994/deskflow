@@ -64,20 +64,51 @@ needed.
 
 ## Messages
 
+Not tied to a protocol version: a new server adds the option `FCLP` to the
+options it sends; a new client that can share files answers `CFCL`. Only then
+are the others exchanged. Every one names its copy with an id (1 to 64 lowercase
+hex digits); messages for a copy that is no longer current are ignored.
+
 | Code | Direction | Content |
 |------|-----------|---------|
-| option `FCLP` | server → client | max bytes the server accepts (0: off) |
-| `CFCL` | client → server | max bytes the client accepts |
-| `DFLS` | both | transfer id, file list (paths, sizes, kinds, times) |
-| `DFCH` | both | transfer id, file index, offset, bytes |
-| `DFDN` | both | transfer id, file index, SHA-256 |
-| `DFCN` | both | transfer id, reason (cancel) |
+| option `FCLP` | server → client | max MiB the server accepts |
+| `CFCL` | client → server | max MiB the client accepts |
+| `DFLS` | both | copy id, file list (paths, sizes, kinds, times) |
+| `DFCH` | both | copy id, file index, the next 1 to 64 KiB of the file |
+| `DFDN` | both | copy id, file index, SHA-256 of the file |
+| `DFAK` | both | copy id: one chunk or file end was received |
+| `DFCN` | both | copy id, reason: stop this copy |
+
+**Flow control:** the receiver acknowledges every chunk and every file end; the
+sender never has more than 8 unacknowledged (512 KiB), so key and mouse messages
+are never stuck behind file data in the socket. The last file's acknowledgment is
+sent once the copy is in place, so "sent" means the other computer has it.
+
+## Code
+
+- `src/lib/deskflow/files/FileList`: the list, its validation and binary form,
+  walking a selection.
+- `FileTransfer`: `Reader` (chunks, detects changes), `Writer` (staging,
+  verification, all or nothing), `Cache`, `AsSessionUser`.
+- `FileChannel`: one connection's transfers (one out, one in), flow control,
+  cancellation; no sockets, so it is tested back to back.
+- `FileHub`: the server's decisions: the current copy, who has it, where the
+  cursor is, what to cancel.
+- `ServerProxy`/`Client` (client) and `ClientProxy1_6`/`Server` (server) read and
+  write the messages and connect these to the clipboard.
+- The platform says whether it can share files and reads/writes them on the
+  clipboard (`IPlatformComputer::canShareFiles`, `getClipboardFiles`,
+  `setClipboardFiles`); until a platform does, files aren't offered from it.
+
+Settings: `core/fileClipboard` (on by default) and `core/fileClipboardMaxSize`
+(MiB, 500 by default), on each computer: each refuses copies above its own limit
+and doesn't send copies above the other's.
 
 ## Work in steps
 
-1. Model and storage, no network: file list format and validation, reading a
+1. (done) Model and storage, no network: file list format and validation, reading a
    selection into a list, writing a transfer into the cache with verification,
    cache cleanup, user impersonation. Unit tests.
-2. Protocol: negotiation, messages, pacing, hub logic in the server, cancellation.
+2. (done) Protocol: negotiation, messages, pacing, hub logic in the server, cancellation.
 3. Windows clipboard: read `CF_HDROP`, write `CF_HDROP` + preferred drop effect.
 4. GUI: progress and results in the clipboard panel; settings for the limit.

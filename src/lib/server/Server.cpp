@@ -21,6 +21,8 @@
 #include "deskflow/PacketStreamFilter.h"
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/StreamChunker.h"
+#include "deskflow/files/FileChannel.h"
+#include "deskflow/files/FileHub.h"
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/TCPSocket.h"
 #include "server/ClientListener.h"
@@ -57,6 +59,29 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Com
   assert(m_computer != nullptr);
 
   std::string primaryName = getName(primaryClient);
+
+  // copying files: the server is the hub
+  m_fileMaxBytes = deskflow::files::configuredMaxBytes();
+  if (m_fileMaxBytes > 0) {
+    deskflow::files::FileHub::Actions actions;
+    actions.canReceive = [this](const std::string &computer) { return fileChannel(computer) != nullptr; };
+    actions.send = [this](const std::string &to, const std::string &id, deskflow::files::Selection selection) {
+      if (auto *files = fileChannel(to))
+        files->send(id, std::move(selection));
+    };
+    actions.cancelSend = [this](const std::string &to, const std::string &reason) {
+      if (auto *files = fileChannel(to))
+        files->cancelSend(reason);
+    };
+    actions.cancelReceive = [this](const std::string &from, const std::string &reason) {
+      if (auto *files = fileChannel(from))
+        files->cancelReceive(reason);
+    };
+    actions.setLocalFiles = [this](const std::vector<std::filesystem::path> &roots) {
+      return m_primaryClient->setClipboardFiles(roots);
+    };
+    m_fileHub = std::make_unique<deskflow::files::FileHub>(primaryName, std::move(actions));
+  }
 
   // clear clipboards
   for (auto &clipboard : m_clipboards) {
@@ -508,6 +533,9 @@ void Server::switchComputer(BaseClientProxy *dst, int32_t x, int32_t y, bool for
           continue;
         }
         m_active->setClipboard(id, &clipboard.m_clipboard);
+      }
+      if (m_fileHub) {
+        m_fileHub->entered(getName(m_active));
       }
     }
 
@@ -1081,6 +1109,12 @@ void Server::sendOptions(BaseClientProxy *client) const
     }
   }
 
+  // offer copying files; classic clients ignore an option they don't know
+  if (m_fileHub && m_enableClipboard && client != m_primaryClient) {
+    optionsList.push_back(kOptionFileClipboard);
+    optionsList.push_back(static_cast<uint32_t>(m_fileMaxBytes / (1024 * 1024)));
+  }
+
   // send the options
   client->resetOptions();
   client->setOptions(optionsList);
@@ -1208,6 +1242,11 @@ void Server::handleClipboardGrabbed(const Event &event, BaseClientProxy *grabber
   // The new data isn't known yet. The old data stays (nobody is emptied) but isn't
   // handed out until the owner's arrives.
   clipboard.m_pending = true;
+
+  // before telling the others: their transfers of the older copy stop first
+  if (m_fileHub && info->m_id == kClipboardClipboard) {
+    m_fileHub->grabbed(getName(grabber));
+  }
 
   // tell all other computers to take ownership of clipboard.  tell the
   // grabber that it's clipboard isn't dirty.
@@ -1483,6 +1522,10 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   }
   clipboard.m_readPending = false;
 
+  if (sender == m_primaryClient && id == kClipboardClipboard) {
+    readLocalFiles();
+  }
+
   const auto data = received.marshall();
   if (!deskflow::clipboard::hasContent(data)) {
     LOG_INFO(
@@ -1538,6 +1581,78 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
 
   // send the new clipboard to the active computer
   m_active->setClipboard(id, &clipboard.m_clipboard);
+}
+
+void Server::readLocalFiles()
+{
+  using namespace deskflow::files;
+
+  if (!m_fileHub)
+    return;
+  const auto files = m_primaryClient->getClipboardFiles();
+  if (!files) {
+    m_fileHub->localCopy(std::nullopt);
+    return;
+  }
+
+  Limits limits;
+  limits.maxBytes = m_fileMaxBytes;
+  std::variant<Selection, std::string> selection;
+  {
+    AsSessionUser asUser; // the user's network drives
+    selection = collect(*files, limits);
+  }
+  if (const auto *error = std::get_if<std::string>(&selection)) {
+    LOG_WARN("not sharing the copied files: %s", error->c_str());
+    m_fileHub->localCopy(std::nullopt);
+    return;
+  }
+  m_fileHub->localCopy(std::get<Selection>(std::move(selection)));
+}
+
+deskflow::files::FileChannel *Server::fileChannel(const std::string &computer) const
+{
+  const auto client = m_clients.find(computer);
+  return client == m_clients.end() ? nullptr : client->second->fileChannel();
+}
+
+std::optional<std::string> Server::acceptFiles(BaseClientProxy *from, const std::string &id)
+{
+  if (!m_fileHub || !m_enableClipboard)
+    return "clipboard sharing is off";
+  if (!m_fileHub->accept(getName(from), id))
+    return "another copy was made since";
+  LOG_INFO("receiving files from \"%s\"", getName(from).c_str());
+  return std::nullopt;
+}
+
+void Server::filesReceived(
+    BaseClientProxy *from, const std::string &id, const std::vector<std::filesystem::path> &roots
+)
+{
+  LOG_INFO("files from \"%s\" arrived", getName(from).c_str());
+  if (m_fileHub)
+    m_fileHub->received(getName(from), id, roots);
+}
+
+void Server::filesReceiveFailed(BaseClientProxy *from, const std::string &id, const std::string &reason)
+{
+  LOG_WARN("files from \"%s\" didn't arrive: %s", getName(from).c_str(), reason.c_str());
+  if (m_fileHub)
+    m_fileHub->receiveFailed(getName(from), id);
+}
+
+void Server::filesSent(BaseClientProxy *to, const std::string &id)
+{
+  if (m_fileHub)
+    m_fileHub->sent(getName(to), id);
+}
+
+void Server::filesSendFailed(BaseClientProxy *to, const std::string &id, const std::string &reason)
+{
+  LOG_WARN("files not sent to \"%s\": %s", getName(to).c_str(), reason.c_str());
+  if (m_fileHub)
+    m_fileHub->sendFailed(getName(to), id);
 }
 
 void Server::scheduleClipboardRetry()
@@ -2051,6 +2166,10 @@ bool Server::removeClient(BaseClientProxy *client)
   m_events->removeHandler(ComputerShapeChanged, client->getEventTarget());
   m_events->removeHandler(ClipboardGrabbed, client->getEventTarget());
   m_events->removeHandler(ClipboardChanged, client->getEventTarget());
+
+  if (m_fileHub) {
+    m_fileHub->disconnected(getName(client));
+  }
 
   // a clipboard owned by a computer that left has no data coming
   for (auto &clipboard : m_clipboards) {

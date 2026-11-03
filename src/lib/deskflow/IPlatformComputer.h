@@ -15,6 +15,10 @@
 #include "deskflow/ISecondaryComputer.h"
 #include "deskflow/OptionTypes.h"
 
+#include <filesystem>
+#include <optional>
+#include <vector>
+
 class IClipboard;
 
 //! Computer interface
@@ -76,6 +80,24 @@ public:
   Set the contents of the system clipboard indicated by \c id.
   */
   virtual bool setClipboard(ClipboardID id, const IClipboard *) = 0;
+
+  //! Whether files can be copied here and pasted on another computer, and back
+  virtual bool canShareFiles() const
+  {
+    return false;
+  }
+
+  //! The files on the clipboard, as copied in a file manager; nothing if it holds none
+  virtual std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const
+  {
+    return std::nullopt;
+  }
+
+  //! Puts files on the clipboard, as if copied in a file manager; false if it couldn't
+  virtual bool setClipboardFiles(const std::vector<std::filesystem::path> &)
+  {
+    return false;
+  }
 
   //! Check clipboard owner
   /*!

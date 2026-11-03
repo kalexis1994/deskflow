@@ -25,6 +25,7 @@
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/ProtocolUtil.h"
 #include "deskflow/StreamChunker.h"
+#include "deskflow/files/FileChannel.h"
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/IDataSocket.h"
 #include "net/ISocketFactory.h"
@@ -243,6 +244,7 @@ bool Client::leave()
         sendClipboard(id);
       }
     }
+    sendFiles();
   }
 
   return true;
@@ -291,6 +293,12 @@ void Client::grabClipboard(ClipboardID id)
   m_ownClipboard[id] = false;
   m_sentClipboard[id] = false;
   m_pendingSend[id] = false;
+
+  // its files, if any, come from the server; ours are no longer wanted
+  if (id == kClipboardClipboard && m_files) {
+    m_files->cancelSend("a newer copy replaces it");
+    m_filesSent = true;
+  }
 }
 
 void Client::setClipboardDirty(ClipboardID, bool)
@@ -359,7 +367,12 @@ void Client::setOptions(const OptionsList &options)
 
   for (auto index = options.begin(); index != options.end(); ++index) {
     const OptionID id = *index;
-    if (id == kOptionClipboardSharing) {
+    if (id == kOptionFileClipboard) {
+      index++;
+      if (index != options.end() && *index > 0) {
+        enableFiles(static_cast<uint64_t>(*index) * 1024 * 1024);
+      }
+    } else if (id == kOptionClipboardSharing) {
       index++;
       if (index != options.end()) {
         if (!*index) {
@@ -459,6 +472,110 @@ void Client::sendClipboard(ClipboardID id)
       m_server->onClipboardChanged(id, &toSend);
       reportClipboard(id, {.event = "sent", .dropped = fitted.dropped, .marshalled = fitted.data});
     }
+  }
+}
+
+void Client::enableFiles(uint64_t serverMaxBytes)
+{
+  using namespace deskflow::files;
+
+  if (m_files) {
+    m_files->setPeerMaxBytes(serverMaxBytes);
+    return;
+  }
+  const auto maxBytes = configuredMaxBytes();
+  if (maxBytes == 0) {
+    LOG_INFO("not copying files with the server: turned off here");
+    return;
+  }
+  if (!m_computer->canShareFiles()) {
+    LOG_INFO("not copying files with the server: not supported on this computer yet");
+    return;
+  }
+
+  FileChannel::Wire wire;
+  wire.list = [this](const auto &id, const auto &list) { m_server->sendFileList(id, list); };
+  wire.chunk = [this](const auto &id, auto index, const auto &data) { m_server->sendFileChunk(id, index, data); };
+  wire.done = [this](const auto &id, auto index, const auto &digest) { m_server->sendFileDone(id, index, digest); };
+  wire.ack = [this](const auto &id) { m_server->sendFileAck(id); };
+  wire.cancel = [this](const auto &id, const auto &reason) { m_server->sendFileCancel(id, reason); };
+
+  FileChannel::Events events;
+  events.accept = [this](const auto &, const FileList &list) -> std::optional<std::string> {
+    if (!m_enableClipboard)
+      return "clipboard sharing is off";
+    // copied here while the server started sending an older copy
+    if (m_ownClipboard[kClipboardClipboard])
+      return "a newer copy was made here";
+    LOG_INFO(
+        "receiving files from the server: %zu files, %llu bytes", list.fileCount(),
+        static_cast<unsigned long long>(list.totalBytes())
+    );
+    return std::nullopt;
+  };
+  events.received = [this](const auto &, const std::vector<std::filesystem::path> &roots) {
+    if (m_ownClipboard[kClipboardClipboard]) {
+      LOG_INFO("not putting the files from the server on the clipboard: a newer copy was made here");
+    } else if (m_computer->setClipboardFiles(roots)) {
+      LOG_INFO("files from the server are on the clipboard");
+    } else {
+      LOG_WARN("could not put the files from the server on the clipboard");
+    }
+  };
+  events.receiveFailed = [](const auto &, const std::string &reason) {
+    LOG_WARN("files from the server didn't arrive: %s", reason.c_str());
+  };
+  events.sent = [](const auto &) { LOG_INFO("files sent to the server"); };
+  events.sendFailed = [](const auto &, const std::string &reason) {
+    LOG_WARN("files not sent to the server: %s", reason.c_str());
+  };
+
+  FileChannel::Options options;
+  options.cacheRoot = userCacheRoot;
+  options.limits.maxBytes = maxBytes;
+  options.peerMaxBytes = serverMaxBytes;
+  m_files = std::make_unique<FileChannel>(std::move(wire), std::move(events), std::move(options));
+  m_server->sendFileClipboard(static_cast<uint32_t>(maxBytes / (1024 * 1024)));
+  LOG_INFO("copying files with the server, up to %llu MB", static_cast<unsigned long long>(maxBytes / (1024 * 1024)));
+}
+
+void Client::sendFiles()
+{
+  using namespace deskflow::files;
+
+  if (!m_files || !m_ownClipboard[kClipboardClipboard] || m_filesSent)
+    return;
+  m_filesSent = true;
+
+  const auto files = m_computer->getClipboardFiles();
+  if (!files)
+    return; // a copy of something else
+
+  Limits limits;
+  limits.maxBytes = m_files->peerMaxBytes();
+  std::variant<Selection, std::string> selection;
+  {
+    AsSessionUser asUser;
+    selection = collect(*files, limits);
+  }
+  if (const auto *error = std::get_if<std::string>(&selection)) {
+    LOG_WARN("not sending the copied files: %s", error->c_str());
+    return;
+  }
+  auto &chosen = std::get<Selection>(selection);
+  LOG_INFO(
+      "sending files to the server: %zu files, %llu bytes", chosen.list.fileCount(),
+      static_cast<unsigned long long>(chosen.list.totalBytes())
+  );
+  m_files->send(Cache::newId(), std::move(chosen));
+}
+
+void Client::filesSuperseded(const char *reason)
+{
+  m_filesSent = false;
+  if (m_files) {
+    m_files->cancelSend(reason);
+    m_files->cancelReceive(reason);
   }
 }
 
@@ -663,6 +780,8 @@ void Client::cleanupComputer()
     }
     m_events->removeHandler(EventTypes::ComputerShapeChanged, getEventTarget());
     m_events->removeHandler(EventTypes::ClipboardGrabbed, getEventTarget());
+    m_files.reset(); // deletes what was arriving
+    m_filesSent = false;
     delete m_server;
     m_server = nullptr;
   }
@@ -782,6 +901,9 @@ void Client::handleClipboardGrabbed(const Event &event)
 
   // grab ownership
   m_server->onGrabClipboard(info->m_id);
+  if (info->m_id == kClipboardClipboard) {
+    filesSuperseded("a newer copy replaces it");
+  }
 
   // we now own the clipboard and it has not been sent to the server
   m_ownClipboard[info->m_id] = true;
@@ -792,6 +914,9 @@ void Client::handleClipboardGrabbed(const Event &event)
   // otherwise we'll wait until we leave.
   if (!m_active) {
     sendClipboard(info->m_id);
+    if (info->m_id == kClipboardClipboard) {
+      sendFiles();
+    }
   }
 }
 

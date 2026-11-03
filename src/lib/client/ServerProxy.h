@@ -51,6 +51,16 @@ public:
   bool onGrabClipboard(ClipboardID);
   void onClipboardChanged(ClipboardID, const IClipboard *);
 
+  //! @name copying files (docs/dev/file-clipboard.md)
+  //@{
+  void sendFileClipboard(uint32_t maxMegabytes);
+  void sendFileList(const std::string &id, const std::string &list);
+  void sendFileChunk(const std::string &id, uint32_t index, const std::string &data);
+  void sendFileDone(const std::string &id, uint32_t index, const std::string &digest);
+  void sendFileAck(const std::string &id);
+  void sendFileCancel(const std::string &id, const std::string &reason);
+  //@}
+
   //@}
 
 protected:
@@ -107,6 +117,8 @@ private:
   void setOptions();
   void queryInfo();
   void infoAcknowledgment();
+  //! A file message: true if \p code is one
+  bool fileMessage(const uint8_t *code);
 
 private:
   using MessageParser = ConnectionResult (ServerProxy::*)(const uint8_t *);

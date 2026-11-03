@@ -85,6 +85,10 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   ServerApp.h
   StreamChunker.cpp
   StreamChunker.h
+  files/FileChannel.cpp
+  files/FileChannel.h
+  files/FileHub.cpp
+  files/FileHub.h
   files/FileList.cpp
   files/FileList.h
   files/FileTransfer.cpp

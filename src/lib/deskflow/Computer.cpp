@@ -312,6 +312,21 @@ bool Computer::setClipboard(ClipboardID id, const IClipboard *clipboard)
   return m_computer->setClipboard(id, clipboard);
 }
 
+bool Computer::canShareFiles() const
+{
+  return m_computer->canShareFiles();
+}
+
+std::optional<std::vector<std::filesystem::path>> Computer::getClipboardFiles() const
+{
+  return m_computer->getClipboardFiles();
+}
+
+bool Computer::setClipboardFiles(const std::vector<std::filesystem::path> &files)
+{
+  return m_computer->setClipboardFiles(files);
+}
+
 void Computer::grabClipboard(ClipboardID id)
 {
   m_computer->setClipboard(id, nullptr);

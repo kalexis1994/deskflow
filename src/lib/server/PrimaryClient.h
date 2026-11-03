@@ -10,6 +10,10 @@
 #include "deskflow/ClipboardUtil.h"
 #include "server/BaseClientProxy.h"
 
+#include <filesystem>
+#include <optional>
+#include <vector>
+
 namespace deskflow {
 class Computer;
 }
@@ -97,7 +101,13 @@ public:
   */
   bool isLockedToComputer() const;
 
+  //! The server computer's files on the clipboard (see IPlatformComputer)
+  std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const;
+
   //@}
+
+  //! Puts files on the server computer's clipboard; false if it couldn't
+  bool setClipboardFiles(const std::vector<std::filesystem::path> &files);
 
   // FIXME -- these probably belong on IComputer
   virtual void enable();

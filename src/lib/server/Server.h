@@ -19,7 +19,10 @@
 #include "server/Config.h"
 
 #include <climits>
+#include <filesystem>
 #include <map>
+#include <memory>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -32,6 +35,10 @@ class Computer;
 }
 class IEventQueue;
 class Thread;
+namespace deskflow::files {
+class FileChannel;
+class FileHub;
+} // namespace deskflow::files
 class ClientListener;
 
 //! Deskflow server
@@ -203,6 +210,21 @@ public:
 
   //@}
 
+  //! @name copying files (docs/dev/file-clipboard.md)
+  //@{
+  //! The largest copy accepted; 0 when copying files is off
+  uint64_t fileClipboardMaxBytes() const
+  {
+    return m_fileHub ? m_fileMaxBytes : 0;
+  }
+  //! A client offers its copy: the reason to refuse it, or nothing
+  std::optional<std::string> acceptFiles(BaseClientProxy *from, const std::string &id);
+  void filesReceived(BaseClientProxy *from, const std::string &id, const std::vector<std::filesystem::path> &roots);
+  void filesReceiveFailed(BaseClientProxy *from, const std::string &id, const std::string &reason);
+  void filesSent(BaseClientProxy *to, const std::string &id);
+  void filesSendFailed(BaseClientProxy *to, const std::string &id, const std::string &reason);
+  //@}
+
 private:
   // get canonical name of client
   std::string getName(const BaseClientProxy *) const;
@@ -332,6 +354,9 @@ private:
   void cleanupClipboardRetry();
   //! Tells the GUI about clipboard activity (only the clipboard, not the X11 selection)
   void reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const;
+  //! Tells the hub what files the server's clipboard has, after a copy here
+  void readLocalFiles();
+  deskflow::files::FileChannel *fileChannel(const std::string &computer) const;
   void onScreensaver(bool activated);
   void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *computers);
   void onKeyUp(KeyID, KeyModifierMask, KeyButton, const char *computers);
@@ -480,4 +505,8 @@ private:
   bool m_defaultLockToComputerState = false;
   bool m_disableLockToComputer = false;
   bool m_enableClipboard = true;
+
+  // copying files
+  std::unique_ptr<deskflow::files::FileHub> m_fileHub;
+  uint64_t m_fileMaxBytes = 0;
 };

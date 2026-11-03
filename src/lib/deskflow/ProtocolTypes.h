@@ -1098,6 +1098,106 @@ extern const char *const kMsgDDragInfo;
 /** @} */ // end of protocol_files group
 
 /**
+ * @defgroup protocol_file_clipboard File Clipboard Messages
+ * @brief Files copied to the clipboard (see docs/dev/file-clipboard.md)
+ *
+ * Not tied to a protocol version: a server offers the feature with the `FCLP` option
+ * in kMsgDSetOptions and a client that supports it answers with kMsgCFileClipboard.
+ * Only then are the other messages exchanged, in either direction, so classic peers
+ * (which drop unknown messages) never see them.
+ *
+ * A copy is a list (kMsgDFileList) followed by each file's data (kMsgDFileChunk) and
+ * end (kMsgDFileDone), in list order. The receiver acknowledges every chunk and every
+ * end (kMsgDFileAck); the sender keeps a few unacknowledged at most. Either side
+ * stops a copy with kMsgDFileCancel. Every message names its copy with an id of 1 to
+ * 64 lowercase hex digits; messages for a copy that is no longer current are ignored.
+ * @{
+ */
+
+/**
+ * @brief The client takes part in copying files
+ *
+ * **Message Code**: `"CFCL"`
+ * **Direction**: Secondary → Primary
+ * **Format**: `"CFCL%4i"`
+ * **Parameters**:
+ * - `$1`: Largest copy the client accepts, in MiB
+ *
+ * Sent only in answer to the `FCLP` option.
+ */
+extern const char *const kMsgCFileClipboard;
+
+/**
+ * @brief The files and folders of a copy
+ *
+ * **Message Code**: `"DFLS"`
+ * **Direction**: Primary ↔ Secondary
+ * **Format**: `"DFLS%s%s"`
+ * **Parameters**:
+ * - `$1`: Copy id
+ * - `$2`: The list ("DFL1", entry count, then for each entry: flags, size, Unix
+ *   modification time, path length, relative '/'-separated UTF-8 path; integers
+ *   little-endian), folders before what they contain
+ *
+ * Replaces any copy the sender was sending.
+ */
+extern const char *const kMsgDFileList;
+
+/**
+ * @brief Part of a file of a copy
+ *
+ * **Message Code**: `"DFCH"`
+ * **Direction**: Primary ↔ Secondary
+ * **Format**: `"DFCH%s%4i%s"`
+ * **Parameters**:
+ * - `$1`: Copy id
+ * - `$2`: Index of the file in the list
+ * - `$3`: The next bytes of the file (1 to 64 KiB)
+ */
+extern const char *const kMsgDFileChunk;
+
+/**
+ * @brief The end of a file of a copy
+ *
+ * **Message Code**: `"DFDN"`
+ * **Direction**: Primary ↔ Secondary
+ * **Format**: `"DFDN%s%4i%s"`
+ * **Parameters**:
+ * - `$1`: Copy id
+ * - `$2`: Index of the file in the list
+ * - `$3`: SHA-256 of the whole file (32 bytes)
+ */
+extern const char *const kMsgDFileDone;
+
+/**
+ * @brief A chunk or a file end was received
+ *
+ * **Message Code**: `"DFAK"`
+ * **Direction**: Primary ↔ Secondary
+ * **Format**: `"DFAK%s"`
+ * **Parameters**:
+ * - `$1`: Copy id
+ */
+extern const char *const kMsgDFileAck;
+
+/**
+ * @brief Stop a copy
+ *
+ * **Message Code**: `"DFCN"`
+ * **Direction**: Primary ↔ Secondary
+ * **Format**: `"DFCN%s%s"`
+ * **Parameters**:
+ * - `$1`: Copy id
+ * - `$2`: Why, in English, for the logs
+ *
+ * From the sender: the receiver deletes what arrived. From the receiver: the sender
+ * stops.
+ */
+extern const char *const kMsgDFileCancel;
+
+/** @} */ // end of protocol_file_clipboard group
+
+/**
  * @defgroup protocol_system System Messages
  * @brief System-level notifications and synchronization
  * @{
