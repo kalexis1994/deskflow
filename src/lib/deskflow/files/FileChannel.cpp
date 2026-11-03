@@ -126,6 +126,8 @@ void FileChannel::pump()
     if (!chunk.data.empty()) {
       m_wire.chunk(m_out->id, chunk.index, chunk.data);
       ++m_out->unacknowledged;
+      m_out->sentBytes += chunk.data.size();
+      notify(m_events.progress, m_out->id, true, m_out->reader->list(), m_out->sentBytes);
     }
     if (chunk.last) {
       chunk.data.clear();
@@ -262,8 +264,10 @@ void FileChannel::onChunk(const std::string &id, std::uint32_t index, const std:
   Chunk chunk;
   chunk.index = index;
   chunk.data = data;
-  if (write(chunk))
-    m_wire.ack(id);
+  if (!write(chunk))
+    return;
+  m_wire.ack(id);
+  notify(m_events.progress, id, false, m_in->writer->list(), m_in->writer->receivedBytes());
 }
 
 void FileChannel::onDone(const std::string &id, std::uint32_t index, const std::string &digest)

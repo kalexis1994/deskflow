@@ -117,4 +117,7 @@ and doesn't send copies above the other's.
 2. (done) Protocol: negotiation, messages, pacing, hub logic in the server, cancellation.
 3. (done) Windows clipboard: read `CF_HDROP`, write `CF_HDROP` + preferred drop effect
    (`platform/MSWindowsClipboardFiles`). Other platforms don't offer files yet.
-4. GUI: progress and results in the clipboard panel; settings for the limit.
+4. (done) GUI: progress and results in the clipboard panel; settings for the limit.
+   The core reports results as clipboard activity (`clipboard=` with a `files`
+   summary, `files/FileReport`) and progress as `fileProgress=`, at most 4 times a
+   second.

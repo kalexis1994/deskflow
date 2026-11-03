@@ -79,6 +79,9 @@ private:
   std::optional<std::string> m_content;
 };
 
+//! Appends \p value as a JSON string (quoted and escaped; UTF-8 kept)
+void appendJsonString(std::string &json, std::string_view value);
+
 //! Something that happened to the shared clipboard, for the GUI's clipboard panel
 struct Activity
 {

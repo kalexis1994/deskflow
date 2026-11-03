@@ -64,6 +64,11 @@ public:
   //! @name state
   //@{
   std::optional<std::string> currentId() const;
+  //! The current copy's list; nullptr if there is none
+  const FileList *currentList() const
+  {
+    return m_current ? &m_current->selection.list : nullptr;
+  }
   std::optional<std::string> sendingTo() const
   {
     return m_sendingTo;

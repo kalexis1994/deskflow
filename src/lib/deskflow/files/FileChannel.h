@@ -54,6 +54,8 @@ public:
     //! The other computer has every file
     std::function<void(const std::string &id)> sent;
     std::function<void(const std::string &id, const std::string &reason)> sendFailed;
+    //! Bytes of the copy sent so far (sending) or received so far (not sending)
+    std::function<void(const std::string &id, bool sending, const FileList &list, std::uint64_t done)> progress;
   };
 
   struct Options
@@ -111,6 +113,7 @@ private:
     std::string id;
     std::unique_ptr<Reader> reader;
     std::size_t unacknowledged = 0;
+    std::uint64_t sentBytes = 0;
     bool read = false;               //!< every file was read
     std::optional<Chunk> pendingEnd; //!< a file's end, waiting for room in the window
   };

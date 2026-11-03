@@ -26,6 +26,7 @@
 #include "deskflow/ProtocolUtil.h"
 #include "deskflow/StreamChunker.h"
 #include "deskflow/files/FileChannel.h"
+#include "deskflow/files/FileReport.h"
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/IDataSocket.h"
 #include "net/ISocketFactory.h"
@@ -297,6 +298,7 @@ void Client::grabClipboard(ClipboardID id)
   // its files, if any, come from the server; ours are no longer wanted
   if (id == kClipboardClipboard && m_files) {
     m_files->cancelSend("a newer copy replaces it");
+    m_fileProgress->finish();
     m_filesSent = true;
   }
 }
@@ -516,29 +518,45 @@ void Client::enableFiles(uint64_t serverMaxBytes)
         "receiving files from the server: %zu files, %llu bytes", list.fileCount(),
         static_cast<unsigned long long>(list.totalBytes())
     );
+    m_filesIn = std::make_unique<FileList>(list);
     return std::nullopt;
   };
   events.received = [this](const auto &, const std::vector<std::filesystem::path> &roots) {
+    m_fileProgress->finish();
     if (m_ownClipboard[kClipboardClipboard]) {
       LOG_INFO("not putting the files from the server on the clipboard: a newer copy was made here");
     } else if (m_computer->setClipboardFiles(roots)) {
       LOG_INFO("files from the server are on the clipboard");
+      reportFiles({.event = "received", .list = m_filesIn.get()});
     } else {
       LOG_WARN("could not put the files from the server on the clipboard");
+      reportFiles({.event = "failed", .list = m_filesIn.get(), .detail = "the clipboard is busy"});
     }
   };
-  events.receiveFailed = [](const auto &, const std::string &reason) {
+  events.receiveFailed = [this](const auto &, const std::string &reason) {
     LOG_WARN("files from the server didn't arrive: %s", reason.c_str());
+    m_fileProgress->finish();
+    reportFiles({.event = "failed", .list = m_filesIn.get(), .detail = reason});
   };
-  events.sent = [](const auto &) { LOG_INFO("files sent to the server"); };
-  events.sendFailed = [](const auto &, const std::string &reason) {
+  events.sent = [this](const auto &) {
+    LOG_INFO("files sent to the server");
+    m_fileProgress->finish();
+    reportFiles({.event = "sent", .list = m_filesOut.get()});
+  };
+  events.sendFailed = [this](const auto &, const std::string &reason) {
     LOG_WARN("files not sent to the server: %s", reason.c_str());
+    m_fileProgress->finish();
+    reportFiles({.event = "failed", .list = m_filesOut.get(), .detail = reason});
+  };
+  events.progress = [this](const auto &, bool sending, const FileList &list, uint64_t done) {
+    m_fileProgress->update(sending ? "send" : "receive", "", list, done);
   };
 
   FileChannel::Options options;
   options.cacheRoot = userCacheRoot;
   options.limits.maxBytes = maxBytes;
   options.peerMaxBytes = serverMaxBytes;
+  m_fileProgress = std::make_unique<FileProgress>();
   m_files = std::make_unique<FileChannel>(std::move(wire), std::move(events), std::move(options));
   m_server->sendFileClipboard(static_cast<uint32_t>(maxBytes / (1024 * 1024)));
   LOG_INFO("copying files with the server, up to %llu MB", static_cast<unsigned long long>(maxBytes / (1024 * 1024)));
@@ -565,9 +583,11 @@ void Client::sendFiles()
   }
   if (const auto *error = std::get_if<std::string>(&selection)) {
     LOG_WARN("not sending the copied files: %s", error->c_str());
+    reportFiles({.event = reasonCode(*error) == "tooLarge" ? "skipped" : "failed", .detail = *error});
     return;
   }
   auto &chosen = std::get<Selection>(selection);
+  m_filesOut = std::make_unique<FileList>(chosen.list);
   LOG_INFO(
       "sending files to the server: %zu files, %llu bytes", chosen.list.fileCount(),
       static_cast<unsigned long long>(chosen.list.totalBytes())
@@ -581,6 +601,7 @@ void Client::filesSuperseded(const char *reason)
   if (m_files) {
     m_files->cancelSend(reason);
     m_files->cancelReceive(reason);
+    m_fileProgress->finish();
   }
 }
 
@@ -787,6 +808,9 @@ void Client::cleanupComputer()
     m_events->removeHandler(EventTypes::ClipboardGrabbed, getEventTarget());
     m_files.reset(); // deletes what was arriving
     m_filesSent = false;
+    if (m_fileProgress) {
+      m_fileProgress->finish();
+    }
     delete m_server;
     m_server = nullptr;
   }

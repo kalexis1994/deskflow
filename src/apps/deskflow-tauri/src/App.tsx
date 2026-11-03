@@ -54,7 +54,7 @@ export default function App() {
       <Alerts core={core} ov={ov} error={df.error} onDismissError={df.dismissError} />
 
       {ov.coreMode !== "none" && (
-        <ClipboardCard activity={core.clipboard ?? []} mode={ov.coreMode} self={ov.computerName} running={core.process === "running"} />
+        <ClipboardCard activity={core.clipboard ?? []} progress={core.fileProgress ?? null} mode={ov.coreMode} self={ov.computerName} running={core.process === "running"} />
       )}
 
       {ov.coreMode === "client" && (

@@ -14,8 +14,32 @@ export interface ClipboardActivity {
   lines: number | null;
   image: { width: number; height: number } | null;
   text: string | null;
+  /** A copy of files, when that is what it was. */
+  files?: FilesSummary | null;
+  /** Why it failed, in English, as the core logs it. */
+  detail?: string | null;
   /** Unix ms when it reached the app. */
   at: number;
+}
+
+// Mirrors FilesSummary in src-tauri/src/clipboard.rs
+export interface FilesSummary {
+  count: number;
+  folders: number;
+  bytes: number;
+  /** The first few top-level names. */
+  names: string[];
+  /** Top-level files and folders in all. */
+  roots: number;
+}
+
+// Mirrors FileProgress in src-tauri/src/clipboard.rs
+export interface FileProgress {
+  direction: "send" | "receive" | string;
+  computer: string | null;
+  count: number;
+  bytes: number;
+  done: number;
 }
 
 // Mirrors ClipboardPrefs in src-tauri/src/clipboard.rs
@@ -23,6 +47,9 @@ export interface ClipboardPrefs {
   preview: boolean;
   sharing: boolean;
   limitMb: number;
+  /** Copying files, decided on each computer. */
+  files: boolean;
+  filesLimitMb: number;
 }
 
 export type ClipboardTone = "ok" | "warn" | "danger";
@@ -35,7 +62,7 @@ export interface ClipboardView {
   note: string | null;
   /** "18 caracteres · 2 líneas", "1920 × 1080", "1,2 MB" */
   facts: string[];
-  kind: "text" | "image" | "mixed" | "none";
+  kind: "text" | "image" | "mixed" | "files" | "none";
 }
 
 /** What was copied, as a noun phrase: "texto", "una imagen", "texto e imagen". */
@@ -57,6 +84,98 @@ export function formatSize(bytes: number): string {
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("es-AR")} ${n === 1 ? one : many}`;
 
+/** "«informe.pdf»", "3 archivos", "una carpeta vacía": what a copy of files was. */
+export function filesPhrase(files: FilesSummary | null | undefined): string {
+  if (!files) return "archivos";
+  if (files.roots === 1 && files.names.length === 1) return `«${files.names[0]}»`;
+  if (files.count === 0) return files.folders === 1 ? "una carpeta vacía" : plural(files.folders, "carpeta", "carpetas") + " vacías";
+  return plural(files.count, "archivo", "archivos");
+}
+
+/** "5 archivos · 2 carpetas", "fotos, informe.pdf, c.txt y 1 más", "3,4 KB" */
+export function filesFacts(files: FilesSummary): string[] {
+  const facts: string[] = [];
+  const counts = [plural(files.count, "archivo", "archivos")];
+  if (files.folders > 0) counts.push(plural(files.folders, "carpeta", "carpetas"));
+  facts.push(counts.join(" · "));
+  if (files.roots > 1 && files.names.length > 0) {
+    const more = files.roots - files.names.length;
+    facts.push(files.names.join(", ") + (more > 0 ? ` y ${more} más` : ""));
+  }
+  facts.push(formatSize(files.bytes));
+  return facts;
+}
+
+/** Why a copy of files failed, for people. */
+function filesFailure(a: ClipboardActivity, filesLimitMb: number): { detail: string; tone: ClipboardTone } {
+  switch (a.reason) {
+    case "tooLarge":
+      return { tone: "warn", detail: `Pasan el límite de tamaño (acá es de ${filesLimitMb.toLocaleString("es-AR")} MB; la otra computadora tiene el suyo).` };
+    case "noUser":
+      return { tone: "warn", detail: "En la otra computadora no hay nadie con la sesión iniciada." };
+    case "changed":
+      return { tone: "warn", detail: "Un archivo cambió o se borró mientras se enviaba. Volvé a copiarlo." };
+    case "damaged":
+      return { tone: "danger", detail: "Un archivo llegó dañado y se descartó la copia entera. Volvé a copiar." };
+    case "diskFull":
+      return { tone: "danger", detail: "No hay lugar en el disco para recibirlos." };
+    case "refused":
+      return { tone: "warn", detail: "La otra computadora no acepta archivos: tiene el portapapeles compartido o la copia de archivos desactivados." };
+    case "superseded":
+      return { tone: "warn", detail: "Se copió otra cosa mientras tanto." };
+    default:
+      return { tone: "danger", detail: a.detail ? `Detalle: ${a.detail}` : "Volvé a copiar." };
+  }
+}
+
+function describeFiles(a: ClipboardActivity, mode: CoreMode, other: string | null, filesLimitMb: number): ClipboardView {
+  const phrase = filesPhrase(a.files);
+  const facts = a.files ? filesFacts(a.files) : [];
+  const view = (tone: ClipboardTone, title: string, detail: string): ClipboardView => ({ tone, title, detail, note: null, facts, kind: "files" });
+  switch (a.event) {
+    case "sent":
+      return other
+        ? view("ok", `Se enviaron ${phrase} a ${other}`, `Ya los podés pegar en ${other}.`)
+        : view("ok", `Copiaste ${phrase} en esta computadora`, "Se enviaron al servidor; ya los podés pegar en la computadora a la que pases.");
+    case "received":
+      return view("ok", other ? `Llegaron ${phrase} de ${other}` : `Llegaron ${phrase}`, "Ya los podés pegar acá: Ctrl+V en una carpeta.");
+    case "shared":
+      return other
+        ? view("ok", `${other} copió ${phrase}`, "Llegaron a esta computadora; van a cada una cuando el cursor entra en ella.")
+        : view("ok", `Copiaste ${phrase} en esta computadora`, "Van a cada computadora cuando el cursor entra en ella.");
+    case "skipped":
+      return view(
+        "warn",
+        "No se compartieron los archivos copiados",
+        a.reason === "tooLarge" ? `Pasan el límite de ${filesLimitMb.toLocaleString("es-AR")} MB; se puede cambiar acá abajo.` : filesFailure(a, filesLimitMb).detail,
+      );
+    default: {
+      const { tone, detail } = filesFailure(a, filesLimitMb);
+      const title = other
+        ? mode === "server" && a.files
+          ? `No se pudieron copiar ${phrase} con ${other}`
+          : `No se pudieron copiar los archivos con ${other}`
+        : "No se pudieron copiar los archivos";
+      return view(tone, title, detail);
+    }
+  }
+}
+
+/** A copy of files on its way: "Enviando 3 archivos a laptop", 40 %, "1,2 MB de 3 MB". */
+export function describeProgress(p: FileProgress): { title: string; detail: string; percent: number } {
+  const phrase = plural(p.count, "archivo", "archivos");
+  const title =
+    p.direction === "send"
+      ? p.computer
+        ? `Enviando ${phrase} a ${p.computer}`
+        : `Enviando ${phrase} al servidor`
+      : p.computer
+        ? `Recibiendo ${phrase} de ${p.computer}`
+        : `Recibiendo ${phrase}`;
+  const percent = p.bytes > 0 ? Math.min(100, Math.floor((p.done * 100) / p.bytes)) : 100;
+  return { title, detail: `${formatSize(p.done)} de ${formatSize(p.bytes)}`, percent };
+}
+
 function droppedPhrase(dropped: string[]): string {
   const names = dropped.map((d) => (d === "bitmap" ? "la imagen" : d === "HTML" ? "el formato" : "el texto"));
   return names.join(" ni ");
@@ -66,7 +185,16 @@ function droppedPhrase(dropped: string[]): string {
  * One activity as a title and a detail line.
  * `self` is this computer's name: on a server, `shared` from itself means it copied here.
  */
-export function describeActivity(a: ClipboardActivity, mode: CoreMode, self: string, limitMb: number): ClipboardView {
+export function describeActivity(
+  a: ClipboardActivity,
+  mode: CoreMode,
+  self: string,
+  limitMb: number,
+  filesLimitMb = 500,
+): ClipboardView {
+  if (a.formats.includes("files")) {
+    return describeFiles(a, mode, a.computer && a.computer !== self ? a.computer : null, filesLimitMb);
+  }
   const { kind, phrase } = contentKind(a.formats);
   const facts: string[] = [];
   if (a.chars != null && a.chars > 0) {
@@ -118,7 +246,7 @@ export function describeActivity(a: ClipboardActivity, mode: CoreMode, self: str
       return {
         tone: "warn",
         title: other ? `No se compartió lo que copió ${other}` : "No se compartió lo que copiaste",
-        detail: "No tiene texto ni imagen. Deskflow todavía no comparte archivos.",
+        detail: "No tiene texto, imagen ni archivos que Deskflow pueda compartir.",
         note: null,
         facts,
         kind,

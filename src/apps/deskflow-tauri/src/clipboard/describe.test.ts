@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { contentKind, describeActivity, formatSize, relativeTime, type ClipboardActivity } from "./describe";
+import {
+  contentKind,
+  describeActivity,
+  describeProgress,
+  filesFacts,
+  filesPhrase,
+  formatSize,
+  relativeTime,
+  type ClipboardActivity,
+  type FilesSummary,
+} from "./describe";
 
 const base: ClipboardActivity = {
   event: "sent",
@@ -89,5 +99,78 @@ describe("formatting", () => {
     expect(relativeTime(0, 30_000)).toBe("hace 30 s");
     expect(relativeTime(0, 5 * 60_000)).toBe("hace 5 min");
     expect(relativeTime(0, 3 * 3_600_000)).toBe("hace 3 h");
+  });
+});
+
+const fiveFiles: FilesSummary = { count: 5, folders: 1, bytes: 3502, names: ["fotos", "informe.pdf", "c.txt"], roots: 4 };
+const filesBase: ClipboardActivity = {
+  ...base,
+  formats: ["files"],
+  size: 3502,
+  chars: null,
+  lines: null,
+  text: null,
+  files: fiveFiles,
+};
+
+describe("files", () => {
+  it("names a copy by its only item or by how many files", () => {
+    expect(filesPhrase({ count: 1, folders: 0, bytes: 9, names: ["informe.pdf"], roots: 1 })).toBe("«informe.pdf»");
+    expect(filesPhrase({ count: 12, folders: 3, bytes: 9, names: ["fotos"], roots: 1 })).toBe("«fotos»");
+    expect(filesPhrase(fiveFiles)).toBe("5 archivos");
+    expect(filesPhrase({ count: 0, folders: 1, bytes: 0, names: ["a", "b"], roots: 2 })).toBe("una carpeta vacía");
+    expect(filesPhrase(null)).toBe("archivos");
+  });
+
+  it("lists counts, a few names and the size", () => {
+    expect(filesFacts(fiveFiles)).toEqual(["5 archivos · 1 carpeta", "fotos, informe.pdf, c.txt y 1 más", "3 KB"]);
+    expect(filesFacts({ count: 1, folders: 0, bytes: 10, names: ["a.txt"], roots: 1 })).toEqual(["1 archivo", "10 B"]);
+  });
+
+  it("tells where the files went", () => {
+    const fromClient = describeActivity(filesBase, "client", "pc", 3);
+    expect(fromClient.title).toBe("Copiaste 5 archivos en esta computadora");
+    expect(fromClient.kind).toBe("files");
+    expect(fromClient.facts).toContain("3 KB");
+
+    const toLaptop = describeActivity({ ...filesBase, computer: "laptop" }, "server", "escritorio", 3);
+    expect(toLaptop.title).toBe("Se enviaron 5 archivos a laptop");
+
+    const arrived = describeActivity({ ...filesBase, event: "received" }, "client", "pc", 3);
+    expect(arrived.title).toBe("Llegaron 5 archivos");
+    expect(arrived.detail).toMatch(/Ctrl\+V/);
+
+    const shared = describeActivity({ ...filesBase, event: "shared", computer: "laptop" }, "server", "escritorio", 3);
+    expect(shared.title).toBe("laptop copió 5 archivos");
+  });
+
+  it("explains failures in Spanish, with the English detail when nothing fits", () => {
+    const noUser = describeActivity({ ...filesBase, event: "failed", reason: "noUser", files: null, detail: "x" }, "client", "pc", 3);
+    expect(noUser.title).toBe("No se pudieron copiar los archivos");
+    expect(noUser.detail).toMatch(/sesión iniciada/);
+    expect(noUser.tone).toBe("warn");
+
+    const damaged = describeActivity({ ...filesBase, event: "failed", reason: "damaged", computer: "laptop" }, "server", "escritorio", 3);
+    expect(damaged.title).toBe("No se pudieron copiar 5 archivos con laptop");
+    expect(damaged.tone).toBe("danger");
+
+    const other = describeActivity({ ...filesBase, event: "failed", reason: null, detail: "a.txt: can't be opened" }, "client", "pc", 3);
+    expect(other.detail).toBe("Detalle: a.txt: can't be opened");
+
+    const tooLarge = describeActivity({ ...filesBase, event: "skipped", reason: "tooLarge", files: null }, "client", "pc", 3, 500);
+    expect(tooLarge.detail).toMatch(/500 MB/);
+  });
+
+  it("shows the progress of a copy on its way", () => {
+    expect(describeProgress({ direction: "send", computer: "laptop", count: 3, bytes: 4 * 1024 * 1024, done: 1024 * 1024 })).toEqual({
+      title: "Enviando 3 archivos a laptop",
+      detail: "1 MB de 4 MB",
+      percent: 25,
+    });
+    expect(describeProgress({ direction: "send", computer: null, count: 1, bytes: 10, done: 3 }).title).toBe("Enviando 1 archivo al servidor");
+    expect(describeProgress({ direction: "receive", computer: null, count: 2, bytes: 0, done: 0 })).toMatchObject({
+      title: "Recibiendo 2 archivos",
+      percent: 100,
+    });
   });
 });

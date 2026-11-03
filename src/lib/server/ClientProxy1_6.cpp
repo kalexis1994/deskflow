@@ -79,7 +79,7 @@ void ClientProxy1_6::recvFileClipboard()
   };
 
   FileChannel::Events events;
-  events.accept = [this](const std::string &id, const FileList &) { return m_server->acceptFiles(this, id); };
+  events.accept = [this](const std::string &id, const FileList &list) { return m_server->acceptFiles(this, id, list); };
   events.received = [this](const std::string &id, const std::vector<std::filesystem::path> &roots) {
     m_server->filesReceived(this, id, roots);
   };
@@ -89,6 +89,9 @@ void ClientProxy1_6::recvFileClipboard()
   events.sent = [this](const std::string &id) { m_server->filesSent(this, id); };
   events.sendFailed = [this](const std::string &id, const std::string &reason) {
     m_server->filesSendFailed(this, id, reason);
+  };
+  events.progress = [this](const std::string &, bool sending, const FileList &list, uint64_t done) {
+    m_server->filesProgress(this, sending, list, done);
   };
 
   FileChannel::Options options;

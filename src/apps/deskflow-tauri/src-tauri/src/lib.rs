@@ -106,6 +106,13 @@ fn set_clipboard_preview(enabled: bool) -> Result<clipboard::ClipboardPrefs, Str
     clipboard::set_preview(enabled)
 }
 
+/// Turns copying files on or off and sets its limit on this computer; applies from
+/// the next start of the core.
+#[tauri::command]
+fn set_file_sharing(enabled: bool, limit_mb: u32) -> Result<clipboard::ClipboardPrefs, String> {
+    clipboard::set_files(enabled, limit_mb)
+}
+
 #[tauri::command]
 fn get_server_options() -> Result<server_options::ServerOptions, String> {
     server_options::load()
@@ -290,7 +297,8 @@ pub fn run() {
             forget_fingerprint,
             autostart_status,
             clipboard_prefs,
-            set_clipboard_preview
+            set_clipboard_preview,
+            set_file_sharing
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

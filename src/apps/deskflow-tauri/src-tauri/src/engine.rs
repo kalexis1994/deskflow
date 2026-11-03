@@ -12,7 +12,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
-use crate::clipboard::{self, ClipboardActivity};
+use crate::clipboard::{self, ClipboardActivity, FileProgress};
 use crate::ipc::{self, Connection, Handshake};
 use crate::layout;
 use crate::paths;
@@ -67,6 +67,8 @@ pub struct CoreState {
     pub last_error: Option<String>,
     /// Recent shared clipboard activity, newest first (kept while the app runs).
     pub clipboard: Vec<ClipboardActivity>,
+    /// A copy of files on its way, while it is.
+    pub file_progress: Option<FileProgress>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -328,6 +330,7 @@ impl Hub {
             "clipboard" => {
                 clipboard::push(&mut s.clipboard, &args, now_ms());
             }
+            "fileProgress" => s.file_progress = clipboard::parse_progress(&args),
             _ => {}
         });
     }

@@ -166,8 +166,6 @@ std::string formatNames(const std::vector<IClipboard::Format> &formats)
   return names;
 }
 
-namespace {
-
 void appendJsonString(std::string &json, std::string_view value)
 {
   static const char hex[] = "0123456789abcdef";
@@ -202,6 +200,8 @@ void appendJsonString(std::string &json, std::string_view value)
   }
   json += '"';
 }
+
+namespace {
 
 void appendFormatList(std::string &json, const std::vector<Format> &formats)
 {

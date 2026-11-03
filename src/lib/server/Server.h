@@ -38,6 +38,8 @@ class Thread;
 namespace deskflow::files {
 class FileChannel;
 class FileHub;
+class FileProgress;
+struct FileList;
 } // namespace deskflow::files
 class ClientListener;
 
@@ -218,11 +220,13 @@ public:
     return m_fileHub ? m_fileMaxBytes : 0;
   }
   //! A client offers its copy: the reason to refuse it, or nothing
-  std::optional<std::string> acceptFiles(BaseClientProxy *from, const std::string &id);
+  std::optional<std::string>
+  acceptFiles(BaseClientProxy *from, const std::string &id, const deskflow::files::FileList &list);
   void filesReceived(BaseClientProxy *from, const std::string &id, const std::vector<std::filesystem::path> &roots);
   void filesReceiveFailed(BaseClientProxy *from, const std::string &id, const std::string &reason);
   void filesSent(BaseClientProxy *to, const std::string &id);
   void filesSendFailed(BaseClientProxy *to, const std::string &id, const std::string &reason);
+  void filesProgress(BaseClientProxy *client, bool sending, const deskflow::files::FileList &list, uint64_t done);
   //@}
 
 private:
@@ -509,4 +513,6 @@ private:
   // copying files
   std::unique_ptr<deskflow::files::FileHub> m_fileHub;
   uint64_t m_fileMaxBytes = 0;
+  std::map<std::string, deskflow::files::FileList> m_filesIncoming; // by client, for the GUI
+  std::unique_ptr<deskflow::files::FileProgress> m_fileProgress;
 };

@@ -91,6 +91,8 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   files/FileHub.h
   files/FileList.cpp
   files/FileList.h
+  files/FileReport.cpp
+  files/FileReport.h
   files/FileTransfer.cpp
   files/FileTransfer.h
   KeyboardLayoutManager.cpp

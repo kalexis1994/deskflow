@@ -35,8 +35,15 @@ private Q_SLOTS:
   void disconnectDeletesPartialCopy();
   void noUserNoCopy();
 
+  void progressGoesUpToTheTotal();
+
   // the protocol's messages
   void messagesCarryAnyBytes();
+
+  // what the GUI is told
+  void activityJsonSummarizesTheCopy();
+  void reasonsBecomeCodes();
+  void progressJson();
 
   // FileHub
   void serverCopyGoesToEnteredClient();

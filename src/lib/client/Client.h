@@ -28,7 +28,9 @@ namespace deskflow {
 class Computer;
 namespace files {
 class FileChannel;
-}
+struct FileList;
+class FileProgress;
+} // namespace files
 } // namespace deskflow
 class ServerProxy;
 class IDataSocket;
@@ -276,5 +278,8 @@ private:
   size_t m_maximumClipboardSize = INT_MAX;
   size_t m_resolvedAddressesCount = 0;
   std::unique_ptr<deskflow::files::FileChannel> m_files;
+  std::unique_ptr<deskflow::files::FileList> m_filesOut; // the copy being sent, for the GUI
+  std::unique_ptr<deskflow::files::FileList> m_filesIn;  // the copy being received
+  std::unique_ptr<deskflow::files::FileProgress> m_fileProgress;
   bool m_filesSent = false; // this computer's copy went to the server (or had no files)
 };

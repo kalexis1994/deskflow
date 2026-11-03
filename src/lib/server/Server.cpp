@@ -23,6 +23,7 @@
 #include "deskflow/StreamChunker.h"
 #include "deskflow/files/FileChannel.h"
 #include "deskflow/files/FileHub.h"
+#include "deskflow/files/FileReport.h"
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/TCPSocket.h"
 #include "server/ClientListener.h"
@@ -72,15 +73,18 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Com
     actions.cancelSend = [this](const std::string &to, const std::string &reason) {
       if (auto *files = fileChannel(to))
         files->cancelSend(reason);
+      m_fileProgress->finish();
     };
     actions.cancelReceive = [this](const std::string &from, const std::string &reason) {
       if (auto *files = fileChannel(from))
         files->cancelReceive(reason);
+      m_fileProgress->finish();
     };
     actions.setLocalFiles = [this](const std::vector<std::filesystem::path> &roots) {
       return m_primaryClient->setClipboardFiles(roots);
     };
     m_fileHub = std::make_unique<deskflow::files::FileHub>(primaryName, std::move(actions));
+    m_fileProgress = std::make_unique<deskflow::files::FileProgress>();
   }
 
   // clear clipboards
@@ -1612,9 +1616,14 @@ bool Server::readLocalFiles()
   if (const auto *error = std::get_if<std::string>(&selection)) {
     LOG_WARN("not sharing the copied files: %s", error->c_str());
     m_fileHub->localCopy(std::nullopt);
+    reportFiles({.event = reasonCode(*error) == "tooLarge" ? "skipped" : "failed", .detail = *error});
     return true;
   }
+  const auto before = m_fileHub->currentId();
   m_fileHub->localCopy(std::get<Selection>(std::move(selection)));
+  if (const auto after = m_fileHub->currentId(); after && after != before) {
+    reportFiles({.event = "shared", .computer = getName(m_primaryClient), .list = m_fileHub->currentList()});
+  }
   return true;
 }
 
@@ -1624,13 +1633,15 @@ deskflow::files::FileChannel *Server::fileChannel(const std::string &computer) c
   return client == m_clients.end() ? nullptr : client->second->fileChannel();
 }
 
-std::optional<std::string> Server::acceptFiles(BaseClientProxy *from, const std::string &id)
+std::optional<std::string>
+Server::acceptFiles(BaseClientProxy *from, const std::string &id, const deskflow::files::FileList &list)
 {
   if (!m_fileHub || !m_enableClipboard)
     return "clipboard sharing is off";
   if (!m_fileHub->accept(getName(from), id))
     return "another copy was made since";
   LOG_INFO("receiving files from \"%s\"", getName(from).c_str());
+  m_filesIncoming[getName(from)] = list;
   return std::nullopt;
 }
 
@@ -1638,29 +1649,54 @@ void Server::filesReceived(
     BaseClientProxy *from, const std::string &id, const std::vector<std::filesystem::path> &roots
 )
 {
+  using namespace deskflow::files;
   LOG_INFO("files from \"%s\" arrived", getName(from).c_str());
+  m_fileProgress->finish();
+  const auto name = getName(from);
+  const auto list = m_filesIncoming.extract(name);
+  reportFiles({.event = "shared", .computer = name, .list = list ? &list.mapped() : nullptr});
   if (m_fileHub)
-    m_fileHub->received(getName(from), id, roots);
+    m_fileHub->received(name, id, roots);
 }
 
 void Server::filesReceiveFailed(BaseClientProxy *from, const std::string &id, const std::string &reason)
 {
+  using namespace deskflow::files;
   LOG_WARN("files from \"%s\" didn't arrive: %s", getName(from).c_str(), reason.c_str());
+  m_fileProgress->finish();
+  const auto name = getName(from);
+  const auto list = m_filesIncoming.extract(name);
+  reportFiles({.event = "failed", .computer = name, .list = list ? &list.mapped() : nullptr, .detail = reason});
   if (m_fileHub)
-    m_fileHub->receiveFailed(getName(from), id);
+    m_fileHub->receiveFailed(name, id);
 }
 
 void Server::filesSent(BaseClientProxy *to, const std::string &id)
 {
-  if (m_fileHub)
-    m_fileHub->sent(getName(to), id);
+  using namespace deskflow::files;
+  m_fileProgress->finish();
+  if (!m_fileHub)
+    return;
+  if (m_fileHub->currentId() == id)
+    reportFiles({.event = "sent", .computer = getName(to), .list = m_fileHub->currentList()});
+  m_fileHub->sent(getName(to), id);
 }
 
 void Server::filesSendFailed(BaseClientProxy *to, const std::string &id, const std::string &reason)
 {
+  using namespace deskflow::files;
   LOG_WARN("files not sent to \"%s\": %s", getName(to).c_str(), reason.c_str());
-  if (m_fileHub)
-    m_fileHub->sendFailed(getName(to), id);
+  m_fileProgress->finish();
+  if (!m_fileHub)
+    return;
+  const auto *list = m_fileHub->currentId() == id ? m_fileHub->currentList() : nullptr;
+  reportFiles({.event = "failed", .computer = getName(to), .list = list, .detail = reason});
+  m_fileHub->sendFailed(getName(to), id);
+}
+
+void Server::filesProgress(BaseClientProxy *client, bool sending, const deskflow::files::FileList &list, uint64_t done)
+{
+  m_fileProgress->update(sending ? "send" : "receive", getName(client), list, done);
 }
 
 void Server::scheduleClipboardRetry()
@@ -2177,6 +2213,8 @@ bool Server::removeClient(BaseClientProxy *client)
 
   if (m_fileHub) {
     m_fileHub->disconnected(getName(client));
+    m_filesIncoming.erase(getName(client));
+    m_fileProgress->finish();
   }
 
   // a clipboard owned by a computer that left has no data coming

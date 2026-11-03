@@ -68,9 +68,45 @@ const core: CoreState = {
   missingLayouts: null,
   coreVersion: "1.27.0.5 · 3aec96d5",
   lastError: null,
+  // ?progress: a copy of files on its way
+  fileProgress: params.has("progress")
+    ? { direction: "send", computer: "laptop", count: 12, bytes: 48_500_000, done: 17_900_000 }
+    : null,
   clipboard:
     params.get("clipboard") === "empty"
       ? []
+      : params.get("clipboard") === "files"
+        ? [
+            {
+              event: "shared",
+              computer: "laptop",
+              reason: null,
+              formats: ["files"],
+              dropped: [],
+              size: 48_500_000,
+              chars: null,
+              lines: null,
+              image: null,
+              text: null,
+              files: { count: 12, folders: 2, bytes: 48_500_000, names: ["Fotos del viaje", "presupuesto.xlsx", "notas.txt"], roots: 5 },
+              at: Date.now() - 6_000,
+            },
+            {
+              event: "failed",
+              computer: "notebook",
+              reason: "noUser",
+              detail: "the other computer stopped it: no user is logged on to receive the files",
+              formats: ["files"],
+              dropped: [],
+              size: 1_200_000,
+              chars: null,
+              lines: null,
+              image: null,
+              text: null,
+              files: { count: 1, folders: 0, bytes: 1_200_000, names: ["informe final.pdf"], roots: 1 },
+              at: Date.now() - 90_000,
+            },
+          ]
       : params.get("mode") === "client"
         ? [
             {
@@ -143,7 +179,7 @@ const core: CoreState = {
         ],
 };
 
-let clipboardPrefs = { preview: true, sharing: true, limitMb: 3 };
+let clipboardPrefs = { preview: true, sharing: true, limitMb: 3, files: true, filesLimitMb: 500 };
 
 const log = ["[2026-10-13T08:00:00.000] INFO: starting core", "[2026-10-13T08:00:00.100] INFO: started server, waiting for clients"];
 
@@ -214,6 +250,9 @@ mockIPC(
         return clipboardPrefs;
       case "set_clipboard_preview":
         clipboardPrefs = { ...clipboardPrefs, preview: a!.enabled as boolean };
+        return clipboardPrefs;
+      case "set_file_sharing":
+        clipboardPrefs = { ...clipboardPrefs, files: a!.enabled as boolean, filesLimitMb: a!.limitMb as number };
         return clipboardPrefs;
       case "start_core":
       case "stop_core":

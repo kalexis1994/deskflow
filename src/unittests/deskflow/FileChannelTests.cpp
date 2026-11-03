@@ -10,6 +10,7 @@
 #include "deskflow/ProtocolUtil.h"
 #include "deskflow/files/FileChannel.h"
 #include "deskflow/files/FileHub.h"
+#include "deskflow/files/FileReport.h"
 #include "io/IStream.h"
 
 #include <deque>
@@ -75,6 +76,7 @@ struct Seen
   std::vector<std::pair<std::string, std::string>> sendFailed;
   std::vector<std::pair<std::string, std::vector<fs::path>>> received;
   std::vector<std::pair<std::string, std::string>> receiveFailed;
+  std::vector<std::uint64_t> progress;
 };
 
 //! Two computers' channels connected back to back, messages queued between them
@@ -105,6 +107,9 @@ struct Link
     events.sendFailed = [&seen](const auto &id, const auto &why) { seen.sendFailed.emplace_back(id, why); };
     events.received = [&seen](const auto &id, const auto &roots) { seen.received.emplace_back(id, roots); };
     events.receiveFailed = [&seen](const auto &id, const auto &why) { seen.receiveFailed.emplace_back(id, why); };
+    events.progress = [&seen](const auto &, bool, const FileList &, std::uint64_t done) {
+      seen.progress.push_back(done);
+    };
 
     FileChannel::Options options;
     options.cacheRoot = [this, cache]() -> std::optional<fs::path> {
@@ -291,6 +296,25 @@ void FileChannelTests::neverMoreThanTheWindowInFlight()
   link.run();
   QCOMPARE(link.seenB.received.size(), 1u);
   QVERIFY(link.maxUnacknowledged <= FileChannel::kWindow);
+}
+
+void FileChannelTests::progressGoesUpToTheTotal()
+{
+  const auto src = TMP / "src";
+  fs::create_directories(src);
+  const auto size = FileChannel::kChunkBytes * 5 + 10;
+  writeFile(src / "a.bin", randomBytes(size));
+  writeFile(src / "b.txt", "bee");
+
+  Link link(TMP / "cacheA", TMP / "cacheB");
+  link.a->send("10", selectionOf({src / "a.bin", src / "b.txt"}));
+  link.run();
+
+  for (const auto *seen : {&link.seenA, &link.seenB}) {
+    QCOMPARE(seen->progress.size(), 7u); // one per chunk
+    QVERIFY(std::is_sorted(seen->progress.begin(), seen->progress.end()));
+    QCOMPARE(seen->progress.back(), static_cast<std::uint64_t>(size + 3));
+  }
 }
 
 void FileChannelTests::copyOfOnlyFolders()
@@ -642,6 +666,53 @@ void FileChannelTests::messagesCarryAnyBytes()
 
   // the largest list fits in a message
   QVERIFY(FileChannel::kMaxListBytes < PROTOCOL_MAX_STRING_LENGTH);
+}
+
+//
+// what the GUI is told
+//
+
+void FileChannelTests::activityJsonSummarizesTheCopy()
+{
+  const FileList list{
+      {Entry{"fotos", true, 0, 0}, Entry{"fotos/a.jpg", false, 1000, 0}, Entry{"fotos/b.jpg", false, 2000, 0},
+       Entry{"informe \"final\".pdf", false, 500, 0}, Entry{"c.txt", false, 1, 0}, Entry{"d.txt", false, 1, 0}}
+  };
+  const std::string received =
+      "{\"event\":\"received\",\"computer\":\"laptop\",\"dropped\":[],\"formats\":[\"files\"],\"size\":3502,"
+      "\"files\":{\"count\":5,\"folders\":1,\"bytes\":3502,"
+      "\"names\":[\"fotos\",\"informe \\\"final\\\".pdf\",\"c.txt\"],\"roots\":4}}";
+  QCOMPARE(filesActivityJson({.event = "received", .computer = "laptop", .list = &list}), received);
+
+  const std::string failed = "{\"event\":\"failed\",\"reason\":\"noUser\","
+                             "\"detail\":\"the other computer stopped it: no user is logged on to receive the files\","
+                             "\"dropped\":[],\"formats\":[\"files\"]}";
+  const FilesActivity noUser{
+      .event = "failed", .detail = "the other computer stopped it: no user is logged on to receive the files"
+  };
+  QCOMPARE(filesActivityJson(noUser), failed);
+}
+
+void FileChannelTests::reasonsBecomeCodes()
+{
+  QCOMPARE(reasonCode("the copy is larger than the limit of 500 MB"), std::string("tooLarge"));
+  QCOMPARE(reasonCode("the copy is larger than the 10 MB the other computer accepts"), std::string("tooLarge"));
+  QCOMPARE(reasonCode("too many files to send at once"), std::string("tooLarge"));
+  QCOMPARE(reasonCode("a.txt: changed while it was being sent"), std::string("changed"));
+  QCOMPARE(reasonCode("a.txt: arrived damaged (SHA-256 differs)"), std::string("damaged"));
+  QCOMPARE(reasonCode("not enough free disk space"), std::string("diskFull"));
+  QCOMPARE(reasonCode("a.txt: can't be written (is the disk full?)"), std::string("diskFull"));
+  QCOMPARE(reasonCode("the other computer stopped it: clipboard sharing is off"), std::string("refused"));
+  QCOMPARE(reasonCode("something else"), std::string());
+}
+
+void FileChannelTests::progressJson()
+{
+  const FileList list{{Entry{"a.bin", false, 100, 0}, Entry{"b.bin", false, 50, 0}}};
+  const std::string sending = "{\"direction\":\"send\",\"computer\":\"laptop\",\"count\":2,\"bytes\":150,\"done\":60}";
+  QCOMPARE(FileProgress::json("send", "laptop", list, 60), sending);
+  const std::string receiving = "{\"direction\":\"receive\",\"count\":2,\"bytes\":150,\"done\":150}";
+  QCOMPARE(FileProgress::json("receive", "", list, 999), receiving);
 }
 
 //
