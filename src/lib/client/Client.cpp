@@ -443,6 +443,11 @@ void Client::sendClipboard(ClipboardID id)
   if (m_timeClipboard[id] == 0 || clipboard.getTime() != m_timeClipboard[id]) {
     const auto data = clipboard.marshall();
     if (!deskflow::clipboard::hasContent(data)) {
+      // files travel on their own (sendFiles)
+      if (id == kClipboardClipboard && m_files && m_computer->getClipboardFiles()) {
+        LOG_DEBUG("clipboard %d holds files only", id);
+        return;
+      }
       LOG_INFO("not sharing clipboard %d: nothing in it Deskflow can share (text, HTML or image)", id);
       reportClipboard(id, {.event = "skipped", .reason = "nothingToShare"});
       return;

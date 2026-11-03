@@ -354,8 +354,8 @@ private:
   void cleanupClipboardRetry();
   //! Tells the GUI about clipboard activity (only the clipboard, not the X11 selection)
   void reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const;
-  //! Tells the hub what files the server's clipboard has, after a copy here
-  void readLocalFiles();
+  //! Tells the hub what files the server's clipboard has, after a copy here; whether it has any
+  bool readLocalFiles();
   deskflow::files::FileChannel *fileChannel(const std::string &computer) const;
   void onScreensaver(bool activated);
   void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *computers);

@@ -24,6 +24,7 @@
 #include "deskflow/KeyMap.h"
 #include "deskflow/win32/AppUtilWindows.h"
 #include "platform/MSWindowsClipboard.h"
+#include "platform/MSWindowsClipboardFiles.h"
 #include "platform/MSWindowsDesks.h"
 #include "platform/MSWindowsEventQueueBuffer.h"
 #include "platform/MSWindowsKeyState.h"
@@ -336,6 +337,21 @@ bool MSWindowsComputer::setClipboard(ClipboardID, const IClipboard *src)
     dst.close();
     return true;
   }
+}
+
+bool MSWindowsComputer::canShareFiles() const
+{
+  return true;
+}
+
+std::optional<std::vector<std::filesystem::path>> MSWindowsComputer::getClipboardFiles() const
+{
+  return MSWindowsClipboardFiles::get(m_window);
+}
+
+bool MSWindowsComputer::setClipboardFiles(const std::vector<std::filesystem::path> &files)
+{
+  return MSWindowsClipboardFiles::set(m_window, files);
 }
 
 void MSWindowsComputer::checkClipboards()

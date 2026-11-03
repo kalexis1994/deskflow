@@ -1522,11 +1522,18 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   }
   clipboard.m_readPending = false;
 
+  bool hasFiles = false;
   if (sender == m_primaryClient && id == kClipboardClipboard) {
-    readLocalFiles();
+    hasFiles = readLocalFiles();
   }
 
   const auto data = received.marshall();
+  if (!deskflow::clipboard::hasContent(data) && hasFiles) {
+    // files travel on their own (FileHub)
+    LOG_DEBUG("clipboard %d holds files only", id);
+    clipboard.m_pending = false;
+    return;
+  }
   if (!deskflow::clipboard::hasContent(data)) {
     LOG_INFO(
         "not sharing clipboard %d from \"%s\": nothing in it Deskflow can share (text, HTML or image)", id,
@@ -1583,16 +1590,16 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   m_active->setClipboard(id, &clipboard.m_clipboard);
 }
 
-void Server::readLocalFiles()
+bool Server::readLocalFiles()
 {
   using namespace deskflow::files;
 
   if (!m_fileHub)
-    return;
+    return false;
   const auto files = m_primaryClient->getClipboardFiles();
   if (!files) {
     m_fileHub->localCopy(std::nullopt);
-    return;
+    return false;
   }
 
   Limits limits;
@@ -1605,9 +1612,10 @@ void Server::readLocalFiles()
   if (const auto *error = std::get_if<std::string>(&selection)) {
     LOG_WARN("not sharing the copied files: %s", error->c_str());
     m_fileHub->localCopy(std::nullopt);
-    return;
+    return true;
   }
   m_fileHub->localCopy(std::get<Selection>(std::move(selection)));
+  return true;
 }
 
 deskflow::files::FileChannel *Server::fileChannel(const std::string &computer) const

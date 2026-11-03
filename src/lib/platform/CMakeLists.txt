@@ -33,6 +33,8 @@ if(WIN32)
     MSWindowsClipboardBitmapConverter.h
     MSWindowsClipboardFacade.cpp
     MSWindowsClipboardFacade.h
+    MSWindowsClipboardFiles.cpp
+    MSWindowsClipboardFiles.h
     MSWindowsClipboardHTMLConverter.cpp
     MSWindowsClipboardHTMLConverter.h
     MSWindowsClipboardUTF16Converter.cpp
@@ -181,6 +183,11 @@ endif()
 add_library(platform STATIC ${PLATFORM_SOURCES})
 
 target_link_libraries(platform PUBLIC client ${libs})
+
+if(WIN32)
+  # DragQueryFileW, for files on the clipboard
+  target_link_libraries(platform PRIVATE shell32)
+endif()
 
 if(UNIX)
   target_link_libraries(platform PRIVATE net app)

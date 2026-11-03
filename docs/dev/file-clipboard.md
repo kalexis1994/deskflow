@@ -61,6 +61,11 @@ needed.
   leftover staging folders are deleted.
 - **Echoes:** putting received files on the clipboard is Deskflow's own write
   (ownership format), not a new copy.
+- **Paste copies, never moves:** received files go on the clipboard with
+  "Preferred DropEffect" set to copy. A cut on the source computer is copied too:
+  the original stays where it is.
+- **Pasting late:** only the last two copies are kept in the cache; pasting from
+  an older one finds its files gone.
 
 ## Messages
 
@@ -110,5 +115,6 @@ and doesn't send copies above the other's.
    selection into a list, writing a transfer into the cache with verification,
    cache cleanup, user impersonation. Unit tests.
 2. (done) Protocol: negotiation, messages, pacing, hub logic in the server, cancellation.
-3. Windows clipboard: read `CF_HDROP`, write `CF_HDROP` + preferred drop effect.
+3. (done) Windows clipboard: read `CF_HDROP`, write `CF_HDROP` + preferred drop effect
+   (`platform/MSWindowsClipboardFiles`). Other platforms don't offer files yet.
 4. GUI: progress and results in the clipboard panel; settings for the limit.

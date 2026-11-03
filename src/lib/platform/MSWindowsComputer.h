@@ -112,6 +112,9 @@ public:
   bool canLeave() override;
   void leave() override;
   bool setClipboard(ClipboardID, const IClipboard *) override;
+  bool canShareFiles() const override;
+  std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const override;
+  bool setClipboardFiles(const std::vector<std::filesystem::path> &files) override;
   void checkClipboards() override;
   void openScreensaver(bool notify) override;
   void closeScreensaver() override;
