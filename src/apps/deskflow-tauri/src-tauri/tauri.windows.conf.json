@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBuildCommand": "pnpm build && node scripts/stage-core.mjs"
+  },
+  "bundle": {
+    "targets": ["nsis"],
+    "resources": {
+      "core-bin/*": "./",
+      "windows/deskflow-service.ps1": "setup/deskflow-service.ps1"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
+  }
+}
