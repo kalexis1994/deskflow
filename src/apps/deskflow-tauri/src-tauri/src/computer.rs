@@ -150,6 +150,106 @@ pub fn write(ini: &mut IniFile, name: &str, o: &ComputerOptions) {
     ini.set(&sec, "modifierSuper", &o.modifiers.super_);
 }
 
+/// Modifier names by `KeyboardModifier` value (src/lib/common/KeyboardModifier.h).
+const LEGACY_MODIFIERS: [&str; 7] = ["shift", "ctrl", "alt", "meta", "super", "altgr", "none"];
+
+/// Copies computers kept in the Qt grid (`internalConfig/screens\N\...`, Deskflow 1.26
+/// and older) to `[computer_<name>]`, which is all the core reads since 1.27.
+///
+/// The 1.27 Qt GUI does this when it starts (`Settings::upgradeSettings`), but an
+/// install it never opened still has the old form, and the core then refuses the
+/// layout ("unknown computer name"). Computers that already have a group are left
+/// alone. Returns the names copied.
+pub fn upgrade_legacy(ini: &mut IniFile) -> Vec<String> {
+    const G: &str = "internalConfig";
+    let mut upgraded = Vec::new();
+    for (key, _) in ini.entries(G) {
+        let Some(index) = key
+            .strip_prefix("screens\\")
+            .and_then(|k| k.strip_suffix("\\name"))
+        else {
+            continue;
+        };
+        let Some(name) = ini.get(G, &key).filter(|n| !n.is_empty()) else {
+            continue;
+        };
+        if ini.get(&section(&name), "name").is_some() {
+            continue;
+        }
+
+        let item = |rest: &str| ini.get(G, &format!("screens\\{index}\\{rest}"));
+        // a Qt array: <array>\size, then <array>\1\<key> ... <array>\<size>\<key>
+        let array = |array: &str, key: &str| -> Vec<String> {
+            let size = item(&format!("{array}\\size"))
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
+            (1..=size)
+                .map(|i| item(&format!("{array}\\{i}\\{key}")).unwrap_or_default())
+                .collect()
+        };
+        let flags = |name: &str, key: &str| -> Vec<bool> {
+            array(name, key).iter().map(|v| v == "true").collect()
+        };
+
+        let fixes = flags("fixArray", "fix");
+        let corners = flags("switchCornerArray", "switchCorner");
+        let flag = |list: &[bool], i: usize| list.get(i).copied().unwrap_or(false);
+
+        // slot order: shift, ctrl, alt, meta, super, altgr; -1 means "same key"
+        let modifiers = array("modifierArray", "modifier");
+        let modifier = |slot: usize| -> String {
+            let value = modifiers
+                .get(slot)
+                .and_then(|v| v.parse::<i64>().ok())
+                .unwrap_or(-1);
+            let index = if value < 0 { slot } else { value as usize };
+            LEGACY_MODIFIERS
+                .get(index)
+                .copied()
+                .unwrap_or(LEGACY_MODIFIERS[slot])
+                .to_owned()
+        };
+
+        let mut aliases: Vec<String> = Vec::new();
+        for alias in array("aliasArray", "alias") {
+            let alias = alias.trim().to_owned();
+            if !alias.is_empty() && alias != name && !aliases.contains(&alias) {
+                aliases.push(alias);
+            }
+        }
+
+        let options = ComputerOptions {
+            aliases,
+            modifiers: Modifiers {
+                shift: modifier(0),
+                ctrl: modifier(1),
+                alt: modifier(2),
+                meta: modifier(3),
+                super_: modifier(4),
+                altgr: modifier(5),
+            },
+            corners: Corners {
+                top_left: flag(&corners, 0),
+                top_right: flag(&corners, 1),
+                bottom_left: flag(&corners, 2),
+                bottom_right: flag(&corners, 3),
+            },
+            corner_size: item("switchCornerSize")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0),
+            fix_caps_lock: flag(&fixes, 0),
+            fix_num_lock: flag(&fixes, 1),
+            fix_scroll_lock: flag(&fixes, 2),
+            xtest_xinerama: flag(&fixes, 3),
+            weak_x11_focus: false,
+        };
+        ini.set(&section(&name), "name", &name);
+        write(ini, &name, &options);
+        upgraded.push(name);
+    }
+    upgraded
+}
+
 fn looks_like_ip(s: &str) -> bool {
     s.parse::<std::net::IpAddr>().is_ok()
 }
@@ -205,6 +305,69 @@ mod tests {
         let f = IniFile::load(&path).unwrap();
         let _ = std::fs::remove_file(PathBuf::from(&path));
         f
+    }
+
+    /// What Deskflow 1.26's Qt GUI leaves in Deskflow.conf
+    const QT_1_26: &str = r"[core]
+computerName=ALEXIS-WORK
+lastVersion=1.26.0.0
+coreMode=2
+
+[internalConfig]
+screens\1\name=
+screens\2\name=ALEXIS-PC
+screens\2\aliasArray\1\alias=alexis-server
+screens\2\aliasArray\2\alias=ALEXIS-PC
+screens\2\aliasArray\size=2
+screens\2\fixArray\1\fix=false
+screens\2\fixArray\2\fix=true
+screens\2\fixArray\3\fix=false
+screens\2\fixArray\4\fix=false
+screens\2\fixArray\size=4
+screens\2\modifierArray\1\modifier=-1
+screens\2\modifierArray\2\modifier=3
+screens\2\modifierArray\3\modifier=-1
+screens\2\modifierArray\4\modifier=1
+screens\2\modifierArray\5\modifier=-1
+screens\2\modifierArray\6\modifier=-1
+screens\2\modifierArray\size=6
+screens\2\switchCornerArray\1\switchCorner=true
+screens\2\switchCornerArray\2\switchCorner=false
+screens\2\switchCornerArray\3\switchCorner=false
+screens\2\switchCornerArray\4\switchCorner=false
+screens\2\switchCornerArray\size=4
+screens\2\switchCornerSize=12
+screens\3\name=ALEXIS-WORK
+screens\size=15
+";
+
+    #[test]
+    fn upgrades_computers_from_the_qt_1_26_grid() {
+        let mut f = ini(QT_1_26);
+        let mut names = upgrade_legacy(&mut f);
+        names.sort();
+        assert_eq!(names, ["ALEXIS-PC", "ALEXIS-WORK"]);
+
+        assert_eq!(
+            f.get("computer_ALEXIS-PC", "name").as_deref(),
+            Some("ALEXIS-PC")
+        );
+        let pc = read(&f, "ALEXIS-PC");
+        assert_eq!(pc.aliases, ["alexis-server"]); // its own name isn't an alias
+        assert!(pc.fix_num_lock && !pc.fix_caps_lock);
+        assert_eq!(pc.modifiers.ctrl, "meta"); // 3 = Meta
+        assert_eq!(pc.modifiers.meta, "ctrl"); // 1 = Ctrl
+        assert_eq!(pc.modifiers.shift, "shift"); // -1 = same key
+        assert!(pc.corners.top_left && !pc.corners.top_right);
+        assert_eq!(pc.corner_size, 12);
+
+        let work = read(&f, "ALEXIS-WORK");
+        assert_eq!(work, ComputerOptions::default());
+
+        // once there, never again (nor over what the person changed since)
+        f.set("computer_ALEXIS-PC", "modifierCtrl", "alt");
+        assert!(upgrade_legacy(&mut f).is_empty());
+        assert_eq!(read(&f, "ALEXIS-PC").modifiers.ctrl, "alt");
     }
 
     #[test]

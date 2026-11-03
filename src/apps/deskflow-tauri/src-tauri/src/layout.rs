@@ -370,7 +370,12 @@ fn place_new(screens: &mut Vec<Screen>, name: &str) {
 pub fn load() -> Result<LayoutView, String> {
     let overview = settings::read_overview().map_err(|e| e.to_string())?;
     let server = overview.computer_name;
-    let ini = IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
+    let mut ini = IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
+    // computers Deskflow 1.26 kept only in its grid: the core needs them in [computer_*]
+    if !computer::upgrade_legacy(&mut ini).is_empty() {
+        ini.save()
+            .map_err(|e| format!("No se pudo actualizar la configuración: {e}"))?;
+    }
 
     let (mut screens, imported) = match read_layout_file() {
         Some(file) => {
@@ -581,6 +586,21 @@ pub fn regenerate() -> Result<(), String> {
     } else {
         save(view.screens, &[]).map(|_| ())
     }
+}
+
+/// Before the core starts as a server: the config it reads must exist and name only
+/// computers it knows. A layout never saved in the editor (e.g. an install that only
+/// ran the Qt GUI) is saved as imported, so the core doesn't read an older config.
+pub fn prepare_start() -> Result<(), String> {
+    if read_layout_file().is_some() {
+        return persist();
+    }
+    let view = load()?;
+    if view.foreign_config.is_some() {
+        // a config file the person chose themselves: theirs to keep
+        return Ok(());
+    }
+    save(view.screens, &[]).map(|_| ())
 }
 
 pub fn persist() -> Result<(), String> {

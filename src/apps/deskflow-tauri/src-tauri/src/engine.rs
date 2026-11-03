@@ -405,7 +405,7 @@ impl Hub {
             return Err("Falta la dirección de la computadora que comparte el teclado.".into());
         }
         if ov.core_mode == CoreMode::Server {
-            layout::persist()?;
+            layout::prepare_start()?;
             if !server_config_file().is_file() {
                 return Err(
                     "Todavía no hay un diseño de pantallas. Guardalo una vez desde el editor."
