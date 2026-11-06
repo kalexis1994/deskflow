@@ -122,15 +122,23 @@ and doesn't send copies above the other's.
    summary, `files/FileReport`) and progress as `fileProgress=`, at most 4 times a
    second.
 
+## A copy of files replaces the text
+
+The server keeps the last text it saw, to hand to each computer the cursor enters. A
+copy of files has no text, so that text has to be dropped with it: delivered after the
+files, it would replace them, because writing to the Windows clipboard empties it first.
+The same goes for a copy that can't be shared at all, and for both of Deskflow's
+clipboards, which on Windows are the same one.
+
 ## Reading the files from the service
 
 Under the service the core runs as SYSTEM in the user's session, and there it doesn't
 see what the user copied. Opening the clipboard works and gives no error, but listing
 it stops after the first format: a copy in Explorer shows as `DataObject` alone, while
 a process of the user sees all 13 formats at the same moment, `CF_HDROP` among them.
-`OleGetClipboard` doesn't get around it (`DV_E_FORMATETC`). The cause isn't known: the
-core isn't in session 0, nothing overwrites the copy, and Deskflow's own writes reach
-the user's clipboard.
+`OleGetClipboard` doesn't get around it (`DV_E_FORMATETC`), and neither does
+impersonating the user. The cause isn't known: the core isn't in session 0, nothing
+overwrites the copy, and Deskflow's own writes reach the user's clipboard.
 
 So a core running as SYSTEM doesn't read the list itself. It starts itself with
 `--print-clipboard-files` as the session's user (`WTSQueryUserToken`), which reads the

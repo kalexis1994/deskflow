@@ -410,6 +410,9 @@ private:
     //! Reading the primary computer's clipboard failed and is retried
     bool m_readPending = false;
   };
+
+  //! Drops the data of a clipboard whose last copy can't be shared as such
+  static void forgetClipboard(ClipboardInfo &clipboard);
   // Order suggested by clang
 
   // the Primary Computer Client

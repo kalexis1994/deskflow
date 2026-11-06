@@ -445,8 +445,8 @@ void Client::sendClipboard(ClipboardID id)
   if (m_timeClipboard[id] == 0 || clipboard.getTime() != m_timeClipboard[id]) {
     const auto data = clipboard.marshall();
     if (!deskflow::clipboard::hasContent(data)) {
-      // files travel on their own (sendFiles)
-      if (id == kClipboardClipboard && m_files && m_computer->getClipboardFiles()) {
+      // files travel on their own (sendFiles), and on Windows both clipboards are one
+      if (m_files && m_computer->getClipboardFiles()) {
         LOG_DEBUG("clipboard %d holds files only", id);
         return;
       }

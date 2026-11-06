@@ -1527,15 +1527,16 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   clipboard.m_readPending = false;
 
   bool hasFiles = false;
-  if (sender == m_primaryClient && id == kClipboardClipboard) {
-    hasFiles = readLocalFiles();
+  if (sender == m_primaryClient && m_fileHub) {
+    // the other clipboard is the same one on Windows: only the first shares the files
+    hasFiles = id == kClipboardClipboard ? readLocalFiles() : m_primaryClient->getClipboardFiles().has_value();
   }
 
   const auto data = received.marshall();
   if (!deskflow::clipboard::hasContent(data) && hasFiles) {
     // files travel on their own (FileHub)
     LOG_DEBUG("clipboard %d holds files only", id);
-    clipboard.m_pending = false;
+    forgetClipboard(clipboard);
     return;
   }
   if (!deskflow::clipboard::hasContent(data)) {
@@ -1543,7 +1544,7 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
         "not sharing clipboard %d from \"%s\": nothing in it Deskflow can share (text, HTML or image)", id,
         getName(sender).c_str()
     );
-    clipboard.m_pending = false;
+    forgetClipboard(clipboard);
     reportClipboard(id, {.event = "skipped", .computer = getName(sender), .reason = "nothingToShare"});
     return;
   }
@@ -1551,7 +1552,7 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   const auto fitted = deskflow::clipboard::fitToLimit(data, m_maximumClipboardSize * 1024);
   if (!fitted.fits) {
     LOG_WARN("not sharing clipboard %d, even its text exceeds the limit of %zu KB", id, m_maximumClipboardSize);
-    clipboard.m_pending = false;
+    forgetClipboard(clipboard);
     reportClipboard(
         id, {.event = "skipped",
              .computer = getName(sender),
@@ -1592,6 +1593,17 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
 
   // send the new clipboard to the active computer
   m_active->setClipboard(id, &clipboard.m_clipboard);
+}
+
+void Server::forgetClipboard(ClipboardInfo &clipboard)
+{
+  // What the last copy replaced. Handing it out on the next switch would overwrite what
+  // that computer has, the files of this very copy included.
+  clipboard.m_clipboard.open(0);
+  clipboard.m_clipboard.empty();
+  clipboard.m_clipboard.close();
+  clipboard.m_clipboardData = clipboard.m_clipboard.marshall();
+  clipboard.m_pending = false;
 }
 
 bool Server::readLocalFiles()

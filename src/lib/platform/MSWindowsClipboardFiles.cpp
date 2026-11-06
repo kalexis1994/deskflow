@@ -249,18 +249,7 @@ std::optional<std::vector<fs::path>> MSWindowsClipboardFiles::get(HWND window)
     program.resize(GetModuleFileNameW(nullptr, program.data(), static_cast<DWORD>(program.size())));
     const auto files = readThroughHelper(program, token);
     CloseHandle(token);
-
-    // temporary, to learn why SYSTEM can't see them
-    const bool seen = IsClipboardFormatAvailable(CF_HDROP) != FALSE;
-    bool seenAsUser = false;
-    {
-      deskflow::files::AsSessionUser asUser;
-      seenAsUser = asUser.ok() && IsClipboardFormatAvailable(CF_HDROP) != FALSE;
-    }
-    LOG_INFO(
-        "clipboard files: %zu through the helper; files visible here=%d, impersonating the user=%d",
-        files ? files->size() : 0, seen ? 1 : 0, seenAsUser ? 1 : 0
-    );
+    LOG_DEBUG("%zu files on the clipboard, through the helper", files ? files->size() : 0);
 
     if (!files || files->empty())
       return std::nullopt;
