@@ -35,6 +35,7 @@ if(WIN32)
     MSWindowsClipboardFacade.h
     MSWindowsClipboardFiles.cpp
     MSWindowsClipboardFiles.h
+    MSWindowsMotion.h
     MSWindowsClipboardHTMLConverter.cpp
     MSWindowsClipboardHTMLConverter.h
     MSWindowsClipboardUTF16Converter.cpp

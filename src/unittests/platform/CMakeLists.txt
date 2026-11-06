@@ -12,8 +12,15 @@ if (WIN32)
   create_test(
     NAME MSWindowsClipboardFilesTests
     DEPENDS platform
-    LIBS base arch
+    LIBS base arch app
     SOURCE MSWindowsClipboardFilesTests.cpp
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+  )
+  create_test(
+    NAME MSWindowsMotionTests
+    DEPENDS platform
+    LIBS base arch
+    SOURCE MSWindowsMotionTests.cpp
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
   )
 elseif(APPLE)

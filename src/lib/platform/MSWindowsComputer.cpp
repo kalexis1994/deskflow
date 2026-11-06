@@ -28,6 +28,7 @@
 #include "platform/MSWindowsDesks.h"
 #include "platform/MSWindowsEventQueueBuffer.h"
 #include "platform/MSWindowsKeyState.h"
+#include "platform/MSWindowsMotion.h"
 #include "platform/MSWindowsScreenSaver.h"
 
 #include <Shlobj.h>
@@ -1281,15 +1282,9 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
     LOG_VERBOSE("centering cursor on motion: %+d,%+d", m_xCenter, m_yCenter);
     warpCursorNoFlush(m_xCenter, m_yCenter);
 
-    // examine the motion.  if it's about the distance
-    // from the center of the computer to an edge then
-    // it's probably a bogus motion that we want to
-    // ignore (see warpCursorNoFlush() for a further
-    // description).
-    static int32_t bogusZoneSize = 10;
-    if (-x + bogusZoneSize > m_xCenter - m_x || x + bogusZoneSize > m_x + m_w - m_xCenter ||
-        -y + bogusZoneSize > m_yCenter - m_y || y + bogusZoneSize > m_y + m_h - m_yCenter) {
-
+    // examine the motion: a large one is a position from before the
+    // warp, not motion (see warpCursorNoFlush() for a further description)
+    if (isPreWarpMotion(x, y, m_x, m_y, m_w, m_h, m_xCenter, m_yCenter)) {
       LOG_DEBUG("dropped bogus delta motion: %+d,%+d", x, y);
     } else {
       // send motion
