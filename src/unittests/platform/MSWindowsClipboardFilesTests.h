@@ -19,4 +19,11 @@ private Q_SLOTS:
   void readsAnsiData();
   void readsNothingFromNothing();
   void dropEffectIsCopy();
+  void packedPathsRoundTrip();
+  void truncatedPathIsDropped();
+  //! By hand: copy a file in Explorer, then run with DESKFLOW_TEST_REAL_CLIPBOARD=1.
+  //! Only reads the clipboard.
+  void readsWhatExplorerCopied();
+  //! By hand, the same, with DESKFLOW_TEST_CORE set to deskflow-core.exe
+  void readsThroughTheHelper();
 };

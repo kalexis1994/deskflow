@@ -347,7 +347,13 @@ bool MSWindowsComputer::canShareFiles() const
 
 std::optional<std::vector<std::filesystem::path>> MSWindowsComputer::getClipboardFiles() const
 {
-  return MSWindowsClipboardFiles::get(m_window);
+  // reading can start a process, and one copy is asked about several times
+  const auto sequenceNumber = GetClipboardSequenceNumber();
+  if (sequenceNumber == 0 || sequenceNumber != m_filesSequenceNumber) {
+    m_files = MSWindowsClipboardFiles::get(m_window);
+    m_filesSequenceNumber = sequenceNumber;
+  }
+  return m_files;
 }
 
 bool MSWindowsComputer::setClipboardFiles(const std::vector<std::filesystem::path> &files)

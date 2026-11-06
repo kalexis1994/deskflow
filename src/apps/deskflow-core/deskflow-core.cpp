@@ -22,6 +22,7 @@
 
 #if defined(DESKFLOW_OS_WIN)
 #include "arch/win32/ArchMiscWindows.h"
+#include "platform/MSWindowsClipboardFiles.h"
 #endif
 
 #if defined(DESKFLOW_OS_MACOS)
@@ -36,6 +37,7 @@
 
 #include <atomic>
 #include <cstdio>
+#include <string_view>
 #include <thread>
 
 namespace {
@@ -108,6 +110,10 @@ App *createApp(const CoreArgParser &parser, EventQueue &events, const std::strin
 int main(int argc, char **argv)
 {
 #if defined(DESKFLOW_OS_WIN)
+  // the core, when it's SYSTEM, asking a process of the user what the user copied
+  if (argc == 2 && std::string_view(argv[1]) == MSWindowsClipboardFiles::kPrintFilesArg)
+    return MSWindowsClipboardFiles::printFiles();
+
   ArchMiscWindows::setInstanceWin32(GetModuleHandle(nullptr));
 #endif
 

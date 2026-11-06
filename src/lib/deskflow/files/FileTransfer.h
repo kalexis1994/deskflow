@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "arch/OsDetection.h"
+
 #include "deskflow/files/FileList.h"
 
 #include <array>
@@ -160,6 +162,14 @@ public:
 private:
   std::filesystem::path m_root;
 };
+
+#if defined(DESKFLOW_OS_WIN)
+//! Whether this process runs as SYSTEM, as the core does under the service
+bool runningAsSystem();
+//! The primary token (a HANDLE to close) of the user logged on in this process's
+//! session; nullptr at a login screen, and for a process that isn't SYSTEM
+void *sessionUserToken();
+#endif
 
 //! The logged-on user's cache: %LOCALAPPDATA%\Deskflow\Clipboard on Windows (that of
 //! the session's user when this process is SYSTEM), ~/.cache/deskflow/clipboard or

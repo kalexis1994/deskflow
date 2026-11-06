@@ -33,34 +33,6 @@ constexpr std::uint64_t kSpareBytes = 64ull * 1024 * 1024;
 //! What Explorer and most programs still handle
 constexpr std::size_t kMaxWindowsPath = 259;
 
-bool runningAsSystem()
-{
-  HANDLE token = nullptr;
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
-    return false;
-  bool system = false;
-  DWORD size = 0;
-  GetTokenInformation(token, TokenUser, nullptr, 0, &size);
-  std::string buffer(size, '\0');
-  if (size > 0 && GetTokenInformation(token, TokenUser, buffer.data(), size, &size)) {
-    const auto *user = reinterpret_cast<const TOKEN_USER *>(buffer.data());
-    system = IsWellKnownSid(user->User.Sid, WinLocalSystemSid) != FALSE;
-  }
-  CloseHandle(token);
-  return system;
-}
-
-//! The token of the user logged on in this process's session; nothing at a login screen
-HANDLE sessionUserToken()
-{
-  DWORD session = 0;
-  if (!ProcessIdToSessionId(GetCurrentProcessId(), &session))
-    return nullptr;
-  HANDLE token = nullptr;
-  if (!WTSQueryUserToken(session, &token))
-    return nullptr;
-  return token;
-}
 #endif
 
 bool sameTime(const fs::path &path, std::int64_t modified)
@@ -430,6 +402,36 @@ void Cache::cleanup(std::size_t keep) const
 //
 // The user's cache and identity
 //
+
+#if defined(DESKFLOW_OS_WIN)
+bool runningAsSystem()
+{
+  HANDLE token = nullptr;
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+    return false;
+  bool system = false;
+  DWORD size = 0;
+  GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+  std::string buffer(size, '\0');
+  if (size > 0 && GetTokenInformation(token, TokenUser, buffer.data(), size, &size)) {
+    const auto *user = reinterpret_cast<const TOKEN_USER *>(buffer.data());
+    system = IsWellKnownSid(user->User.Sid, WinLocalSystemSid) != FALSE;
+  }
+  CloseHandle(token);
+  return system;
+}
+
+HANDLE sessionUserToken()
+{
+  DWORD session = 0;
+  if (!ProcessIdToSessionId(GetCurrentProcessId(), &session))
+    return nullptr;
+  HANDLE token = nullptr;
+  if (!WTSQueryUserToken(session, &token))
+    return nullptr;
+  return token;
+}
+#endif
 
 std::optional<fs::path> userCacheRoot()
 {

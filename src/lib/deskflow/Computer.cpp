@@ -206,8 +206,6 @@ void Computer::enable()
   m_computer->enable();
   if (m_isPrimary) {
     enablePrimary();
-  } else {
-    enableSecondary();
   }
 
   // note activation
@@ -534,14 +532,6 @@ void Computer::enablePrimary()
 
   // claim computer changed size
   m_events->addEvent(Event(EventTypes::ComputerShapeChanged, getEventTarget()));
-}
-
-void Computer::enableSecondary()
-{
-  // assume primary has all clipboards
-  for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
-    grabClipboard(id);
-  }
 }
 
 void Computer::disablePrimary()

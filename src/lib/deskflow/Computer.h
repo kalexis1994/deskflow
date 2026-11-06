@@ -290,7 +290,6 @@ public:
 
 protected:
   void enablePrimary();
-  void enableSecondary();
   void disablePrimary();
   void disableSecondary();
 

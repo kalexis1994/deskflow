@@ -91,4 +91,56 @@ void MSWindowsClipboardFilesTests::dropEffectIsCopy()
   GlobalFree(data);
 }
 
+void MSWindowsClipboardFilesTests::packedPathsRoundTrip()
+{
+  const std::vector<fs::path> files = {
+      L"C:\\a b\\c.txt",
+      L"D:\\\u00F1and\u00FA\\\u65E5\u672C\u8A9E.mp3",
+      L"\\\\server\\share\\folder",
+  };
+  QCOMPARE(MSWindowsClipboardFiles::unpackPaths(MSWindowsClipboardFiles::packPaths(files)), files);
+  QVERIFY(MSWindowsClipboardFiles::packPaths({}).empty());
+  QVERIFY(MSWindowsClipboardFiles::unpackPaths({}).empty());
+}
+
+void MSWindowsClipboardFilesTests::truncatedPathIsDropped()
+{
+  auto packed = MSWindowsClipboardFiles::packPaths({L"C:\\whole.txt", L"C:\\cut.txt"});
+  packed.resize(packed.size() - 3 * sizeof(wchar_t));
+  QCOMPARE(MSWindowsClipboardFiles::unpackPaths(packed), std::vector<fs::path>{L"C:\\whole.txt"});
+
+  // half a character, as an odd number of bytes
+  packed = MSWindowsClipboardFiles::packPaths({L"C:\\whole.txt"});
+  packed.pop_back();
+  QVERIFY(MSWindowsClipboardFiles::unpackPaths(packed).empty());
+}
+
+void MSWindowsClipboardFilesTests::readsWhatExplorerCopied()
+{
+  if (qEnvironmentVariableIsEmpty("DESKFLOW_TEST_REAL_CLIPBOARD"))
+    QSKIP("reads the real clipboard: run by hand");
+
+  const auto window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
+  QVERIFY(window != nullptr);
+  const auto files = MSWindowsClipboardFiles::get(window);
+  DestroyWindow(window);
+  QVERIFY2(files.has_value(), "no files read from the clipboard");
+  QVERIFY(!files->empty());
+  for (const auto &file : *files)
+    qInfo("%ls", file.c_str());
+}
+
+void MSWindowsClipboardFilesTests::readsThroughTheHelper()
+{
+  if (qEnvironmentVariableIsEmpty("DESKFLOW_TEST_REAL_CLIPBOARD") || qEnvironmentVariableIsEmpty("DESKFLOW_TEST_CORE"))
+    QSKIP("reads the real clipboard: run by hand");
+
+  const auto files =
+      MSWindowsClipboardFiles::readThroughHelper(qEnvironmentVariable("DESKFLOW_TEST_CORE").toStdWString(), nullptr);
+  QVERIFY2(files.has_value(), "the helper failed");
+  QVERIFY2(!files->empty(), "no files read from the clipboard");
+  for (const auto &file : *files)
+    qInfo("%ls", file.c_str());
+}
+
 QTEST_MAIN(MSWindowsClipboardFilesTests)

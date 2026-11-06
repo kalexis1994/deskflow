@@ -305,6 +305,11 @@ private:
   // owner and as a link in the clipboard viewer chain.
   HWND m_window = nullptr;
   DWORD m_clipboardSequenceNumber = 0;
+
+  //! The files of the clipboard change last read
+  mutable std::optional<std::vector<std::filesystem::path>> m_files;
+  mutable DWORD m_filesSequenceNumber = 0;
+
   bool m_ownClipboard = false;
 
   // one desk per desktop and a cond var to communicate with it

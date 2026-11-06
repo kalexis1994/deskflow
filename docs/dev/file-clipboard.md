@@ -121,3 +121,19 @@ and doesn't send copies above the other's.
    The core reports results as clipboard activity (`clipboard=` with a `files`
    summary, `files/FileReport`) and progress as `fileProgress=`, at most 4 times a
    second.
+
+## Reading the files from the service
+
+Under the service the core runs as SYSTEM in the user's session, and there it doesn't
+see what the user copied. Opening the clipboard works and gives no error, but listing
+it stops after the first format: a copy in Explorer shows as `DataObject` alone, while
+a process of the user sees all 13 formats at the same moment, `CF_HDROP` among them.
+`OleGetClipboard` doesn't get around it (`DV_E_FORMATETC`). The cause isn't known: the
+core isn't in session 0, nothing overwrites the copy, and Deskflow's own writes reach
+the user's clipboard.
+
+So a core running as SYSTEM doesn't read the list itself. It starts itself with
+`--print-clipboard-files` as the session's user (`WTSQueryUserToken`), which reads the
+clipboard and sends the paths back through a pipe, the only handle it inherits. It has
+5 seconds, and the result is kept for that clipboard sequence number, since one copy
+is asked about several times. A core running as the user reads the clipboard directly.
