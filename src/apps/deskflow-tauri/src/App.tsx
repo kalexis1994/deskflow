@@ -7,10 +7,13 @@ import { ServerOptionsCard } from "./ServerOptionsCard";
 import { HotkeysCard } from "./hotkeys/HotkeysCard";
 import { FingerprintPromptCard, SecurityCard } from "./tls/Security";
 import { ClipboardCard } from "./clipboard/ClipboardCard";
+import { UpdateCard, UpdateFooter } from "./update/UpdateCard";
+import { useUpdate } from "./update/useUpdate";
 import type { Autostart, CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
   const df = useDeskflow();
+  const update = useUpdate();
   const retryIn = useCountdown(df.core?.retryAt ?? null);
   const [layoutVersion, setLayoutVersion] = useState(0);
 
@@ -35,6 +38,8 @@ export default function App() {
           No encontré <code>deskflow-core</code>. Instalá Deskflow o indicá la carpeta con la variable <code>DESKFLOW_DIR</code>.
         </div>
       )}
+
+      {update.state && <UpdateCard state={update.state} mode={ov.coreMode} onInstall={update.install} onDismiss={update.dismiss} />}
 
       <ModePicker mode={ov.coreMode} disabled={df.busy} onChange={(coreMode) => df.save({ coreMode })} />
 
@@ -82,6 +87,7 @@ export default function App() {
 
       <footer className="footer">
         <span>{ov.processMode === "service" ? "Corre como servicio del sistema" : "Corre dentro de esta app"}</span>
+        {update.state && <UpdateFooter state={update.state} onCheck={update.check} onChannel={update.setChannel} />}
         <span className="footer__path" title={ov.settingsFile}>
           {ov.settingsFile}
         </span>

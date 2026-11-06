@@ -10,6 +10,7 @@ import { defaultOptions, toggleMacSwap, type ComputerOptions } from "./layout/op
 import { DEFAULT_SERVER_OPTIONS, type ServerOptions } from "./ServerOptionsCard";
 import type { Hotkey } from "./hotkeys/model";
 import type { TlsInfo } from "./tls/Security";
+import type { UpdateChannel, UpdateState } from "./update/describe";
 
 let tlsInfo: TlsInfo = {
   enabled: true,
@@ -30,6 +31,19 @@ let hotkeys: Hotkey[] = [
 let serverOptions: ServerOptions = { ...DEFAULT_SERVER_OPTIONS, win32KeepForeground: false };
 
 const params = new URLSearchParams(location.search);
+
+// ?update: a new version waiting for an answer
+let updateState: UpdateState = params.has("update")
+  ? {
+      current: "0.1.8",
+      channel: "stable",
+      dismissed: false,
+      kind: "available",
+      version: "0.1.9",
+      notes: "Copiar archivos entre computadoras.",
+      error: params.get("update") === "failed" ? "No se pudo instalar la versión 0.1.9, y Deskflow sigue como estaba: acceso denegado" : null,
+    }
+  : { current: "0.1.8", channel: "stable", dismissed: false, kind: "idle" };
 type MockScreen = Screen & { options: ComputerOptions };
 let screens: MockScreen[] = [
   { name: "escritorio", x: 0, y: 0, w: 192, h: 108, options: defaultOptions() },
@@ -187,6 +201,24 @@ mockIPC(
   async (cmd, args) => {
     const a = args as Record<string, unknown> | undefined;
     switch (cmd) {
+      case "update_state":
+        return updateState;
+      case "check_for_updates":
+        updateState = { current: updateState.current, channel: updateState.channel, dismissed: false, kind: "upToDate" };
+        void emit("update-state", updateState);
+        return null;
+      case "set_update_channel":
+        updateState = { current: updateState.current, channel: (args as { channel: UpdateChannel }).channel, dismissed: false, kind: "upToDate" };
+        void emit("update-state", updateState);
+        return null;
+      case "dismiss_update":
+        updateState = { ...updateState, dismissed: true };
+        void emit("update-state", updateState);
+        return null;
+      case "install_update":
+        updateState = { current: updateState.current, channel: updateState.channel, dismissed: false, kind: "downloading", version: "0.1.9", percent: 40 };
+        void emit("update-state", updateState);
+        return null;
       case "app_info":
         return info;
       case "core_state":

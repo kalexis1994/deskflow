@@ -8,14 +8,17 @@ mod paths;
 mod server_options;
 mod settings;
 mod tls;
+mod tray;
+mod update;
 
 use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::{Manager, State};
+use tauri::{Manager, State, WindowEvent};
 
 use crate::engine::{CoreState, Hub};
 use crate::settings::{Changes, Overview, ProcessMode};
+use crate::update::Updates;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -265,11 +268,38 @@ fn autostart_status() -> Autostart {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // opening the app again shows the one in the tray instead of adding a second icon
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if !args.iter().any(|a| a == tray::HIDDEN_ARG) {
+                tray::show_window(app);
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event
+                && tray::available(window.app_handle())
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .setup(|app| {
             let hub = Hub::new(app.handle().clone(), engine::detect_version_id());
             app.manage(hub.clone());
+            app.manage(Updates::new(
+                app.package_info().version.to_string(),
+                update::saved_channel(app.handle()),
+            ));
+            let tray_created = tray::create(app.handle());
+            if let Err(e) = &tray_created {
+                eprintln!("no tray icon: {e}");
+            }
+            if tray_created.is_err() || !std::env::args().any(|a| a == tray::HIDDEN_ARG) {
+                tray::show_window(app.handle());
+            }
             tauri::async_runtime::spawn(hub.clone().monitor_core());
+            update::watch(app.handle().clone());
             let service =
                 settings::read_overview().is_ok_and(|o| o.process_mode == ProcessMode::Service);
             if service {
@@ -298,7 +328,12 @@ pub fn run() {
             autostart_status,
             clipboard_prefs,
             set_clipboard_preview,
-            set_file_sharing
+            set_file_sharing,
+            update::update_state,
+            update::check_for_updates,
+            update::set_update_channel,
+            update::dismiss_update,
+            update::install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,13 +4,17 @@
 !macro DESKFLOW_SERVICE ACTION
   nsExec::ExecToLog 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\setup\deskflow-service.ps1" -Action ${ACTION} -InstallDir "$INSTDIR"'
   Pop $0
+  ; an update runs with the core down: nobody could close this on a computer without a keyboard
   ${If} $0 != 0
+  ${AndIf} $PassiveMode != 1
     MessageBox MB_ICONEXCLAMATION|MB_OK "No se pudo configurar el servicio de Deskflow (código $0).$\r$\nDeskflow igual puede funcionar sin el servicio, pero no en la pantalla de inicio de sesión."
   ${EndIf}
 !macroend
 
 !macro NSIS_HOOK_PREINSTALL
-  ; an upgrade replaces the running daemon and core: stop them so their files aren't locked
+  ; an upgrade replaces the running daemon and core: stop them so their files aren't locked.
+  ; The app goes too, in every session: the check that follows would abort over a copy it
+  ; can't close, with the service already stopped.
   nsExec::ExecToLog 'sc.exe stop Deskflow'
   Pop $0
   Sleep 2000
@@ -18,12 +22,19 @@
   Pop $0
   nsExec::ExecToLog 'taskkill.exe /F /IM deskflow-daemon.exe'
   Pop $0
+  nsExec::ExecToLog 'taskkill.exe /F /IM deskflow-tauri.exe'
+  Pop $0
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
   !insertmacro DESKFLOW_SERVICE Install
+  ; the service starts the core; the app, with its tray icon, starts with each user's session
+  SetRegView 64
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "Deskflow" '"$INSTDIR\deskflow-tauri.exe" --tray'
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
   !insertmacro DESKFLOW_SERVICE Uninstall
+  SetRegView 64
+  DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "Deskflow"
 !macroend

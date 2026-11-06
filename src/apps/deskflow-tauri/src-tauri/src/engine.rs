@@ -18,6 +18,7 @@ use crate::layout;
 use crate::paths;
 use crate::settings::{self, CoreMode, ProcessMode};
 use crate::tls;
+use crate::tray;
 
 const LOG_CAPACITY: usize = 2000;
 const LOG_HISTORY_BYTES: u64 = 256 * 1024;
@@ -164,6 +165,7 @@ impl Hub {
             f(&mut s);
             s.clone()
         };
+        tray::refresh(&self.app, &snapshot);
         let _ = self.app.emit("core-state", snapshot);
     }
 
@@ -530,6 +532,21 @@ impl Hub {
             }
         }
         Ok(())
+    }
+
+    /// The app is closing. A core it started goes with it, as with the Qt GUI; the
+    /// service's core has nothing to do with the app and keeps running.
+    pub async fn quit(self: &Arc<Self>) {
+        if self.child.lock().await.is_none() {
+            return;
+        }
+        let _ = self.stop().await;
+        for _ in 0..12 {
+            tokio::time::sleep(Duration::from_millis(250)).await;
+            if self.child.lock().await.is_none() {
+                break;
+            }
+        }
     }
 
     pub async fn restart(self: &Arc<Self>) -> Result<(), String> {
