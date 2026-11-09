@@ -441,6 +441,7 @@ ClientListener *ServerApp::openClientListener(const NetworkAddress &address)
 {
   using enum SecurityLevel;
   auto securityLevel = PlainText;
+  ensureTlsCertificate();
   if (CoreSettings::value(CoreSettings::Security::TlsEnabled).toBool()) {
     if (CoreSettings::value(CoreSettings::Security::CheckPeers).toBool()) {
       securityLevel = PeerAuth;

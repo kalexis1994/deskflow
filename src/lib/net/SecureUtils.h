@@ -31,6 +31,12 @@ Fingerprint sslCertFingerprint(const X509 *cert, Fingerprint::Type type);
 //! Writes a new key and self-signed certificate to a PEM file (UTF-8 path)
 void generatePemSelfSignedCert(const std::string &path, int keyLength = 2048);
 
+/**
+ * @brief Generates the certificate at path, with its folders, unless a file is there
+ * @return true if it generated one; throws std::runtime_error when it can't
+ */
+bool ensurePemSelfSignedCert(const std::string &path, int keyLength = 2048);
+
 //! The "random art" picture of a digest (UTF-8, box-drawing frame)
 std::string generateFingerprintArt(const Fingerprint::Bytes &rawDigest);
 } // namespace deskflow

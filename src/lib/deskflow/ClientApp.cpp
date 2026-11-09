@@ -278,6 +278,7 @@ void ClientApp::closeClient(Client *client)
 bool ClientApp::startClient()
 {
   deskflow::Computer *clientComputer = nullptr;
+  ensureTlsCertificate();
   try {
     if (m_clientComputer == nullptr) {
       clientComputer = openClientComputer();

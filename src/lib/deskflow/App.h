@@ -122,6 +122,14 @@ public:
   }
 
 protected:
+  //! Makes this computer's TLS certificate if TLS is on and there is none
+  /*!
+  A new install has none: the classic GUI used to make it, the Tauri app doesn't. A
+  client without one fails the TLS handshake before it sees the server's, so it can't
+  even be asked whether to trust it.
+  */
+  static void ensureTlsCertificate();
+
   void runEventsLoop(const void *);
 
   struct LoopErrorCode

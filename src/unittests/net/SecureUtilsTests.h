@@ -13,4 +13,5 @@ private Q_SLOTS:
   void checkHex();
   void checkArt();
   void checkColumns();
+  void createsAMissingCertificate();
 };

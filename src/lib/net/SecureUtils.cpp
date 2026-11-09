@@ -115,6 +115,21 @@ void generatePemSelfSignedCert(const std::string &path, int keyLength)
   PEM_write_X509(fp, cert);
 }
 
+bool ensurePemSelfSignedCert(const std::string &path, int keyLength)
+{
+  const auto fsPath = utf8Path(path);
+  if (std::error_code ec; std::filesystem::exists(fsPath, ec))
+    return false;
+  if (fsPath.has_parent_path()) {
+    std::error_code ec;
+    std::filesystem::create_directories(fsPath.parent_path(), ec);
+    if (ec)
+      throw std::runtime_error("could not create the certificate's folder: " + ec.message());
+  }
+  generatePemSelfSignedCert(path, keyLength);
+  return true;
+}
+
 std::string formatSSLFingerprintColumns(const Fingerprint::Bytes &fingerprint)
 {
   const size_t kBytesPerLine = 8;

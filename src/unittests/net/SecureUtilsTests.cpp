@@ -9,6 +9,9 @@
 
 #include "net/SecureUtils.h"
 
+#include <QFile>
+#include <QTemporaryDir>
+
 using namespace deskflow;
 
 namespace {
@@ -43,6 +46,26 @@ void SecureUtilsTests::checkArt()
                                                       "║+o*Bo .          ║\n"
                                                       "╚═════════════════╝"
   );
+}
+
+void SecureUtilsTests::createsAMissingCertificate()
+{
+  QTemporaryDir dir;
+  QVERIFY(dir.isValid());
+  const auto path = (dir.path() + QStringLiteral("/not yet/tls/deskflow.pem")).toStdString();
+
+  QVERIFY(deskflow::ensurePemSelfSignedCert(path, 1024));
+  QFile file(QString::fromStdString(path));
+  QVERIFY(file.open(QIODevice::ReadOnly));
+  const auto pem = file.readAll();
+  file.close();
+  QVERIFY(pem.contains("PRIVATE KEY-----"));
+  QVERIFY(pem.contains("-----BEGIN CERTIFICATE-----"));
+
+  // never replaced: the other computers trust its fingerprint
+  QVERIFY(!deskflow::ensurePemSelfSignedCert(path, 1024));
+  QVERIFY(file.open(QIODevice::ReadOnly));
+  QCOMPARE(file.readAll(), pem);
 }
 
 void SecureUtilsTests::checkColumns()

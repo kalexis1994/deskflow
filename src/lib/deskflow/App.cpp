@@ -17,6 +17,7 @@
 #include "common/ExitCodes.h"
 #include "deskflow/DeskflowException.h"
 #include "mt/ThreadException.h"
+#include "net/SecureUtils.h"
 
 #if defined(DESKFLOW_OS_WIN)
 #include "base/IEventQueue.h"
@@ -35,6 +36,21 @@
 using namespace deskflow;
 
 App *App::s_instance = nullptr;
+
+void App::ensureTlsCertificate()
+{
+  if (!CoreSettings::value(CoreSettings::Security::TlsEnabled).toBool())
+    return;
+  const auto path = CoreSettings::value(CoreSettings::Security::Certificate).toString();
+  if (path.empty())
+    return;
+  try {
+    if (deskflow::ensurePemSelfSignedCert(path))
+      LOG_INFO("created this computer's tls certificate: %s", path.c_str());
+  } catch (const std::exception &e) {
+    LOG_ERR("could not create this computer's tls certificate %s: %s", path.c_str(), e.what());
+  }
+}
 
 //
 // App
