@@ -21,7 +21,7 @@ export type LockMode = "toggle" | "on" | "off";
 export interface Action {
   kind: ActionKind;
   keys: number[];
-  /** Computers that receive the keys; empty = all. */
+  /** Where the keys may go; they only go to the one with the mouse. Empty = any. */
   computers: string[];
   target: string;
   direction: Direction;
@@ -57,7 +57,7 @@ export function newAction(kind: ActionKind, computers: string[]): Action {
 }
 
 export function describeAction(a: Action): string {
-  const to = (list: string[]) => (list.length ? ` a ${list.join(", ")}` : " a todas");
+  const to = (list: string[]) => (list.length ? ` (solo en ${list.join(", ")})` : "");
   let text: string;
   switch (a.kind) {
     case "switchToScreen":

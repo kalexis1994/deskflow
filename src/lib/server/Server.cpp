@@ -1821,26 +1821,60 @@ void Server::onScreensaver(bool activated)
   }
 }
 
+std::vector<std::string> Server::keyRecipients(
+    const char *computers, const std::string &active, bool broadcasting, const std::string &broadcastComputers,
+    const std::vector<std::string> &clients
+)
+{
+  using Info = IKeyState::KeyInfo;
+  if (!Info::isDefault(computers)) {
+    if (Info::contains(computers, active)) {
+      return {active};
+    }
+    return {};
+  }
+  if (!broadcasting) {
+    return {active};
+  }
+  const char *to = Info::isDefault(broadcastComputers.c_str()) ? "*" : broadcastComputers.c_str();
+  std::vector<std::string> recipients;
+  for (const auto &name : clients) {
+    if (Info::contains(to, name)) {
+      recipients.push_back(name);
+    }
+  }
+  return recipients;
+}
+
+std::vector<BaseClientProxy *> Server::keyClients(const char *computers) const
+{
+  std::vector<std::string> names;
+  if (m_keyboardBroadcasting) {
+    for (const auto &[name, client] : m_clients) {
+      names.push_back(name);
+    }
+  }
+  std::vector<BaseClientProxy *> recipients;
+  for (const auto &name :
+       keyRecipients(computers, getName(m_active), m_keyboardBroadcasting, m_keyboardBroadcastingComputers, names)) {
+    if (const auto client = m_clients.find(name); client != m_clients.end()) {
+      recipients.push_back(client->second);
+    }
+  }
+  return recipients;
+}
+
 void Server::onKeyDown(KeyID id, KeyModifierMask mask, KeyButton button, const std::string &lang, const char *computers)
 {
   LOG_VERBOSE("onKeyDown id=%d mask=0x%04x button=0x%04x lang=%s", id, mask, button, lang.c_str());
   assert(m_active != nullptr);
 
-  // relay
-  if (!m_keyboardBroadcasting && IKeyState::KeyInfo::isDefault(computers)) {
-    m_active->keyDown(id, mask, button, lang);
-  } else {
-    if (!computers && m_keyboardBroadcasting) {
-      computers = m_keyboardBroadcastingComputers.c_str();
-      if (IKeyState::KeyInfo::isDefault(computers)) {
-        computers = "*";
-      }
-    }
-    for (ClientList::const_iterator index = m_clients.begin(); index != m_clients.end(); ++index) {
-      if (IKeyState::KeyInfo::contains(computers, index->first)) {
-        index->second->keyDown(id, mask, button, lang);
-      }
-    }
+  const auto recipients = keyClients(computers);
+  if (recipients.empty() && !IKeyState::KeyInfo::isDefault(computers)) {
+    LOG_DEBUG("hotkey keys not sent: it isn't for \"%s\", where the mouse is", getName(m_active).c_str());
+  }
+  for (auto *client : recipients) {
+    client->keyDown(id, mask, button, lang);
   }
 }
 
@@ -1849,21 +1883,8 @@ void Server::onKeyUp(KeyID id, KeyModifierMask mask, KeyButton button, const cha
   LOG_VERBOSE("onKeyUp id=%d mask=0x%04x button=0x%04x", id, mask, button);
   assert(m_active != nullptr);
 
-  // relay
-  if (!m_keyboardBroadcasting && IKeyState::KeyInfo::isDefault(computers)) {
-    m_active->keyUp(id, mask, button);
-  } else {
-    if (!computers && m_keyboardBroadcasting) {
-      computers = m_keyboardBroadcastingComputers.c_str();
-      if (IKeyState::KeyInfo::isDefault(computers)) {
-        computers = "*";
-      }
-    }
-    for (ClientList::const_iterator index = m_clients.begin(); index != m_clients.end(); ++index) {
-      if (IKeyState::KeyInfo::contains(computers, index->first)) {
-        index->second->keyUp(id, mask, button);
-      }
-    }
+  for (auto *client : keyClients(computers)) {
+    client->keyUp(id, mask, button);
   }
 }
 

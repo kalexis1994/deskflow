@@ -265,7 +265,8 @@ pub struct Action {
     /// Keys or mouse button to send, for the keystroke and mouse kinds.
     #[serde(default)]
     pub keys: Vec<i64>,
-    /// Computers that receive the keys; empty means all of them.
+    /// Computers where the keys may go; empty means any. The server sends them only to
+    /// the one with the mouse, when it is one of these.
     #[serde(default)]
     pub computers: Vec<String>,
     /// Destination of `switchToScreen`.
@@ -434,7 +435,7 @@ fn action_text(a: &Action, known: &HashSet<String>) -> Option<String> {
             .map(String::as_str)
             .collect();
         if !a.computers.is_empty() && computers.is_empty() {
-            // every target is gone; sending to everyone instead would surprise
+            // every computer it was for is gone; working on any instead would surprise
             return None;
         }
         let to = if computers.is_empty() {

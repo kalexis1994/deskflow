@@ -341,10 +341,10 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
               Ctrl+Alt+Supr
             </button>
           </div>
-          <div className="hk__targets" role="group" aria-label="Computadoras que reciben las teclas">
-            <span className="muted small">Para:</span>
+          <div className="hk__targets" role="group" aria-label="Computadoras donde funciona">
+            <span className="muted small">Funciona en:</span>
             <button className={`le__chip ${action.computers.length === 0 ? "le__chip--on" : ""}`} onClick={() => onChange({ ...action, computers: [] })}>
-              Todas
+              Cualquiera
             </button>
             {computers.map((c) => (
               <button key={c} className={`le__chip ${action.computers.includes(c) ? "le__chip--on" : ""}`} onClick={() => toggleComputer(c)}>
@@ -352,6 +352,7 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
               </button>
             ))}
           </div>
+          <p className="muted small">Las teclas van solo a la computadora donde está el mouse.</p>
         </>
       )}
 

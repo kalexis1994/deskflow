@@ -24,4 +24,31 @@ void ServerTests::KeyboardBroadcastInfo_alloc_stateAndComputers()
   delete info;
 }
 
+using Names = std::vector<std::string>;
+
+void ServerTests::hotkeyKeysGoOnlyWhereTheMouseIs()
+{
+  const Names clients = {"server", "laptop", "work"};
+  QCOMPARE(Server::keyRecipients("*", "laptop", false, "", clients), Names{"laptop"});
+  QCOMPARE(Server::keyRecipients(":laptop:work:", "work", false, "", clients), Names{"work"});
+  // the mouse is on a computer the hotkey isn't for: nowhere, not to the others
+  QCOMPARE(Server::keyRecipients(":laptop:work:", "server", false, "", clients), Names{});
+  QCOMPARE(Server::keyRecipients(":laptop:", "work", false, "", clients), Names{});
+  // the same while broadcasting the keyboard
+  QCOMPARE(Server::keyRecipients(":laptop:work:", "work", true, "*", clients), Names{"work"});
+}
+
+void ServerTests::typedKeysGoWhereTheMouseIs()
+{
+  QCOMPARE(Server::keyRecipients("", "laptop", false, "", {"server", "laptop"}), Names{"laptop"});
+  QCOMPARE(Server::keyRecipients(nullptr, "laptop", false, "", {"server", "laptop"}), Names{"laptop"});
+}
+
+void ServerTests::broadcastKeysGoToTheNamedComputers()
+{
+  const Names clients = {"laptop", "server", "work"};
+  QCOMPARE(Server::keyRecipients("", "server", true, ":laptop:work:", clients), (Names{"laptop", "work"}));
+  QCOMPARE(Server::keyRecipients("", "server", true, "", clients), clients);
+}
+
 QTEST_MAIN(ServerTests)

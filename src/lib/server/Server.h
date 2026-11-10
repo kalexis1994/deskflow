@@ -207,6 +207,18 @@ public:
   Set the \c list to the names of the currently connected clients.
   */
   void getClients(std::vector<std::string> &list) const;
+
+  //! The computers a key goes to
+  /*!
+  Keys a hotkey sends name the computers it is for (`computers`, or "*" for any). They
+  go only where the mouse is (`active`), and only if that computer is one of them, so a
+  hotkey never acts on a computer nobody is looking at. Typed keys go where the mouse
+  is, or to the computers keyboard broadcasting names.
+  */
+  static std::vector<std::string> keyRecipients(
+      const char *computers, const std::string &active, bool broadcasting, const std::string &broadcastComputers,
+      const std::vector<std::string> &clients
+  );
   void sendConnectedClientsIpc() const;
   size_t getMaximumClipboardSizeBytes() const;
 
@@ -364,6 +376,7 @@ private:
   void onScreensaver(bool activated);
   void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *computers);
   void onKeyUp(KeyID, KeyModifierMask, KeyButton, const char *computers);
+  std::vector<BaseClientProxy *> keyClients(const char *computers) const;
   void onKeyRepeat(KeyID, KeyModifierMask, int32_t, KeyButton, const std::string &);
   void onMouseDown(ButtonID);
   void onMouseUp(ButtonID);
