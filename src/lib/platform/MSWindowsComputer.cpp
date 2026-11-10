@@ -306,6 +306,13 @@ void MSWindowsComputer::leave()
   m_desks->leave(m_keyLayout);
 
   if (m_isPrimary) {
+    // Relay first: from now on the hook eats every motion, so none can take the cursor
+    // away from the center it goes to next. One the system worked out from the edge
+    // before the warp would otherwise still land after it and leave the cursor at that
+    // edge, visible. What the hook relays meanwhile comes before the mark set below, and
+    // is ignored.
+    m_hook.setMode(kHOOK_RELAY_EVENTS);
+
     LOG_VERBOSE("centering cursor on leave: %+d, %+d", m_xCenter, m_yCenter);
     warpCursor(m_xCenter, m_yCenter);
 
@@ -318,8 +325,6 @@ void MSWindowsComputer::leave()
     // remember the modifier state.  this is the modifier state
     // reflected in the internal keyboard state.
     m_keyState->saveModifiers();
-
-    m_hook.setMode(kHOOK_RELAY_EVENTS);
 
     m_primaryKeyDownList.clear();
     for (KeyButton i = 0; i < IKeyState::s_numButtons; ++i) {
@@ -1371,6 +1376,26 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
   return true;
 }
 
+void MSWindowsComputer::warpUnrelayed(int32_t x, int32_t y) const
+{
+  // SetCursorPos would show to the hook as a motion all the way from where the cursor
+  // was (0.1.25 sent the client's cursor ~950 pixels that way); a tagged move it lets by
+  const int vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
+  const int vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+  const int vw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+  const int vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+  if (vw <= 1 || vh <= 1) {
+    return;
+  }
+  INPUT input = {};
+  input.type = INPUT_MOUSE;
+  input.mi.dx = static_cast<LONG>((static_cast<int64_t>(x - vx) * 65535 + (vw - 1) / 2) / (vw - 1));
+  input.mi.dy = static_cast<LONG>((static_cast<int64_t>(y - vy) * 65535 + (vh - 1) / 2) / (vh - 1));
+  input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK;
+  input.mi.dwExtraInfo = DESKFLOW_WARP_TAG;
+  SendInput(1, &input, sizeof(input));
+}
+
 bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
 {
   // from before the last switch
@@ -1386,7 +1411,7 @@ bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
   // off by that little; far, they are large and dropped as from before the warp.
   if (POINT pos; getThisCursorPos(&pos) && (std::abs(pos.x - m_xCenter) > 2 || std::abs(pos.y - m_yCenter) > 2)) {
     LOG_DEBUG("cursor wandered to %d,%d, back to the center", pos.x, pos.y);
-    setThisCursorPos(m_xCenter, m_yCenter);
+    warpUnrelayed(m_xCenter, m_yCenter);
   }
 
   if (dx == 0 && dy == 0) {

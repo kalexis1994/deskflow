@@ -26,6 +26,10 @@
 #define DESKFLOW_MSG_INPUT_LAST DESKFLOW_MSG_PRE_WARP
 #define DESKFLOW_HOOK_LAST_MSG DESKFLOW_MSG_DEBUG
 
+//! dwExtraInfo of a cursor move the primary makes itself while relaying: the hook lets
+//! it through instead of taking it for a motion
+#define DESKFLOW_WARP_TAG static_cast<ULONG_PTR>(0x44464C57)
+
 #define DESKFLOW_HOOK_FAKE_INPUT_VIRTUAL_KEY VK_CANCEL
 #define DESKFLOW_HOOK_FAKE_INPUT_SCANCODE 0
 

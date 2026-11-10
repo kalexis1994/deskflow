@@ -178,6 +178,8 @@ private: // HACK
   bool onMouseMove(int32_t x, int32_t y);
   //! A motion the hook measured while the cursor is on another computer
   bool onMouseDelta(int32_t dx, int32_t dy);
+  //! Moves this computer's cursor in a way the hook doesn't take for a motion to relay
+  void warpUnrelayed(int32_t x, int32_t y) const;
   bool onMouseWheel(int32_t xDelta, int32_t yDelta);
   //! The mouse's own motion, while the cursor is on another computer
   void onRawInput(HRAWINPUT input);
