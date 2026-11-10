@@ -35,5 +35,7 @@
   "saved.running": "Gespeichert. Deskflow wurde neu gestartet, um es anzuwenden.",
   "saved.stopped": "Gespeichert. Gilt ab dem nächsten Start von Deskflow.",
   "autoGameMode.label": "Automatischer Spielmodus",
-  "autoGameMode.hint": "Wenn ein Spiel auf einem anderen Computer die Maus übernimmt, bleibt die Maus dort und dreht die Kamera wie eine eigene Maus. Rollen gibt sie frei."
+  "autoGameMode.hint": "Wenn ein Spiel auf einem anderen Computer die Maus übernimmt, bleibt die Maus dort und dreht die Kamera wie eine eigene Maus. Rollen gibt sie frei.",
+  "shareLog.label": "Protokoll den verbundenen Computern zeigen",
+  "shareLog.hint": "Um von einem anderen Computer aus unter Aktivität zu sehen, was auf diesem passiert."
 }

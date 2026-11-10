@@ -60,5 +60,9 @@
   "activity.title": "Aktivität",
   "activity.onlyProblems": "Nur Warnungen und Fehler",
   "activity.empty": "Keine Aktivität.",
-  "status.gameMode": "Spielmodus auf {name}: Ein Spiel hat die Maus übernommen, sie bleibt also dort. Rollen gibt sie frei."
+  "status.gameMode": "Spielmodus auf {name}: Ein Spiel hat die Maus übernommen, sie bleibt also dort. Rollen gibt sie frei.",
+  "activity.source": "Protokoll von",
+  "activity.source.local": "Dieser Computer",
+  "activity.source.server": "Server",
+  "activity.source.waiting": "Protokoll wird vom Server angefordert…"
 }

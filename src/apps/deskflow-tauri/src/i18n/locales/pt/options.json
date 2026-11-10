@@ -35,5 +35,7 @@
   "saved.running": "Salvo. O Deskflow foi reiniciado para aplicar.",
   "saved.stopped": "Salvo. Vale a partir da próxima vez que você iniciar o Deskflow.",
   "autoGameMode.label": "Modo jogo automático",
-  "autoGameMode.hint": "Quando um jogo toma o mouse em outro computador, o mouse fica lá e gira a câmera como um mouse próprio. Scroll Lock o libera."
+  "autoGameMode.hint": "Quando um jogo toma o mouse em outro computador, o mouse fica lá e gira a câmera como um mouse próprio. Scroll Lock o libera.",
+  "shareLog.label": "Mostrar o registro aos computadores conectados",
+  "shareLog.hint": "Para ver de outro computador, em Atividade, o que acontece neste."
 }

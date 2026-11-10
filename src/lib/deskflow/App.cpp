@@ -13,6 +13,7 @@
 #include "arch/Arch.h"
 #include "base/Log.h"
 #include "base/LogOutputters.h"
+#include "base/RecentLogOutputter.h"
 #include "common/CoreSettings.h"
 #include "common/ExitCodes.h"
 #include "deskflow/DeskflowException.h"
@@ -127,6 +128,9 @@ void App::run()
 
 void App::setupFileLogging()
 {
+  // the newest lines, which a server shows its clients when they ask
+  CLOG->insert(new RecentLogOutputter, true); // NOSONAR - Adopted by `Log`
+
   if (CoreSettings::value(CoreSettings::Log::ToFile).toBool()) {
     const auto file = CoreSettings::value(CoreSettings::Log::File).toString();
     m_fileLog = new FileLogOutputter(file); // NOSONAR - Adopted by `Log`

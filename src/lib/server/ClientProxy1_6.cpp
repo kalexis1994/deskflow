@@ -6,6 +6,9 @@
 
 #include "server/ClientProxy1_6.h"
 
+#include "base/RecentLogOutputter.h"
+#include "common/CoreSettings.h"
+
 #include "base/Log.h"
 #include "deskflow/ClipboardChunk.h"
 #include "deskflow/ProtocolUtil.h"
@@ -19,6 +22,11 @@
 //
 // ClientProxy1_6
 //
+
+namespace {
+//! The most of the log a client gets: the newest lines, well within a message
+constexpr std::size_t kMaxServerLogBytes = 256 * 1024;
+} // namespace
 
 ClientProxy1_6::ClientProxy1_6(const std::string &name, deskflow::IStream *stream, Server *server, IEventQueue *events)
     : ClientProxy1_5(name, stream, server, events),
@@ -38,6 +46,17 @@ bool ClientProxy1_6::parseMessage(const uint8_t *code)
 {
   if (memcmp(code, kMsgCFileClipboard, 4) == 0) {
     recvFileClipboard();
+    return true;
+  }
+  if (memcmp(code, kMsgQServerLog, 4) == 0) {
+    // only while offered: a setting turned off since says nothing
+    std::string text;
+    if (const auto *log = RecentLogOutputter::instance();
+        log != nullptr && CoreSettings::value(CoreSettings::Server::ShareLog).toBool()) {
+      text = log->text(kMaxServerLogBytes);
+    }
+    LOG_DEBUG("sending the log to \"%s\", %zu bytes", getName().c_str(), text.size());
+    ProtocolUtil::writef(getStream(), kMsgDServerLog, &text);
     return true;
   }
   if (memcmp(code, kMsgDMonitors, 4) == 0) {

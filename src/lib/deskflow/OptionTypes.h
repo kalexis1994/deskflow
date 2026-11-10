@@ -65,6 +65,8 @@ static const OptionID kOptionMouseCapture = OPTION_CODE("MCAP");
 //! The server draws each computer's monitors in the screen layout: a client that can
 //! tell answers with kMsgDMonitors, and again whenever they change
 static const OptionID kOptionMonitors = OPTION_CODE("MONS");
+//! The server shows its log to its clients when they ask (kMsgQServerLog)
+static const OptionID kOptionServerLog = OPTION_CODE("SLOG");
 //@}
 
 //! @name Computer switch corner masks

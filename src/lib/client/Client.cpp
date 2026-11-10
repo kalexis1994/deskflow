@@ -70,12 +70,16 @@ Client::Client(
   // register suspend/resume event handlers
   m_events->addHandler(EventTypes::ComputerSuspend, getEventTarget(), [this](const auto &) { handleSuspend(); });
   m_events->addHandler(EventTypes::ComputerResume, getEventTarget(), [this](const auto &) { handleResume(); });
+  m_events->addHandler(EventTypes::ClientServerLogRequested, m_events->getSystemTarget(), [this](const auto &) {
+    requestServerLog();
+  });
 }
 
 Client::~Client()
 {
   m_events->removeHandler(EventTypes::ComputerSuspend, getEventTarget());
   m_events->removeHandler(EventTypes::ComputerResume, getEventTarget());
+  m_events->removeHandler(EventTypes::ClientServerLogRequested, m_events->getSystemTarget());
 
   cleanupTimer();
   cleanupClipboardRetry();
@@ -361,6 +365,7 @@ void Client::resetOptions()
   m_relativeMouseMoves = false;
   m_watchMouseCapture = false;
   m_sendMonitors = false;
+  reportServerLogAvailable(false);
   watchMouseCapture(false);
   m_hasRelativeRestorePosition = false;
   m_computer->resetOptions();
@@ -379,6 +384,11 @@ void Client::setOptions(const OptionsList &options)
       index++;
       if (index != options.end() && *index > 0) {
         enableFiles(static_cast<uint64_t>(*index) * 1024 * 1024);
+      }
+    } else if (id == kOptionServerLog) {
+      index++;
+      if (index != options.end()) {
+        reportServerLogAvailable(*index != 0);
       }
     } else if (id == kOptionMonitors) {
       index++;
@@ -849,6 +859,7 @@ void Client::cleanupConnection()
 void Client::cleanupComputer()
 {
   watchMouseCapture(false);
+  reportServerLogAvailable(false);
   if (m_server != nullptr) {
     if (m_ready) {
       m_computer->disable();
@@ -957,6 +968,31 @@ void Client::handleShapeChanged()
   LOG_DEBUG("resolution changed");
   m_server->onInfoChanged();
   sendMonitors();
+}
+
+void Client::reportServerLogAvailable(bool available)
+{
+  if (available == m_serverLogAvailable)
+    return;
+  m_serverLogAvailable = available;
+  ipcSendToClient("serverLogAvailable", available ? "1" : "0", true);
+}
+
+void Client::requestServerLog()
+{
+  if (!m_serverLogAvailable || m_server == nullptr) {
+    LOG_DEBUG("the server's log was asked for, but the server doesn't share it");
+    return;
+  }
+  m_server->requestServerLog();
+}
+
+void Client::serverLogReceived(const std::string &text)
+{
+  // a JSON string: the IPC is a line per message
+  std::string json;
+  deskflow::clipboard::appendJsonString(json, text);
+  ipcSendToClient("serverLog", json, true);
 }
 
 void Client::sendMonitors()

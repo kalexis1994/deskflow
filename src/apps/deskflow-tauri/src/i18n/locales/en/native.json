@@ -51,5 +51,6 @@
   "error.update.noChannelFolder": "Couldn't find where to save the channel",
   "error.update.saveChannel": "Couldn't save the channel: {reason}",
   "error.update.nothingToInstall": "There's no update to install",
-  "error.update.installFailed": "Couldn't install version {version}, and Deskflow is unchanged: {reason}"
+  "error.update.installFailed": "Couldn't install version {version}, and Deskflow is unchanged: {reason}",
+  "error.engine.notRunning": "Deskflow isn't running on this computer."
 }

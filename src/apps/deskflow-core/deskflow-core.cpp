@@ -170,6 +170,10 @@ int main(int argc, char **argv)
 
   deskflow::core::ipc::CoreIpcServer ipcServer;
   ipcServer.onStopProcessRequested = [coreApp] { coreApp->quit(); };
+  // handled on the core's thread, by the client if there is one
+  ipcServer.onServerLogRequested = [&events] {
+    events.addEvent(Event(EventTypes::ClientServerLogRequested, events.getSystemTarget()));
+  };
   ipcServer.listen();
 
   std::atomic<bool> coreFinished = false;

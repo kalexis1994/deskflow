@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
@@ -70,6 +70,8 @@ pub struct CoreState {
     /// Each computer's monitors (`[x, y, w, h]` in pixels) as the server last heard;
     /// kept for computers that left, which the layout still shows.
     pub monitors: BTreeMap<String, Vec<[i32; 4]>>,
+    /// The server this client connects to shows its log when asked.
+    pub server_log_available: bool,
     pub core_version: Option<String>,
     pub last_error: Option<String>,
     /// Recent shared clipboard activity, newest first (kept while the app runs).
@@ -99,6 +101,8 @@ pub struct Hub {
     dismissed: Mutex<HashSet<String>>,
     /// Fingerprints clients presented lately, with when, to name the one that connects.
     recent_fingerprints: Mutex<Vec<(String, u64)>>,
+    /// The server's log as it last arrived (a client asks with `request_server_log`).
+    server_log: Mutex<Option<String>>,
 }
 
 /// How long a client's fingerprint waits for the client to finish connecting.
@@ -179,6 +183,7 @@ impl Hub {
             child: tokio::sync::Mutex::new(None),
             dismissed: Mutex::new(HashSet::new()),
             recent_fingerprints: Mutex::new(Vec::new()),
+            server_log: Mutex::new(None),
         })
     }
 
@@ -372,7 +377,39 @@ impl Hub {
         }
     }
 
+    /// Asks the server, through this client's core, for its log; it arrives as the
+    /// `server-log` event.
+    pub async fn request_server_log(&self) -> Result<(), String> {
+        let mut writer = self.core_writer.lock().await;
+        let w = writer
+            .as_mut()
+            .ok_or_else(|| i18n::t("error.engine.notRunning"))?;
+        w.write_all(b"serverLog\n").await.map_err(|e| e.to_string())
+    }
+
+    pub fn server_log(&self) -> Option<String> {
+        self.server_log.lock().unwrap().clone()
+    }
+
+    /// Kept, shown, and saved where it can be read without the app, as the server's own
+    /// log is out of reach on another computer.
+    fn server_log_received(&self, args: &str) {
+        let Ok(text) = serde_json::from_str::<String>(args) else {
+            return;
+        };
+        if let Ok(dir) = self.app.path().app_local_data_dir() {
+            let _ = std::fs::create_dir_all(&dir);
+            let _ = std::fs::write(dir.join("server-log.txt"), &text);
+        }
+        *self.server_log.lock().unwrap() = Some(text.clone());
+        let _ = self.app.emit("server-log", text);
+    }
+
     fn apply_event(&self, command: &str, args: &str) {
+        if command == "serverLog" {
+            self.server_log_received(args);
+            return;
+        }
         let before_clients =
             (command == "connectedClients").then(|| self.state.lock().unwrap().clients.clone());
         self.apply_state_event(command, args);
@@ -412,6 +449,7 @@ impl Hub {
             }
             "missingKeyboardLayouts" => s.missing_layouts = Some(args),
             "gameMode" => s.game_mode = (!args.is_empty()).then_some(args),
+            "serverLogAvailable" => s.server_log_available = args == "1",
             "monitors" => {
                 if let Ok(computers) =
                     serde_json::from_str::<BTreeMap<String, Vec<[i32; 4]>>>(&args)
@@ -514,6 +552,7 @@ impl Hub {
             s.unrecognised_client = None;
             s.missing_layouts = None;
             s.game_mode = None;
+            s.server_log_available = false;
         });
 
         let result = match ov.process_mode {

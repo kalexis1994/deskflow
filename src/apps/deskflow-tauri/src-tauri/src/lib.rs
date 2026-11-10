@@ -57,6 +57,18 @@ fn core_log(hub: State<'_, Arc<Hub>>) -> Vec<String> {
     hub.log_lines()
 }
 
+/// Asks the server for its log; it arrives as the `server-log` event.
+#[tauri::command]
+async fn request_server_log(hub: State<'_, Arc<Hub>>) -> Result<(), String> {
+    hub.request_server_log().await
+}
+
+/// The server's log as it last arrived.
+#[tauri::command]
+fn server_log(hub: State<'_, Arc<Hub>>) -> Option<String> {
+    hub.server_log()
+}
+
 #[tauri::command]
 async fn start_core(hub: State<'_, Arc<Hub>>) -> Result<(), String> {
     hub.inner().start().await
@@ -321,6 +333,8 @@ pub fn run() {
             local_address,
             core_state,
             core_log,
+            request_server_log,
+            server_log,
             start_core,
             stop_core,
             save_settings,

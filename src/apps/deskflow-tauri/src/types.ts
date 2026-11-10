@@ -44,6 +44,8 @@ export interface CoreState {
   gameMode?: string | null;
   /** Each computer's monitors (x, y, width, height in pixels) as the server last heard. */
   monitors?: Record<string, [number, number, number, number][]>;
+  /** The server this client connects to shows its log when asked. */
+  serverLogAvailable?: boolean;
   coreVersion: string | null;
   lastError: string | null;
   /** Recent shared clipboard activity, newest first. */

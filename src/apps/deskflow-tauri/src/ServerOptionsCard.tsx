@@ -15,6 +15,7 @@ export interface ServerOptions {
   startLocked: boolean;
   relativeMoves: boolean;
   autoGameMode: boolean;
+  shareLog: boolean;
   heartbeat: boolean;
   heartbeatMs: number;
   protocol: "barrier" | "synergy";
@@ -32,6 +33,7 @@ export const DEFAULT_SERVER_OPTIONS: ServerOptions = {
   startLocked: false,
   relativeMoves: false,
   autoGameMode: true,
+  shareLog: true,
   heartbeat: false,
   heartbeatMs: 5000,
   protocol: "barrier",
@@ -149,6 +151,12 @@ export function ServerOptionsCard({ running }: { running: boolean }) {
         </Group>
 
         <Group title={t("options.group.connection")}>
+          <Switch
+            label={t("options.shareLog.label")}
+            hint={t("options.shareLog.hint")}
+            on={draft.shareLog}
+            onChange={(v) => set({ shareLog: v })}
+          />
           <Switch
             label={t("options.heartbeat.label")}
             hint={t("options.heartbeat.hint")}

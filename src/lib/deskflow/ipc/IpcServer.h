@@ -50,6 +50,7 @@ public:
   std::function<void(const std::string &configFile)> onConfigFileChanged;
   std::function<void()> onStartProcessRequested;
   std::function<void()> onStopProcessRequested;
+  std::function<void()> onServerLogRequested;
   std::function<void()> onClearSettingsRequested;
   //! Installs an update the app downloaded; returns why not, or nothing when it started
   std::function<std::string(const std::string &installer)> onInstallUpdateRequested;

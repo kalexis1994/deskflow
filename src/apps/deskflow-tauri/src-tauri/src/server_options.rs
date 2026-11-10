@@ -33,6 +33,9 @@ pub struct ServerOptions {
     /// A game that takes the mouse on a client gets relative motion by itself.
     #[serde(default = "yes")]
     pub auto_game_mode: bool,
+    /// Clients can read this computer's log, from their Actividad tab.
+    #[serde(default = "yes")]
+    pub share_log: bool,
     pub heartbeat: bool,
     pub heartbeat_ms: u32,
     pub protocol: Protocol,
@@ -53,6 +56,7 @@ impl Default for ServerOptions {
             start_locked: false,
             relative_moves: false,
             auto_game_mode: true,
+            share_log: true,
             heartbeat: false,
             heartbeat_ms: 5000,
             protocol: Protocol::Barrier,
@@ -86,6 +90,7 @@ pub fn read(ini: &IniFile) -> ServerOptions {
         start_locked: flag("defaultLockToComputerState", d.start_locked),
         relative_moves: flag("relativeMouseMoves", d.relative_moves),
         auto_game_mode: flag("autoGameMode", d.auto_game_mode),
+        share_log: flag("shareLog", d.share_log),
         heartbeat: flag("enableHeartbeat", d.heartbeat),
         heartbeat_ms: num("heartbeat", d.heartbeat_ms),
         protocol: match ini.get(S, "protocol").as_deref() {
@@ -134,6 +139,7 @@ pub fn write(ini: &mut IniFile, o: &ServerOptions) {
     ini.set(S, "defaultLockToComputerState", b(o.start_locked));
     ini.set(S, "relativeMouseMoves", b(o.relative_moves));
     ini.set(S, "autoGameMode", b(o.auto_game_mode));
+    ini.set(S, "shareLog", b(o.share_log));
     ini.set(S, "enableHeartbeat", b(o.heartbeat));
     ini.set(S, "heartbeat", &o.heartbeat_ms.to_string());
     ini.set(

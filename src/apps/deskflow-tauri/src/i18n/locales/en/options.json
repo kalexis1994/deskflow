@@ -35,5 +35,7 @@
   "saved.running": "Saved. Deskflow restarted to apply it.",
   "saved.stopped": "Saved. It takes effect the next time you start Deskflow.",
   "autoGameMode.label": "Automatic game mode",
-  "autoGameMode.hint": "When a game takes the mouse on another computer, the mouse stays there and turns the camera like a mouse of its own. Scroll Lock lets it go."
+  "autoGameMode.hint": "When a game takes the mouse on another computer, the mouse stays there and turns the camera like a mouse of its own. Scroll Lock lets it go.",
+  "shareLog.label": "Show the log to the connected computers",
+  "shareLog.hint": "To see from another computer, in Activity, what happens on this one."
 }

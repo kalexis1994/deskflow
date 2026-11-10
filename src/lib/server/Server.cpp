@@ -1231,6 +1231,12 @@ void Server::sendOptions(BaseClientProxy *client) const
     }
   }
 
+  // show the client this log when it asks; classic clients ignore the option
+  if (client != m_primaryClient && CoreSettings::value(CoreSettings::Server::ShareLog).toBool()) {
+    optionsList.push_back(kOptionServerLog);
+    optionsList.push_back(1);
+  }
+
   // draw the client's monitors in the layout; classic clients ignore the option
   if (client != m_primaryClient) {
     optionsList.push_back(kOptionMonitors);

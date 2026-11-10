@@ -66,6 +66,7 @@ constexpr std::array kDefaultTrueValues = {
   , CoreSettings::Security::TlsEnabled
   , CoreSettings::Security::CheckPeers
   , CoreSettings::Server::AutoGameMode
+  , CoreSettings::Server::ShareLog
   , CoreSettings::Server::EnableClipboard
   , CoreSettings::Server::Win32KeepForeground
 };

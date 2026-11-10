@@ -35,5 +35,7 @@
   "saved.running": "Guardado. Deskflow se reinició para aplicarlo.",
   "saved.stopped": "Guardado. Se aplica la próxima vez que inicies Deskflow.",
   "autoGameMode.label": "Modo juego automático",
-  "autoGameMode.hint": "Cuando un juego toma el mouse en otra computadora, el mouse queda ahí y mueve la cámara como un mouse propio. Bloq Despl lo suelta."
+  "autoGameMode.hint": "Cuando un juego toma el mouse en otra computadora, el mouse queda ahí y mueve la cámara como un mouse propio. Bloq Despl lo suelta.",
+  "shareLog.label": "Mostrar el registro a las computadoras conectadas",
+  "shareLog.hint": "Para ver desde otra computadora, en Actividad, qué pasa en esta."
 }

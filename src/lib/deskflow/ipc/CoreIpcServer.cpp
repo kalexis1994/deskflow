@@ -50,6 +50,10 @@ void CoreIpcServer::processCommand(ClientId client, const std::string &command, 
     notify(onStopProcessRequested);
     return;
   }
+  if (command == "serverLog") {
+    notify(onServerLogRequested);
+    return;
+  }
   LOG_WARN("core ipc server got unknown command: %s", command.c_str());
 }
 

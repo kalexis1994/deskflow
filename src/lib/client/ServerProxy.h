@@ -58,6 +58,8 @@ public:
   void sendMouseCapture(bool captured);
   //! Tells the server this computer's monitors (kMsgDMonitors)
   void sendMonitors(const std::string &monitors);
+  //! Asks the server for its log (kMsgQServerLog)
+  void requestServerLog();
   void sendFileList(const std::string &id, const std::string &list);
   void sendFileChunk(const std::string &id, uint32_t index, const std::string &data);
   void sendFileDone(const std::string &id, uint32_t index, const std::string &digest);

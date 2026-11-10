@@ -60,5 +60,9 @@
   "activity.title": "Actividad",
   "activity.onlyProblems": "Solo avisos y errores",
   "activity.empty": "Sin actividad.",
-  "status.gameMode": "Modo juego en {name}: un juego tomó el mouse, así que queda ahí. Bloq Despl lo suelta."
+  "status.gameMode": "Modo juego en {name}: un juego tomó el mouse, así que queda ahí. Bloq Despl lo suelta.",
+  "activity.source": "Registro de",
+  "activity.source.local": "Esta computadora",
+  "activity.source.server": "Servidor",
+  "activity.source.waiting": "Pidiéndole el registro al servidor…"
 }

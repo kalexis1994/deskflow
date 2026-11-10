@@ -148,6 +148,11 @@ public:
   /*!
   Returns true if the client is successfully connected to the server.
   */
+  //! The app asked for the server's log
+  void requestServerLog();
+  //! The server's log arrived: for the app
+  void serverLogReceived(const std::string &text);
+
   bool isConnected() const;
 
   //! Test if connecting
@@ -223,6 +228,8 @@ private:
   void watchMouseCapture(bool watch);
   void checkMouseCapture();
   void sendMonitors();
+  //! Tells the app whether the server's log can be asked for
+  void reportServerLogAvailable(bool available);
   //! Tells the GUI about clipboard activity (only the clipboard, not the X11 selection)
   void reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const;
   void sendEvent(deskflow::EventTypes);
@@ -276,6 +283,8 @@ private:
   bool m_watchMouseCapture = false;
   //! The server draws this computer's monitors (kOptionMonitors)
   bool m_sendMonitors = false;
+  //! The server shows its log when asked (kOptionServerLog)
+  bool m_serverLogAvailable = false;
   //! What the server was last told about the mouse being taken
   bool m_mouseCaptured = false;
   EventQueueTimer *m_mouseCaptureTimer = nullptr;

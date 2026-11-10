@@ -60,5 +60,9 @@
   "activity.title": "Activity",
   "activity.onlyProblems": "Only warnings and errors",
   "activity.empty": "No activity.",
-  "status.gameMode": "Game mode on {name}: a game took the mouse, so it stays there. Scroll Lock lets it go."
+  "status.gameMode": "Game mode on {name}: a game took the mouse, so it stays there. Scroll Lock lets it go.",
+  "activity.source": "Log of",
+  "activity.source.local": "This computer",
+  "activity.source.server": "Server",
+  "activity.source.waiting": "Asking the server for its log…"
 }

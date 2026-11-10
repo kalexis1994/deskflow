@@ -314,6 +314,12 @@ ServerProxy::ConnectionResult ServerProxy::parseMessage(const uint8_t *code)
     // handled
   }
 
+  else if (memcmp(code, kMsgDServerLog, 4) == 0) {
+    std::string text;
+    ProtocolUtil::readf(m_stream, kMsgDServerLog + 4, &text);
+    m_client->serverLogReceived(text);
+  }
+
   else if (memcmp(code, kMsgCClose, 4) == 0) {
     // server wants us to hangup
     LOG_VERBOSE("recv close");
@@ -374,6 +380,11 @@ void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard
   LOG_DEBUG("sending clipboard %d seqnum=%d", id, m_seqNum);
 
   StreamChunker::sendClipboard(data, data.size(), id, m_seqNum, m_events, this);
+}
+
+void ServerProxy::requestServerLog()
+{
+  ProtocolUtil::writef(m_stream, kMsgQServerLog);
 }
 
 void ServerProxy::sendMonitors(const std::string &monitors)

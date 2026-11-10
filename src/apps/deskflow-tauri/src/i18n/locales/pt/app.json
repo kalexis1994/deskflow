@@ -60,5 +60,9 @@
   "activity.title": "Atividade",
   "activity.onlyProblems": "Somente avisos e erros",
   "activity.empty": "Sem atividade.",
-  "status.gameMode": "Modo jogo em {name}: um jogo tomou o mouse, então ele fica lá. Scroll Lock o libera."
+  "status.gameMode": "Modo jogo em {name}: um jogo tomou o mouse, então ele fica lá. Scroll Lock o libera.",
+  "activity.source": "Registro de",
+  "activity.source.local": "Este computador",
+  "activity.source.server": "Servidor",
+  "activity.source.waiting": "Pedindo o registro ao servidor…"
 }

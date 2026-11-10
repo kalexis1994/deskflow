@@ -30,6 +30,8 @@ add_library(base STATIC ${PLATFORM_CODE}
   IJob.h
   ILogOutputter.h
   LogOutputters.cpp
+  RecentLogOutputter.cpp
+  RecentLogOutputter.h
   LogOutputters.h
   Log.cpp
   Log.h

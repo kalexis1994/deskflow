@@ -92,6 +92,7 @@ public:
     static constexpr std::string_view Heartbeat = "server/heartbeat";
     static constexpr std::string_view Protocol = "server/protocol";
     static constexpr std::string_view RelativeMouseMoves = "server/relativeMouseMoves";
+    static constexpr std::string_view ShareLog = "server/shareLog";
     static constexpr std::string_view SwitchDelay = "server/switchDelay";
     static constexpr std::string_view SwitchDoubleTap = "server/switchDoubleTap";
     static constexpr std::string_view Win32KeepForeground = "server/win32KeepForeground";

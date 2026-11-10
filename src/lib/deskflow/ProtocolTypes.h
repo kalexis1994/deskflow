@@ -1158,6 +1158,28 @@ extern const char *const kMsgCMouseCapture;
 extern const char *const kMsgDMonitors;
 
 /**
+ * @brief Asks for the server's log
+ *
+ * **Message Code**: `"QSLG"`
+ * **Direction**: Secondary → Primary
+ *
+ * Sent only to a server that offered the `SLOG` option. The server answers with
+ * kMsgDServerLog.
+ */
+extern const char *const kMsgQServerLog;
+
+/**
+ * @brief The newest lines of the server's log
+ *
+ * **Message Code**: `"DSLG"`
+ * **Direction**: Primary → Secondary
+ * **Format**: `"DSLG%s"`
+ * **Parameters**:
+ * - `$1`: the lines, oldest first, each ended by a newline; at most 256 KiB
+ */
+extern const char *const kMsgDServerLog;
+
+/**
  * @brief The files and folders of a copy
  *
  * **Message Code**: `"DFLS"`

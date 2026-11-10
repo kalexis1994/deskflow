@@ -85,6 +85,7 @@ const core: CoreState = {
   retryAt: null,
   missingLayouts: null,
   gameMode: null,
+  serverLogAvailable: params.get("mode") === "client",
   // a 1080p monitor and a taller 1440p one to its right, lower; a laptop of one
   monitors: { escritorio: [[0, 0, 1920, 1080], [1920, -180, 2560, 1440]], laptop: [[0, 0, 1920, 1200]] },
   coreVersion: "1.27.0.5 · 3aec96d5",
@@ -239,6 +240,25 @@ mockIPC(
         return core;
       case "core_log":
         return log;
+      case "server_log":
+        return null;
+      case "request_server_log":
+        // as the server would answer, a moment later
+        setTimeout(
+          () =>
+            void emit(
+              "server-log",
+              [
+                "[2026-10-13T08:00:00.000] INFO: started server, waiting for clients",
+                '[2026-10-13T08:00:05.000] INFO: client "laptop" has connected',
+                '[2026-10-13T08:01:12.000] INFO: switch from "escritorio" to "laptop" at 0,540',
+                '[2026-10-13T08:01:12.002] INFO: stayed on "laptop": going back to "escritorio" 2 ms after arriving is a bounce (motion -3,+0, at 0,540)',
+                "[2026-10-13T08:02:40.000] WARNING: not sharing clipboard 0, even its text exceeds the limit of 3072 KB",
+              ].join("\n") + "\n",
+            ),
+          300,
+        );
+        return null;
       case "local_address":
         return "192.168.1.50";
       case "get_layout":

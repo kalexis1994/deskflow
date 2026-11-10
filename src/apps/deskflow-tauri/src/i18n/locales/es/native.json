@@ -51,5 +51,6 @@
   "error.update.noChannelFolder": "No encontré dónde guardar el canal",
   "error.update.saveChannel": "No se pudo guardar el canal: {reason}",
   "error.update.nothingToInstall": "No hay ninguna actualización para instalar",
-  "error.update.installFailed": "No se pudo instalar la versión {version}, y Deskflow sigue como estaba: {reason}"
+  "error.update.installFailed": "No se pudo instalar la versión {version}, y Deskflow sigue como estaba: {reason}",
+  "error.engine.notRunning": "Deskflow no está corriendo en esta computadora."
 }

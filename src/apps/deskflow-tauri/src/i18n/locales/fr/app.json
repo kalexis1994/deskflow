@@ -60,5 +60,9 @@
   "activity.title": "Activité",
   "activity.onlyProblems": "Avertissements et erreurs uniquement",
   "activity.empty": "Aucune activité.",
-  "status.gameMode": "Mode jeu sur {name} : un jeu a pris la souris, elle reste donc là-bas. Arrêt défil la libère."
+  "status.gameMode": "Mode jeu sur {name} : un jeu a pris la souris, elle reste donc là-bas. Arrêt défil la libère.",
+  "activity.source": "Journal de",
+  "activity.source.local": "Cet ordinateur",
+  "activity.source.server": "Serveur",
+  "activity.source.waiting": "Demande du journal au serveur…"
 }

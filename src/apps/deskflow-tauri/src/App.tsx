@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "./App.css";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useCountdown, useDeskflow } from "./useDeskflow";
 import { describeRefusal, describeStatus, parseLogLine } from "./status";
 import { LayoutEditor } from "./layout/LayoutEditor";
@@ -120,7 +122,7 @@ export default function App() {
       </Panel>
 
       <Panel id="activity" current={tab}>
-        <ActivityLog lines={log} visible={tab === "activity"} />
+        <ActivityLog lines={log} visible={tab === "activity"} serverLog={ov.coreMode === "client" && !!core.serverLogAvailable} />
       </Panel>
 
       <Panel id="about" current={tab}>
@@ -410,10 +412,36 @@ function Panel({ id, current, children }: { id: TabId; current: TabId; children:
   );
 }
 
-function ActivityLog({ lines, visible }: { lines: ReturnType<typeof parseLogLine>[]; visible: boolean }) {
+/** How often the server's log is asked for again while it is on screen. */
+const SERVER_LOG_EVERY_MS = 5000;
+
+function ActivityLog({ lines, visible, serverLog }: { lines: ReturnType<typeof parseLogLine>[]; visible: boolean; serverLog: boolean }) {
   const [onlyProblems, setOnlyProblems] = useState(false);
+  const [source, setSource] = useState<"local" | "server">("local");
+  const [serverText, setServerText] = useState<string | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
-  const shown = onlyProblems ? lines.filter((l) => l.level === "error" || l.level === "warn") : lines;
+  const fromServer = serverLog && source === "server";
+
+  // the server's log comes when asked for: now, and every few seconds while it shows
+  useEffect(() => {
+    if (!fromServer || !visible) return;
+    invoke<string | null>("server_log").then((text) => text !== null && setServerText(text), () => {});
+    const ask = () => invoke("request_server_log").catch(() => {});
+    ask();
+    const timer = setInterval(ask, SERVER_LOG_EVERY_MS);
+    const unlisten = listen<string>("server-log", (e) => setServerText(e.payload));
+    return () => {
+      clearInterval(timer);
+      unlisten.then((f) => f());
+    };
+  }, [fromServer, visible]);
+
+  const serverLines = useMemo(
+    () => (serverText ?? "").split("\n").filter((l) => l.trim() !== "").map(parseLogLine),
+    [serverText],
+  );
+  const all = fromServer ? serverLines : lines;
+  const shown = onlyProblems ? all.filter((l) => l.level === "error" || l.level === "warn") : all;
 
   // a hidden list can't scroll, so go to the end each time it shows
   useEffect(() => {
@@ -425,13 +453,23 @@ function ActivityLog({ lines, visible }: { lines: ReturnType<typeof parseLogLine
     <section className="card log">
       <div className="log__header">
         <h3>{t("app.activity.title")}</h3>
+        {serverLog && (
+          <div className="log__sources" role="radiogroup" aria-label={t("app.activity.source")}>
+            {(["local", "server"] as const).map((s) => (
+              <button key={s} role="radio" aria-checked={source === s} className={`log__source ${source === s ? "log__source--on" : ""}`} onClick={() => setSource(s)}>
+                {t(s === "local" ? "app.activity.source.local" : "app.activity.source.server")}
+              </button>
+            ))}
+          </div>
+        )}
         <label className="check">
           <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
           {t("app.activity.onlyProblems")}
         </label>
       </div>
       <ol className="log__list" ref={listRef}>
-        {shown.length === 0 && <li className="muted">{t("app.activity.empty")}</li>}
+        {fromServer && serverText === null && <li className="muted">{t("app.activity.source.waiting")}</li>}
+        {shown.length === 0 && !(fromServer && serverText === null) && <li className="muted">{t("app.activity.empty")}</li>}
         {shown.slice(-500).map((l, i) => (
           <li key={i} className={`log__line log__line--${l.level}`}>
             {l.time && <time>{l.time}</time>}

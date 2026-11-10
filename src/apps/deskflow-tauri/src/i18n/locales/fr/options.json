@@ -35,5 +35,7 @@
   "saved.running": "Enregistré. Deskflow a redémarré pour l’appliquer.",
   "saved.stopped": "Enregistré. Prend effet au prochain démarrage de Deskflow.",
   "autoGameMode.label": "Mode jeu automatique",
-  "autoGameMode.hint": "Quand un jeu prend la souris sur un autre ordinateur, la souris y reste et tourne la caméra comme une souris branchée dessus. Arrêt défil la libère."
+  "autoGameMode.hint": "Quand un jeu prend la souris sur un autre ordinateur, la souris y reste et tourne la caméra comme une souris branchée dessus. Arrêt défil la libère.",
+  "shareLog.label": "Montrer le journal aux ordinateurs connectés",
+  "shareLog.hint": "Pour voir depuis un autre ordinateur, dans Activité, ce qui se passe sur celui-ci."
 }

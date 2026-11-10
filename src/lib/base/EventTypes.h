@@ -28,6 +28,9 @@ enum class EventTypes : uint32_t
   /// This event is sent when the client has successfully connected to the server.
   ClientConnected,
 
+  /** The app asked to see the server's log (from the IPC thread; system target). */
+  ClientServerLogRequested,
+
   /** This event is sent when the server refuses the client */
   ClientConnectionRefused,
 
