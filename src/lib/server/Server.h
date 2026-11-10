@@ -222,6 +222,19 @@ public:
   hotkey never acts on a computer nobody is looking at. Typed keys go where the mouse
   is, or to the computers keyboard broadcasting names.
   */
+  //! Whether going to \p to now would undo the switch that just happened
+  /*!
+  The cursor arrives at a computer right on its edge, and the very next motion, from
+  before the switch or a twitch of the hand, can take it back over that edge within a
+  few milliseconds; it shows as the cursor flicking back to the other computer. Nobody
+  turns around that fast on purpose, so going back to the computer just left within
+  \p guardMs of arriving isn't a switch.
+  */
+  static bool isBounce(const void *to, const void *cameFrom, double sinceArrivalMs, double guardMs = kBounceGuardMs);
+
+  //! See isBounce()
+  static constexpr double kBounceGuardMs = 100.0;
+
   static std::vector<std::string> keyRecipients(
       const char *computers, const std::string &active, bool broadcasting, const std::string &broadcastComputers,
       const std::vector<std::string> &clients
@@ -403,6 +416,7 @@ private:
   //! Whether the active client gets relative motion: a game has the mouse, or the
   //! cursor is locked there with relative moves on
   bool isRelativeNow() const;
+
   void onMouseWheel(int32_t xDelta, int32_t yDelta);
 
   // add client to list and attach event handlers for client
@@ -480,6 +494,9 @@ private:
   size_t m_maximumClipboardSize = INT_MAX;
   ClientListener *m_clientListener = nullptr;
   Stopwatch m_switchTwoTapTimer;
+  //! The computer the cursor came from on the last switch, and since when it is here
+  const BaseClientProxy *m_cameFrom = nullptr;
+  Stopwatch m_sinceArrival;
 
   // Name of computer broadcasting the keyboard events
   std::string m_keyboardBroadcastingComputers;

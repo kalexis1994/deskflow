@@ -15,4 +15,5 @@ private Q_SLOTS:
   void hotkeyKeysGoOnlyWhereTheMouseIs();
   void typedKeysGoWhereTheMouseIs();
   void broadcastKeysGoToTheNamedComputers();
+  void goingStraightBackIsABounce();
 };

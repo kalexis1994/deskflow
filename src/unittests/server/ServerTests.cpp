@@ -51,4 +51,21 @@ void ServerTests::broadcastKeysGoToTheNamedComputers()
   QCOMPARE(Server::keyRecipients("", "server", true, "", clients), clients);
 }
 
+void ServerTests::goingStraightBackIsABounce()
+{
+  int server = 0;
+  int laptop = 0;
+  int work = 0;
+  // back to where it came from, right away
+  QVERIFY(Server::isBounce(&server, &server, 2.0));
+  QVERIFY(Server::isBounce(&server, &server, 99.0));
+  // later, it is the person going back
+  QVERIFY(!Server::isBounce(&server, &server, 150.0));
+  // on to somewhere else, however soon
+  QVERIFY(!Server::isBounce(&work, &server, 2.0));
+  // nowhere to have come from
+  QVERIFY(!Server::isBounce(&laptop, nullptr, 2.0));
+  QVERIFY(!Server::isBounce(nullptr, nullptr, 2.0));
+}
+
 QTEST_MAIN(ServerTests)

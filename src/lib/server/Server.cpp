@@ -486,6 +486,10 @@ void Server::switchComputer(BaseClientProxy *dst, int32_t x, int32_t y, bool for
   assert(m_active != nullptr);
 
   LOG_INFO("switch from \"%s\" to \"%s\" at %d,%d", getName(m_active).c_str(), getName(dst).c_str(), x, y);
+  if (m_active != dst) {
+    m_cameFrom = m_active;
+    m_sinceArrival.reset();
+  }
 
   // stop waiting to switch
   stopSwitch();
@@ -850,6 +854,14 @@ bool Server::isSwitchOkay(
     return false;
   }
 
+  if (const auto since = m_sinceArrival.getTime() * 1000.0; isBounce(newComputer, m_cameFrom, since)) {
+    LOG_INFO(
+        "stayed on \"%s\": going back to \"%s\" %.0f ms after arriving is a bounce (motion %+d,%+d, at %d,%d)",
+        getName(m_active).c_str(), getName(newComputer).c_str(), since, m_xDelta, m_yDelta, xActive, yActive
+    );
+    return false;
+  }
+
   // should we switch or not?
   bool preventSwitch = false;
   bool allowSwitch = false;
@@ -1115,6 +1127,11 @@ void Server::reportMonitors() const
   auto computers = m_clientMonitors;
   computers[getName(m_primaryClient)] = m_primaryClient->getMonitors();
   ipcSendToClient("monitors", deskflow::monitorsJson(computers), true);
+}
+
+bool Server::isBounce(const void *to, const void *cameFrom, double sinceArrivalMs, double guardMs)
+{
+  return to != nullptr && to == cameFrom && sinceArrivalMs < guardMs;
 }
 
 bool Server::isRelativeNow() const
@@ -2383,6 +2400,9 @@ bool Server::removeClient(BaseClientProxy *client)
 
   // the app keeps what it knew of a computer that left: the layout still shows it
   m_clientMonitors.erase(getName(client));
+  if (m_cameFrom == client) {
+    m_cameFrom = nullptr;
+  }
 
   if (m_mouseCapturedBy == client) {
     const bool wasGameMode = isGameMode();
