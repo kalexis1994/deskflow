@@ -39,7 +39,6 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 90
     env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache
       APP: src/apps/deskflow-tauri
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +51,8 @@ jobs:
           arch: x64
 
       - uses: seanmiddleditch/gha-setup-ninja@v5
+        with:
+          destination: ${{ runner.temp }}/ninja
 
       # the core no longer needs Qt, but the classic GUI and the tests still do
       - uses: jurplel/install-qt-action@v4
@@ -60,13 +61,18 @@ jobs:
           arch: win64_msvc2022_64
           cache: true
 
+      # outside the checkout, which publishing requires clean; the runner context isn't
+      # available to a job's env, so the following steps get it from here
       - name: vcpkg cache folder
         shell: pwsh
-        run: New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
+        run: |
+          $cache = Join-Path $env:RUNNER_TEMP "vcpkg-cache"
+          New-Item -ItemType Directory -Force $cache | Out-Null
+          "VCPKG_DEFAULT_BINARY_CACHE=$cache" >> $env:GITHUB_ENV
 
       - uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}\.vcpkg-cache
+          path: ${{ runner.temp }}\vcpkg-cache
           key: vcpkg-${{ runner.os }}-${{ hashFiles('cmake/vcpkg.json.in') }}
 
       - name: Configure the core
