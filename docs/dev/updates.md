@@ -18,6 +18,17 @@ The Tauri app looks for new versions in the GitHub releases of
   installer and `latest.json` names only the newest one, so nobody has to install the
   versions in between.
 
+Under the service, the service installs the update once the person says yes, so
+nothing else asks: Windows' permission prompt would come up on a computer controlled
+through Deskflow just as the installer stops the core, and nobody could answer it. Any
+program can reach the service's pipe, so it trusts nothing in the request. It copies
+the installer into a new folder that only SYSTEM and administrators can write, checks
+that copy's signature with the key built into it (`MSWindowsUpdate.h`, which a test
+keeps equal to `tauri.conf.json`), takes only a version newer than the installed one,
+and runs it in the person's session as it runs the core, with a progress bar and the
+app opening again at the end. Without the service, or if it refuses, the app runs the
+installer itself and Windows asks for permission.
+
 Installing stops the service, so Deskflow is cut off for a few seconds. That is why
 it can't be silent: on a computer with no keyboard of its own, that is the only way
 to control it. The installer shows no dialogs during an update, because nobody could

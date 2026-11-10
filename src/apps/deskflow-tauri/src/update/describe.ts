@@ -18,15 +18,19 @@ export const CHANNELS: { value: UpdateChannel; label: string; title: string }[] 
   { value: "alpha", label: "Alpha", title: "Versiones de prueba, que pueden fallar. Igual pregunta antes de instalar." },
 ];
 
-/** What the question has to say before anyone answers it: the update cuts Deskflow off for a moment. */
-export function whatHappens(mode: CoreMode): string {
+/**
+ * What the question has to say before anyone answers it: the update cuts Deskflow off for a moment.
+ * Under the service nothing else asks; otherwise Windows does.
+ */
+export function whatHappens(mode: CoreMode, service: boolean): string {
   const cut =
     mode === "server"
       ? "Las otras computadoras se quedan sin tu teclado y mouse hasta que termine."
       : mode === "client"
         ? "Esta computadora se queda sin el teclado y el mouse compartidos hasta que termine."
         : "Deskflow se detiene hasta que termine.";
-  return `Windows va a pedir permiso de administrador. La instalación tarda unos segundos. ${cut} Después vuelve solo.`;
+  const ask = service ? "No hay que aceptar nada más." : "Windows va a pedir permiso de administrador.";
+  return `${ask} La instalación tarda unos segundos. ${cut} Después vuelve solo.`;
 }
 
 /** The question stays until it is answered; a search that found nothing has nothing to ask. */

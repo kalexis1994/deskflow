@@ -51,6 +51,8 @@ public:
   std::function<void()> onStartProcessRequested;
   std::function<void()> onStopProcessRequested;
   std::function<void()> onClearSettingsRequested;
+  //! Installs an update the app downloaded; returns why not, or nothing when it started
+  std::function<std::string(const std::string &installer)> onInstallUpdateRequested;
 
 protected:
   //! Writes a message to a client, adding the newline

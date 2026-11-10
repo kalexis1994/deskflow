@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
+use crate::engine::Hub;
+use crate::ipc;
+use crate::settings::{self, ProcessMode};
 use crate::tray;
 
 /// Lets the app settle first: this also runs right after logging in.
@@ -24,6 +27,8 @@ const CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 /// Someone on this channel is waiting for a build to try.
 const CHECK_ALPHA_EVERY: Duration = Duration::from_secs(10 * 60);
 const WATCH_TICK: Duration = Duration::from_secs(60);
+/// Reading and checking the installer takes the service well under a second.
+const SERVICE_ANSWER: Duration = Duration::from_secs(30);
 
 /// Always the newest alpha; the stable feed is in `tauri.conf.json`.
 const ALPHA_FEED: &str =
@@ -351,6 +356,11 @@ pub fn dismiss_update(app: AppHandle, updates: State<'_, Arc<Updates>>) {
 
 /// The person said yes. Returns only if it failed: otherwise the app exits here, for
 /// the installer to replace it.
+///
+/// Under the service, the service installs it, so nothing else needs a click: on a
+/// computer controlled through Deskflow, Windows' permission prompt would come up with
+/// nobody able to answer it once the installer stops the core. Elsewhere, or if the
+/// service won't, Windows asks for permission as for any installer.
 #[tauri::command]
 pub async fn install_update(
     app: AppHandle,
@@ -377,8 +387,9 @@ pub async fn install_update(
 
     let mut received = 0u64;
     let mut shown = None;
-    let result = update
-        .download_and_install(
+    // checks the signature too
+    let downloaded = update
+        .download(
             |chunk, total| {
                 received += chunk as u64;
                 let percent = percent_of(received, total);
@@ -392,31 +403,87 @@ pub async fn install_update(
                     });
                 }
             },
-            || {
-                updates.change(&app, |inner| {
-                    inner.phase = Phase::Installing {
-                        version: version.clone(),
-                    };
-                });
-            },
+            || {},
         )
         .await;
+    let bytes = match downloaded {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            failed(&app, &updates, &update, &e.to_string());
+            return Ok(());
+        }
+    };
+    updates.change(&app, |inner| {
+        inner.phase = Phase::Installing {
+            version: version.clone(),
+        };
+    });
 
-    if let Err(e) = result {
-        eprintln!("no update: {e}");
-        tray::set_visible(&app, true);
-        updates.change(&app, |inner| {
-            inner.dismissed = None;
-            inner.phase = Phase::Available {
-                version: version.clone(),
-                notes: update.body.clone(),
-                error: Some(format!(
-                    "No se pudo instalar la versión {version}, y Deskflow sigue como estaba: {e}"
-                )),
-            };
-        });
+    let service = settings::read_overview().is_ok_and(|o| o.process_mode == ProcessMode::Service);
+    if service {
+        match through_service(&app, &update, &bytes).await {
+            Ok(()) => {
+                // the installer closes the app anyway, and opens it again when it is done
+                tray::set_visible(&app, false);
+                app.exit(0);
+                return Ok(());
+            }
+            Err(e) => eprintln!("the service didn't install the update, asking Windows: {e}"),
+        }
+    }
+
+    // runs the installer and exits; it returns only if it couldn't
+    if let Err(e) = update.install(&bytes) {
+        failed(&app, &updates, &update, &e.to_string());
     }
     Ok(())
+}
+
+fn failed(app: &AppHandle, updates: &Updates, update: &Update, reason: &str) {
+    eprintln!("no update: {reason}");
+    tray::set_visible(app, true);
+    let version = update.version.clone();
+    updates.change(app, |inner| {
+        inner.dismissed = None;
+        inner.phase = Phase::Available {
+            version: version.clone(),
+            notes: update.body.clone(),
+            error: Some(format!(
+                "No se pudo instalar la versión {version}, y Deskflow sigue como estaba: {reason}"
+            )),
+        };
+    });
+}
+
+/// Leaves the installer and its signature where the service can read them, and asks it
+/// to install them. The service checks both again on its own copy.
+async fn through_service(app: &AppHandle, update: &Update, bytes: &[u8]) -> Result<(), String> {
+    use base64::Engine;
+
+    let signature = base64::engine::general_purpose::STANDARD
+        .decode(update.signature.trim())
+        .map_err(|e| format!("unreadable signature: {e}"))?;
+    let dir = std::env::temp_dir().join("deskflow-update");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let installer = dir.join(installer_name(&update.version));
+    std::fs::write(&installer, bytes).map_err(|e| e.to_string())?;
+    let mut signature_path = installer.clone().into_os_string();
+    signature_path.push(".sig");
+    std::fs::write(&signature_path, signature).map_err(|e| e.to_string())?;
+
+    let version_id = app.state::<Arc<Hub>>().version_id.clone();
+    let request = format!("installUpdate={}", installer.to_string_lossy());
+    // an older service doesn't know the request and never answers it
+    tokio::time::timeout(SERVICE_ANSWER, ipc::daemon_request(&version_id, &[request]))
+        .await
+        .map_err(|_| "the service didn't answer".to_string())?
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// As the release names it, which is what its signature says it is.
+fn installer_name(version: &str) -> String {
+    format!("Deskflow-Tauri_{version}_x64-setup.exe")
 }
 
 fn percent_of(received: u64, total: Option<u64>) -> Option<u8> {
@@ -477,6 +544,28 @@ mod tests {
         assert_eq!(percent_of(50, Some(0)), None);
         assert_eq!(percent_of(50, Some(200)), Some(25));
         assert_eq!(percent_of(300, Some(200)), Some(100));
+    }
+
+    /// The service checks updates with the key in its own code (MSWindowsUpdate.h).
+    #[test]
+    fn the_service_checks_with_the_same_key() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let ours = conf["plugins"]["updater"]["pubkey"].as_str().unwrap();
+
+        let header = include_str!("../../../../lib/platform/MSWindowsUpdate.h");
+        let start = header.find("kPublicKey =").unwrap();
+        let end = start + header[start..].find(';').unwrap();
+        let theirs: String = header[start..end].split('"').skip(1).step_by(2).collect();
+        assert_eq!(theirs, ours);
+    }
+
+    #[test]
+    fn names_the_installer_as_its_signature_does() {
+        assert_eq!(
+            installer_name("0.1.13"),
+            "Deskflow-Tauri_0.1.13_x64-setup.exe"
+        );
     }
 
     #[test]

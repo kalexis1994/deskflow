@@ -24,6 +24,7 @@
 #include "deskflow/Computer.h"
 #include "platform/MSWindowsDebugOutputter.h"
 #include "platform/MSWindowsEventQueueBuffer.h"
+#include "platform/MSWindowsUpdate.h"
 #include "platform/MSWindowsWatchdog.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -171,6 +172,34 @@ void DaemonApp::connectIpcServer(ipc::DaemonIpcServer &ipcServer)
   ipcServer.onStartProcessRequested = [this] { applyWatchdogCommand(); };
   ipcServer.onStopProcessRequested = [this] { clearWatchdogCommand(); };
   ipcServer.onClearSettingsRequested = [this] { clearSettings(); };
+  ipcServer.onInstallUpdateRequested = [this](const std::string &installer) { return installUpdate(installer); };
+}
+
+std::string DaemonApp::installUpdate(const std::string &installer)
+{
+#if defined(DESKFLOW_OS_WIN)
+  namespace update = deskflow::platform::update;
+  const auto prepared =
+      update::prepare(deskflow::utf8Path(installer), update::installedVersion(), update::defaultRoot());
+  if (const auto *refused = std::get_if<std::string>(&prepared)) {
+    LOG_WARN("not installing the update: %s", refused->c_str());
+    return *refused;
+  }
+  const auto &copy = std::get<std::filesystem::path>(prepared);
+
+  // passive: a progress bar in the person's session and no questions; /R opens the app
+  // again. The installer stops this service to replace it, so it isn't waited for.
+  LOG_INFO("installing the update: %ls", copy.c_str());
+  const auto command = L"\"" + copy.native() + L"\" /P /UPDATE /R";
+  if (m_pWatchdog == nullptr || !m_pWatchdog->startInSession(command)) {
+    LOG_ERR("could not start the update's installer");
+    return "could not start the installer";
+  }
+  return {};
+#else
+  (void)installer;
+  return "updates are installed by the app here";
+#endif
 }
 
 void DaemonApp::run()

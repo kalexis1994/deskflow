@@ -44,6 +44,14 @@ void DaemonIpcServer::processCommand(ClientId client, const std::string &command
   } else if (command == "logPath") {
     LOG_DEBUG("daemon ipc server got log path request");
     writeToClient(client, "logPath=" + m_logFilename);
+  } else if (command == "installUpdate") {
+    // anyone can ask: the handler trusts nothing in the request (MSWindowsUpdate.h)
+    if (parts.size() < 2 || parts.at(1).empty() || !onInstallUpdateRequested) {
+      writeToClient(client, std::string(kErrorMessage) + "=cannot install updates");
+      return;
+    }
+    const auto refused = onInstallUpdateRequested(parts.at(1));
+    writeToClient(client, refused.empty() ? kAckMessage : std::string(kErrorMessage) + "=" + refused);
   } else if (command == "clearSettings") {
     LOG_DEBUG("daemon ipc server got clear settings message");
     notify(onClearSettingsRequested);

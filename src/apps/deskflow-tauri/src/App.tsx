@@ -39,7 +39,7 @@ export default function App() {
         </div>
       )}
 
-      {update.state && <UpdateCard state={update.state} mode={ov.coreMode} onInstall={update.install} onDismiss={update.dismiss} />}
+      {update.state && <UpdateCard state={update.state} mode={ov.coreMode} service={ov.processMode === "service"} onInstall={update.install} onDismiss={update.dismiss} />}
 
       <ModePicker mode={ov.coreMode} disabled={df.busy} onChange={(coreMode) => df.save({ coreMode })} />
 

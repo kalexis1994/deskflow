@@ -60,6 +60,8 @@ if(WIN32)
     MSWindowsScreenSaver.h
     MSWindowsSession.cpp
     MSWindowsSession.h
+    MSWindowsUpdate.cpp
+    MSWindowsUpdate.h
     MSWindowsWatchdog.cpp
     MSWindowsWatchdog.h
   )

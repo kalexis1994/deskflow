@@ -56,6 +56,12 @@ public:
   void stop();
 
   /**
+   * @brief Starts a command as the core starts, elevated in the active session, without
+   * watching it; false if it couldn't.
+   */
+  bool startInSession(const std::wstring &command);
+
+  /**
    * @return True if the process is running.
    */
   bool isProcessRunning();

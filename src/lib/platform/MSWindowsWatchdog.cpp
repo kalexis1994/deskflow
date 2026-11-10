@@ -248,6 +248,21 @@ void MSWindowsWatchdog::mainLoop(const void *)
   shutdownExistingProcesses();
 }
 
+bool MSWindowsWatchdog::startInSession(const std::wstring &command)
+{
+  try {
+    SECURITY_ATTRIBUTES sa;
+    ZeroMemory(&sa, sizeof(SECURITY_ATTRIBUTES));
+    HANDLE token = getUserToken(&sa, true);
+    deskflow::platform::MSWindowsProcess process(command);
+    // its handles close with `process`; the program keeps running
+    return process.startAsUser(token, &sa) != FALSE;
+  } catch (const std::exception &e) {
+    LOG_ERR("could not start in the session: %s", e.what());
+    return false;
+  }
+}
+
 bool MSWindowsWatchdog::isProcessRunning()
 {
   if (m_process == nullptr) {

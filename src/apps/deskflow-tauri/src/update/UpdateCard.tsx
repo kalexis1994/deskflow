@@ -5,12 +5,13 @@ import "./UpdateCard.css";
 interface UpdateCardProps {
   state: UpdateState;
   mode: CoreMode;
+  service: boolean;
   onInstall: () => void;
   onDismiss: () => void;
 }
 
 /** Asks before installing: nothing happens until someone presses the button. */
-export function UpdateCard({ state, mode, onInstall, onDismiss }: UpdateCardProps) {
+export function UpdateCard({ state, mode, service, onInstall, onDismiss }: UpdateCardProps) {
   if (isWorking(state)) {
     return (
       <section className="update" role="status">
@@ -28,7 +29,7 @@ export function UpdateCard({ state, mode, onInstall, onDismiss }: UpdateCardProp
         <span className="muted small"> (tenés la {state.current})</span>
       </h3>
       {state.notes && <p className="update__notes">{state.notes}</p>}
-      <p>{whatHappens(mode)}</p>
+      <p>{whatHappens(mode, service)}</p>
       {state.error && (
         <div className="alert alert--danger" role="alert">
           <span>{state.error}</span>

@@ -34,6 +34,8 @@ add_library(net STATIC
   SocketException.h
   SocketMultiplexer.cpp
   SocketMultiplexer.h
+  Minisign.cpp
+  Minisign.h
   SecureUtils.cpp
   SecureUtils.h
   SslLogger.cpp

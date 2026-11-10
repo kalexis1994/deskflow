@@ -53,6 +53,7 @@ private:
   void applyWatchdogCommand() const;
   void clearWatchdogCommand();
   void clearSettings();
+  std::string installUpdate(const std::string &installer);
 
   static void showConsole();
 

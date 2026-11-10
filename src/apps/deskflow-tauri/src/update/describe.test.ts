@@ -17,10 +17,16 @@ describe("the question", () => {
   });
 
   it("warns who loses what before anyone says yes", () => {
-    expect(whatHappens("server")).toContain("otras computadoras");
-    expect(whatHappens("client")).toContain("Esta computadora");
-    expect(whatHappens("none")).toContain("se detiene");
-    for (const mode of ["server", "client", "none"] as const) expect(whatHappens(mode)).toContain("administrador");
+    expect(whatHappens("server", true)).toContain("otras computadoras");
+    expect(whatHappens("client", true)).toContain("Esta computadora");
+    expect(whatHappens("none", true)).toContain("se detiene");
+  });
+
+  it("says Windows asks only when it does", () => {
+    for (const mode of ["server", "client", "none"] as const) {
+      expect(whatHappens(mode, false)).toContain("administrador");
+      expect(whatHappens(mode, true)).not.toContain("administrador");
+    }
   });
 });
 

@@ -3,6 +3,13 @@
 
 if (WIN32)
   create_test(
+    NAME MSWindowsUpdateTests
+    DEPENDS platform
+    LIBS base arch net
+    SOURCE MSWindowsUpdateTests.cpp
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+  )
+  create_test(
     NAME MSWindowsClipboardTests
     DEPENDS platform
     LIBS base arch
