@@ -1,6 +1,7 @@
 // Mirrors src-tauri/src/hotkeys.rs
 
-import { ALT, CONTROL, comboLabel, hasMainKey, isMouseButton, sameKeys } from "./keys";
+import { t, type Key } from "../i18n";
+import { ALT, CONTROL, comboLabel, hasMainKey, isMouseButton, keyLabel, sameKeys } from "./keys";
 
 export type ActionKind =
   | "keyDown"
@@ -34,20 +35,34 @@ export interface Hotkey {
   actions: Action[];
 }
 
-/** Kinds offered when creating an action, in menu order. */
-export const ACTION_KINDS: { kind: ActionKind; label: string }[] = [
-  { kind: "switchToScreen", label: "Ir a una computadora" },
-  { kind: "switchInDirection", label: "Pasar hacia un lado" },
-  { kind: "switchToNextScreen", label: "Pasar a la siguiente computadora" },
-  { kind: "lockCursorToScreen", label: "Fijar el mouse en la pantalla" },
-  { kind: "keystroke", label: "Enviar una combinación de teclas" },
-  { kind: "keyDown", label: "Mantener apretadas unas teclas" },
-  { kind: "keyUp", label: "Soltar unas teclas" },
-  { kind: "restartServer", label: "Reconectar todas las computadoras" },
+/** Kinds offered when creating an action, in menu order, with the key of their name. */
+export const ACTION_KINDS: { kind: ActionKind; label: Key }[] = [
+  { kind: "switchToScreen", label: "hotkeys.kind.switchToScreen" },
+  { kind: "switchInDirection", label: "hotkeys.kind.switchInDirection" },
+  { kind: "switchToNextScreen", label: "hotkeys.kind.switchToNextScreen" },
+  { kind: "lockCursorToScreen", label: "hotkeys.kind.lockCursorToScreen" },
+  { kind: "keystroke", label: "hotkeys.kind.keystroke" },
+  { kind: "keyDown", label: "hotkeys.kind.keyDown" },
+  { kind: "keyUp", label: "hotkeys.kind.keyUp" },
+  { kind: "restartServer", label: "hotkeys.kind.restartServer" },
 ];
 
-export const DIRECTION_LABELS: Record<Direction, string> = { left: "a la izquierda", right: "a la derecha", up: "arriba", down: "abajo" };
-export const LOCK_LABELS: Record<LockMode, string> = { toggle: "Alternar", on: "Fijar", off: "Soltar" };
+/** Keys of the names of each direction and lock mode, translated when shown. */
+export const DIRECTION_LABELS: Record<Direction, Key> = {
+  left: "hotkeys.direction.left",
+  right: "hotkeys.direction.right",
+  up: "hotkeys.direction.up",
+  down: "hotkeys.direction.down",
+};
+export const LOCK_LABELS: Record<LockMode, Key> = { toggle: "hotkeys.lock.toggle", on: "hotkeys.lock.on", off: "hotkeys.lock.off" };
+
+const SWITCH_TEXT: Record<Direction, Key> = {
+  left: "hotkeys.action.switch.left",
+  right: "hotkeys.action.switch.right",
+  up: "hotkeys.action.switch.up",
+  down: "hotkeys.action.switch.down",
+};
+const LOCK_TEXT: Record<LockMode, Key> = { toggle: "hotkeys.action.lock.toggle", on: "hotkeys.action.lock.on", off: "hotkeys.action.lock.off" };
 
 export const sendsKeys = (k: ActionKind) => k === "keystroke" || k === "keyDown" || k === "keyUp";
 const sendsMouse = (k: ActionKind) => k === "mouseDown" || k === "mouseUp" || k === "mousebutton";
@@ -57,52 +72,53 @@ export function newAction(kind: ActionKind, computers: string[]): Action {
 }
 
 export function describeAction(a: Action): string {
-  const to = (list: string[]) => (list.length ? ` (solo en ${list.join(", ")})` : "");
+  const keys = a.keys.length ? comboLabel(a.keys) : "…";
+  const to = (action: string) => (a.computers.length ? t("hotkeys.action.onlyOn", { action, computers: a.computers.join(", ") }) : action);
   let text: string;
   switch (a.kind) {
     case "switchToScreen":
-      text = a.target ? `Ir a ${a.target}` : "Ir a…";
+      text = a.target ? t("hotkeys.action.goTo", { name: a.target }) : t("hotkeys.action.goToUnset");
       break;
     case "switchInDirection":
-      text = `Pasar ${DIRECTION_LABELS[a.direction]}`;
+      text = t(SWITCH_TEXT[a.direction]);
       break;
     case "switchToNextScreen":
-      text = "Pasar a la siguiente";
+      text = t("hotkeys.action.switchToNext");
       break;
     case "lockCursorToScreen":
-      text = { toggle: "Fijar o soltar el mouse", on: "Fijar el mouse", off: "Soltar el mouse" }[a.lockMode];
+      text = t(LOCK_TEXT[a.lockMode]);
       break;
     case "keystroke":
-      text = `Enviar ${a.keys.length ? comboLabel(a.keys) : "…"}${to(a.computers)}`;
+      text = to(t("hotkeys.action.keystroke", { keys }));
       break;
     case "keyDown":
-      text = `Mantener ${a.keys.length ? comboLabel(a.keys) : "…"}${to(a.computers)}`;
+      text = to(t("hotkeys.action.keyDown", { keys }));
       break;
     case "keyUp":
-      text = `Soltar ${a.keys.length ? comboLabel(a.keys) : "…"}${to(a.computers)}`;
+      text = to(t("hotkeys.action.keyUp", { keys }));
       break;
     case "restartServer":
-      text = "Reconectar todo";
+      text = t("hotkeys.action.restartServer");
       break;
     default:
-      text = `Botón del mouse (${comboLabel(a.keys)})`;
+      text = t("hotkeys.action.mouseButton", { keys: comboLabel(a.keys) });
   }
-  return a.onRelease ? `${text} (al soltar)` : text;
+  return a.onRelease ? t("hotkeys.action.onRelease", { action: text }) : text;
 }
 
 /** Problems that would stop the hotkey from working, mirroring the backend checks. */
 export function hotkeyProblems(hk: Hotkey, computers: string[], all: Hotkey[]): string[] {
   const out: string[] = [];
-  if (!hasMainKey(hk.keys)) out.push("Falta la combinación que lo activa.");
-  else if (hk.keys.some(isMouseButton)) out.push("Deskflow todavía ignora los atajos con botones del mouse.");
-  if (!hk.actions.length) out.push("No hace nada todavía: agregale una acción.");
+  if (!hasMainKey(hk.keys)) out.push(t("hotkeys.problem.missingKeys"));
+  else if (hk.keys.some(isMouseButton)) out.push(t("hotkeys.problem.mouseIgnored"));
+  if (!hk.actions.length) out.push(t("hotkeys.problem.noActions"));
   for (const a of hk.actions) {
-    if (sendsKeys(a.kind) && !hasMainKey(a.keys)) out.push("Falta elegir qué teclas enviar.");
-    if (a.kind === "switchToScreen" && !computers.includes(a.target)) out.push("Elegí a qué computadora ir.");
-    if (a.computers.some((c) => !computers.includes(c))) out.push("Envía teclas a una computadora que ya no está.");
-    if (sendsMouse(a.kind)) out.push("Las acciones de mouse vienen de la app clásica y no se pueden editar acá.");
+    if (sendsKeys(a.kind) && !hasMainKey(a.keys)) out.push(t("hotkeys.problem.missingSendKeys"));
+    if (a.kind === "switchToScreen" && !computers.includes(a.target)) out.push(t("hotkeys.problem.chooseTarget"));
+    if (a.computers.some((c) => !computers.includes(c))) out.push(t("hotkeys.problem.goneComputer"));
+    if (sendsMouse(a.kind)) out.push(t("hotkeys.problem.mouseClassic"));
   }
-  if (hasMainKey(hk.keys) && all.filter((o) => sameKeys(o.keys, hk.keys)).length > 1) out.push("Otro atajo usa la misma combinación.");
+  if (hasMainKey(hk.keys) && all.filter((o) => sameKeys(o.keys, hk.keys)).length > 1) out.push(t("hotkeys.problem.duplicate"));
   return [...new Set(out)];
 }
 
@@ -132,8 +148,9 @@ const KEY_END = 0x01000011;
 
 export interface Preset {
   id: string;
-  title: string;
-  text: string;
+  /** In the current language, so called when shown. */
+  title: () => string;
+  text: () => string;
   /** `server` is this computer, which must never receive keys meant for the others. */
   build: (computers: string[], server: string) => Hotkey[];
 }
@@ -141,8 +158,8 @@ export interface Preset {
 export const PRESETS: Preset[] = [
   {
     id: "ctrlAltDel",
-    title: "Ctrl + Alt + Fin → Ctrl + Alt + Supr",
-    text: "Para iniciar sesión en Windows desde acá: Ctrl+Alt+Supr no se puede mandar directo.",
+    title: () => `${comboLabel([CONTROL, ALT, KEY_END])} → ${comboLabel(CTRL_ALT_DEL)}`,
+    text: () => t("hotkeys.preset.ctrlAltDel.text", { combo: CTRL_ALT_DEL.map(keyLabel).join("+") }),
     build: (computers, server) => {
       const others = computers.filter((c) => c !== server);
       if (!others.length) return [];
@@ -151,8 +168,8 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "arrows",
-    title: "Ctrl + Alt + flechas",
-    text: "Pasar a la pantalla de al lado sin mover el mouse.",
+    title: () => t("hotkeys.preset.arrows.title", { combo: comboLabel([CONTROL, ALT]) }),
+    text: () => t("hotkeys.preset.arrows.text"),
     build: () =>
       ARROWS.map(([direction, key]) => ({
         keys: [CONTROL, ALT, key],
@@ -161,8 +178,8 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "numbers",
-    title: "Ctrl + Alt + 1, 2, 3…",
-    text: "Ir directo a cada computadora.",
+    title: () => `${comboLabel([CONTROL, ALT])} + 1, 2, 3…`,
+    text: () => t("hotkeys.preset.numbers.text"),
     build: (computers) =>
       computers.slice(0, 9).map((name, i) => ({
         keys: [CONTROL, ALT, 0x31 + i],
@@ -171,8 +188,8 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "lock",
-    title: "Ctrl + Alt + L",
-    text: "Fijar o soltar el mouse en la pantalla actual.",
+    title: () => comboLabel([CONTROL, ALT, 0x4c]),
+    text: () => t("hotkeys.preset.lock.text"),
     build: () => [{ keys: [CONTROL, ALT, 0x4c], actions: [newAction("lockCursorToScreen", [])] }],
   },
 ];

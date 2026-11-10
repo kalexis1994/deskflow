@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { t, type Key } from "../i18n";
 import {
+  MODIFIERS,
   MODIFIER_KEYS,
-  MODIFIER_LABELS,
   aliasError,
   cornersOn,
   defaultOptions,
   isMacSwap,
+  modifierLabel,
   modifiersChanged,
   toggleMacSwap,
   type ComputerOptions,
@@ -18,13 +20,18 @@ interface PanelProps {
 }
 
 const KEY_NAMES: Record<string, string> = {
-  shift: "Shift",
-  ctrl: "Ctrl",
   alt: "Alt",
   altgr: "AltGr",
   meta: "Meta",
   super: "⊞ / ⌘",
 };
+
+/** Ctrl and Shift read differently on some keyboards (Strg, Umschalt, Maj). */
+function keyName(k: string): string {
+  if (k === "ctrl") return t("hotkeys.key.ctrl");
+  if (k === "shift") return t("hotkeys.key.shift");
+  return KEY_NAMES[k];
+}
 
 export function KeyboardPanel({ options, onChange }: PanelProps) {
   const setModifier = (key: (typeof MODIFIER_KEYS)[number], value: Modifier) =>
@@ -33,26 +40,26 @@ export function KeyboardPanel({ options, onChange }: PanelProps) {
   return (
     <>
       <div className="le__section">
-        <h5>Teclas modificadoras</h5>
-        <p className="muted small">Qué recibe esta computadora cuando apretás cada tecla.</p>
+        <h5>{t("layout.keyboard.modifiersTitle")}</h5>
+        <p className="muted small">{t("layout.keyboard.modifiersHint")}</p>
         <button
           className={`le__toggle ${isMacSwap(options) ? "le__toggle--on" : ""}`}
           aria-pressed={isMacSwap(options)}
           onClick={() => onChange(toggleMacSwap(options))}
         >
           <span className="le__switch" aria-hidden="true" />
-          Intercambiar Ctrl y ⌘
-          <span className="muted small">para controlar una Mac desde una PC, o al revés</span>
+          {t("layout.keyboard.macSwap")}
+          <span className="muted small">{t("layout.keyboard.macSwapHint")}</span>
         </button>
         <div className="le__modgrid">
           {MODIFIER_KEYS.map((k) => (
             <label key={k} className={`le__modrow ${options.modifiers[k] !== k ? "le__modrow--changed" : ""}`}>
-              <kbd>{KEY_NAMES[k]}</kbd>
+              <kbd>{keyName(k)}</kbd>
               <span aria-hidden="true">→</span>
-              <select value={options.modifiers[k]} onChange={(e) => setModifier(k, e.target.value as Modifier)} aria-label={`Al apretar ${KEY_NAMES[k]}`}>
-                {(Object.keys(MODIFIER_LABELS) as Modifier[]).map((m) => (
+              <select value={options.modifiers[k]} onChange={(e) => setModifier(k, e.target.value as Modifier)} aria-label={t("layout.keyboard.pressing", { key: keyName(k) })}>
+                {MODIFIERS.map((m) => (
                   <option key={m} value={m}>
-                    {MODIFIER_LABELS[m]}
+                    {modifierLabel(m)}
                   </option>
                 ))}
               </select>
@@ -61,17 +68,17 @@ export function KeyboardPanel({ options, onChange }: PanelProps) {
         </div>
         {modifiersChanged(options) && (
           <button className="le__link" onClick={() => onChange({ ...options, modifiers: defaultOptions().modifiers })}>
-            Restablecer modificadoras
+            {t("layout.keyboard.resetModifiers")}
           </button>
         )}
       </div>
 
       <div className="le__section">
-        <h5>Teclas de bloqueo</h5>
-        <p className="muted small">Marcá una si en esta computadora queda activada al revés o hay que apretarla dos veces.</p>
-        <Check label="Bloq Mayús" checked={options.fixCapsLock} onChange={(v) => onChange({ ...options, fixCapsLock: v })} />
-        <Check label="Bloq Num" checked={options.fixNumLock} onChange={(v) => onChange({ ...options, fixNumLock: v })} />
-        <Check label="Bloq Despl" checked={options.fixScrollLock} onChange={(v) => onChange({ ...options, fixScrollLock: v })} />
+        <h5>{t("layout.keyboard.locksTitle")}</h5>
+        <p className="muted small">{t("layout.keyboard.locksHint")}</p>
+        <Check label={t("layout.keyboard.capsLock")} checked={options.fixCapsLock} onChange={(v) => onChange({ ...options, fixCapsLock: v })} />
+        <Check label={t("layout.keyboard.numLock")} checked={options.fixNumLock} onChange={(v) => onChange({ ...options, fixNumLock: v })} />
+        <Check label={t("layout.keyboard.scrollLock")} checked={options.fixScrollLock} onChange={(v) => onChange({ ...options, fixScrollLock: v })} />
       </div>
     </>
   );
@@ -89,16 +96,16 @@ export function AdvancedPanel({ options, onChange, name, taken }: AdvancedProps)
       <Aliases options={options} onChange={onChange} name={name} taken={taken} />
       <DeadCorners options={options} onChange={onChange} />
       <div className="le__section">
-        <h5>Solo Linux (X11)</h5>
+        <h5>{t("layout.advanced.linuxTitle")}</h5>
         <Check
-          label="Usar XTest con Xinerama"
-          hint="Si el cursor aparece en el monitor equivocado en una computadora con varios monitores."
+          label={t("layout.advanced.xtest")}
+          hint={t("layout.advanced.xtestHint")}
           checked={options.xtestXinerama}
           onChange={(v) => onChange({ ...options, xtestXinerama: v })}
         />
         <Check
-          label="No robar el foco al entrar"
-          hint="La ventana activa no recibe el foco apenas pasás a esta computadora."
+          label={t("layout.advanced.weakFocus")}
+          hint={t("layout.advanced.weakFocusHint")}
           checked={options.weakX11Focus}
           onChange={(v) => onChange({ ...options, weakX11Focus: v })}
         />
@@ -109,28 +116,29 @@ export function AdvancedPanel({ options, onChange, name, taken }: AdvancedProps)
 
 function Aliases({ options, onChange, name, taken }: AdvancedProps) {
   const [text, setText] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // the alias that was refused; its message is worked out on render so it follows the language
+  const [refused, setRefused] = useState<string | null>(null);
+  const error = refused === null ? null : aliasError(refused, name, taken);
 
   const add = () => {
     const alias = text.trim();
     if (!alias) return;
-    const err = aliasError(alias, name, taken);
-    setError(err);
-    if (err) return;
+    if (aliasError(alias, name, taken)) return setRefused(alias);
+    setRefused(null);
     onChange({ ...options, aliases: [...options.aliases, alias] });
     setText("");
   };
 
   return (
     <div className="le__section">
-      <h5>Otros nombres</h5>
-      <p className="muted small">Nombres con los que esta computadora también puede conectarse, por ejemplo si cambia su nombre de red.</p>
+      <h5>{t("layout.aliases.title")}</h5>
+      <p className="muted small">{t("layout.aliases.hint")}</p>
       {options.aliases.length > 0 && (
         <ul className="le__aliases">
           {options.aliases.map((a) => (
             <li key={a}>
               {a}
-              <button aria-label={`Quitar ${a}`} onClick={() => onChange({ ...options, aliases: options.aliases.filter((x) => x !== a) })}>
+              <button aria-label={t("layout.aliases.remove", { name: a })} onClick={() => onChange({ ...options, aliases: options.aliases.filter((x) => x !== a) })}>
                 ×
               </button>
             </li>
@@ -146,16 +154,16 @@ function Aliases({ options, onChange, name, taken }: AdvancedProps) {
       >
         <input
           value={text}
-          placeholder="otro-nombre"
+          placeholder={t("layout.aliases.placeholder")}
           spellCheck={false}
           onChange={(e) => {
             setText(e.target.value);
-            setError(null);
+            setRefused(null);
           }}
-          aria-label="Nuevo alias"
+          aria-label={t("layout.aliases.new")}
         />
         <button className="btn btn--secondary btn--small" type="submit" disabled={!text.trim()}>
-          Agregar
+          {t("layout.add")}
         </button>
       </form>
       {error && <p className="le__error">{error}</p>}
@@ -164,11 +172,11 @@ function Aliases({ options, onChange, name, taken }: AdvancedProps) {
 }
 
 const CORNERS = [
-  ["topLeft", "arriba a la izquierda"],
-  ["topRight", "arriba a la derecha"],
-  ["bottomLeft", "abajo a la izquierda"],
-  ["bottomRight", "abajo a la derecha"],
-] as const;
+  ["topLeft", "layout.corners.topLeft"],
+  ["topRight", "layout.corners.topRight"],
+  ["bottomLeft", "layout.corners.bottomLeft"],
+  ["bottomRight", "layout.corners.bottomRight"],
+] as const satisfies readonly (readonly [string, Key])[];
 
 function DeadCorners({ options, onChange }: PanelProps) {
   const on = cornersOn(options);
@@ -181,23 +189,23 @@ function DeadCorners({ options, onChange }: PanelProps) {
 
   return (
     <div className="le__section">
-      <h5>Esquinas muertas</h5>
-      <p className="muted small">En las esquinas marcadas el mouse no pasa a otra pantalla. Sirve para el botón de Inicio o las esquinas activas.</p>
+      <h5>{t("layout.corners.title")}</h5>
+      <p className="muted small">{t("layout.corners.hint")}</p>
       <div className="le__corners">
         <div className="le__corners-screen" aria-hidden="true" />
-        {CORNERS.map(([k, label]) => (
+        {CORNERS.map(([k, labelKey]) => (
           <button
             key={k}
             className={`le__corner le__corner--${k} ${options.corners[k] ? "le__corner--on" : ""}`}
             aria-pressed={options.corners[k]}
-            aria-label={`Esquina ${label}`}
-            title={`Esquina ${label}`}
+            aria-label={t(labelKey)}
+            title={t(labelKey)}
             onClick={() => setCorner(k, !options.corners[k])}
           />
         ))}
       </div>
       <label className={`le__range ${on ? "" : "le__range--off"}`}>
-        <span className="field__label">Tamaño</span>
+        <span className="field__label">{t("layout.corners.size")}</span>
         <input
           type="range"
           min={0}

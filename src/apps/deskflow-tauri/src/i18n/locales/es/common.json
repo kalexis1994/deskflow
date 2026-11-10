@@ -1,0 +1,18 @@
+{
+  "tab.home": "Inicio",
+  "tab.layout": "Pantallas",
+  "tab.hotkeys": "Atajos",
+  "tab.clipboard": "Portapapeles",
+  "tab.options": "Opciones",
+  "tab.security": "Seguridad",
+  "tab.activity": "Actividad",
+  "tab.about": "Acerca de",
+  "tabs.label": "Secciones",
+  "warnings_one": "{count} aviso desde que arrancó",
+  "warnings_other": "{count} avisos desde que arrancó",
+  "close": "Cerrar",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "discard": "Descartar",
+  "loading": "Cargando"
+}

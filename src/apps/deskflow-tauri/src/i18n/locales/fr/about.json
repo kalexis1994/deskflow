@@ -1,0 +1,20 @@
+{
+  "tagline": "Un clavier et une souris pour tous vos ordinateurs.",
+  "version": "Version {version}",
+  "core": "Moteur {version}",
+  "runsAsService": "Fonctionne comme service système",
+  "runsInApp": "Fonctionne dans cette application",
+  "settingsFile": "Fichier de configuration",
+  "updates": "Mises à jour",
+  "channel": "Canal",
+  "check": "Rechercher des mises à jour",
+  "checkFailed": "Recherche impossible : {reason}",
+  "language": "Langue",
+  "languageAuto": "Automatique ({name})",
+  "languageHint": "Automatique utilise la langue de Windows. Cela change aussi le menu de l’icône dans la barre des tâches.",
+  "links": "Liens",
+  "source": "Code source",
+  "releases": "Versions publiées",
+  "upstream": "Projet Deskflow d’origine",
+  "license": "Logiciel libre sous licence GPL 2.0."
+}

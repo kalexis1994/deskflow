@@ -11,6 +11,7 @@ use base64::Engine;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+use crate::i18n;
 use crate::paths;
 use crate::settings::{CoreMode, IniFile};
 
@@ -127,12 +128,16 @@ fn write_db(mode: CoreMode, entries: &[Trusted]) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    std::fs::write(&path, format_db(entries))
-        .map_err(|e| format!("No se pudo escribir {}: {e}", path.display()))
+    std::fs::write(&path, format_db(entries)).map_err(|e| {
+        i18n::tf(
+            "error.tls.write",
+            &[("path", &path.display()), ("reason", &e)],
+        )
+    })
 }
 
 pub fn trust(mode: CoreMode, fingerprint: &str) -> Result<(), String> {
-    let hex = normalize(fingerprint).ok_or("Huella inválida.")?;
+    let hex = normalize(fingerprint).ok_or_else(|| i18n::t("error.tls.invalidFingerprint"))?;
     let mut entries = read_db(mode);
     if !entries.iter().any(|t| t.kind == "sha256" && t.hex == hex) {
         entries.push(Trusted {

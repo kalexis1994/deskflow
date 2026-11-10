@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { CoreMode } from "../types";
 
 export type UpdatePhase =
@@ -13,24 +14,24 @@ export type UpdateChannel = "stable" | "alpha";
 
 export type UpdateState = UpdatePhase & { current: string; channel: UpdateChannel; dismissed: boolean };
 
-export const CHANNELS: { value: UpdateChannel; label: string; title: string }[] = [
-  { value: "stable", label: "Estable", title: "Las versiones ya probadas" },
-  { value: "alpha", label: "Alpha", title: "Versiones de prueba, que pueden fallar. Igual pregunta antes de instalar." },
-];
+export const CHANNELS: UpdateChannel[] = ["stable", "alpha"];
+
+export function channelLabel(channel: UpdateChannel): string {
+  return channel === "alpha" ? t("update.channel.alpha") : t("update.channel.stable");
+}
+
+export function channelTitle(channel: UpdateChannel): string {
+  return channel === "alpha" ? t("update.channel.alpha.title") : t("update.channel.stable.title");
+}
 
 /**
  * What the question has to say before anyone answers it: the update cuts Deskflow off for a moment.
  * Under the service nothing else asks; otherwise Windows does.
  */
 export function whatHappens(mode: CoreMode, service: boolean): string {
-  const cut =
-    mode === "server"
-      ? "Las otras computadoras se quedan sin tu teclado y mouse hasta que termine."
-      : mode === "client"
-        ? "Esta computadora se queda sin el teclado y el mouse compartidos hasta que termine."
-        : "Deskflow se detiene hasta que termine.";
-  const ask = service ? "No hay que aceptar nada más." : "Windows va a pedir permiso de administrador.";
-  return `${ask} La instalación tarda unos segundos. ${cut} Después vuelve solo.`;
+  const cut = mode === "server" ? t("update.cut.server") : mode === "client" ? t("update.cut.client") : t("update.cut.none");
+  const ask = service ? t("update.ask.service") : t("update.ask.windows");
+  return t("update.whatHappens", { ask, cut });
 }
 
 /** The question stays until it is answered; a search that found nothing has nothing to ask. */
@@ -48,21 +49,21 @@ export function isWorking(state: UpdateState): boolean {
 }
 
 export function progressLine(state: UpdateState): string {
-  if (state.kind === "installing") return `Instalando la versión ${state.version}…`;
+  if (state.kind === "installing") return t("update.installing", { version: state.version });
   if (state.kind !== "downloading") return "";
-  const percent = state.percent === null ? "" : ` (${state.percent}%)`;
-  return `Bajando la versión ${state.version}${percent}…`;
+  if (state.percent === null) return t("update.downloading", { version: state.version });
+  return t("update.downloadingPercent", { version: state.version, percent: state.percent });
 }
 
 /** The short answer next to the version, after looking for one by hand. */
 export function searchLine(state: UpdateState): string | null {
   switch (state.kind) {
     case "checking":
-      return "Buscando…";
+      return t("update.searching");
     case "upToDate":
-      return "Está al día";
+      return t("update.upToDate");
     case "available":
-      return state.dismissed ? `Hay una versión nueva: ${state.version}` : null;
+      return state.dismissed ? t("update.newVersion", { version: state.version }) : null;
     default:
       return null;
   }

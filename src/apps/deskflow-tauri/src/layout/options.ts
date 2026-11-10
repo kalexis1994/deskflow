@@ -1,5 +1,7 @@
 // Per-computer options. Mirrors src-tauri/src/computer.rs.
 
+import { t, tn } from "../i18n";
+
 export type Modifier = "shift" | "ctrl" | "alt" | "altgr" | "meta" | "super" | "none";
 export type ModifierKey = "shift" | "ctrl" | "alt" | "altgr" | "meta" | "super";
 
@@ -17,15 +19,24 @@ export interface ComputerOptions {
 
 export const MODIFIER_KEYS: ModifierKey[] = ["shift", "ctrl", "alt", "altgr", "meta", "super"];
 
-export const MODIFIER_LABELS: Record<Modifier, string> = {
-  shift: "Shift",
-  ctrl: "Ctrl",
+/** What a key can send, in the order the menus show them. */
+export const MODIFIERS: Modifier[] = [...MODIFIER_KEYS, "none"];
+
+const KEY_LABELS: Record<Exclude<ModifierKey, "shift" | "ctrl">, string> = {
   alt: "Alt",
   altgr: "AltGr",
   meta: "Meta",
   super: "Super (⊞ / ⌘)",
-  none: "Ninguna",
 };
+
+/** Name of what a key sends; key names are the same in every language, "none" is not. */
+export function modifierLabel(m: Modifier): string {
+  if (m === "none") return t("layout.keyboard.none");
+  // the two whose keycaps change with the language (Strg, Umschalt, Maj)
+  if (m === "ctrl") return t("hotkeys.key.ctrl");
+  if (m === "shift") return t("hotkeys.key.shift");
+  return KEY_LABELS[m];
+}
 
 export function defaultOptions(): ComputerOptions {
   return {
@@ -60,11 +71,11 @@ export function toggleMacSwap(o: ComputerOptions): ComputerOptions {
 export function optionsSummary(o: ComputerOptions): string[] {
   const out: string[] = [];
   if (isMacSwap(o)) out.push("Ctrl ⇄ ⌘");
-  else if (modifiersChanged(o)) out.push("Modificadoras cambiadas");
-  if (fixesOn(o)) out.push("Correcciones de teclado");
-  if (cornersOn(o)) out.push("Esquinas muertas");
-  if (o.aliases.length) out.push(o.aliases.length === 1 ? "1 alias" : `${o.aliases.length} alias`);
-  if (o.xtestXinerama || o.weakX11Focus) out.push("Ajustes de Linux");
+  else if (modifiersChanged(o)) out.push(t("layout.badge.modifiers"));
+  if (fixesOn(o)) out.push(t("layout.badge.fixes"));
+  if (cornersOn(o)) out.push(t("layout.badge.corners"));
+  if (o.aliases.length) out.push(tn("layout.badge.aliases", o.aliases.length));
+  if (o.xtestXinerama || o.weakX11Focus) out.push(t("layout.badge.linux"));
   return out;
 }
 
@@ -72,12 +83,13 @@ const IPV4 = /^(\d{1,3}\.){3}\d{1,3}$/;
 
 /** Same rules as the Qt GUI's AliasValidator and the backend. */
 export function aliasError(alias: string, owner: string, taken: { name: string; aliases: string[] }[]): string | null {
-  if (!/^[\p{L}\p{N}_.-]{1,255}$/u.test(alias)) return "Usá letras, números, punto, guion o guion bajo, sin espacios.";
-  if (IPV4.test(alias) || alias.includes(":")) return "Un alias no puede ser una dirección IP.";
+  if (!/^[\p{L}\p{N}_.-]{1,255}$/u.test(alias)) return t("layout.name.invalid");
+  if (IPV4.test(alias) || alias.includes(":")) return t("layout.alias.ip");
   const lower = alias.toLowerCase();
-  for (const t of taken) {
-    if (t.name.toLowerCase() === lower) return t.name === owner ? "Es el mismo nombre de la computadora." : `Ya es el nombre de otra computadora.`;
-    if (t.aliases.some((a) => a.toLowerCase() === lower)) return t.name === owner ? "Ya está en la lista." : `Ya es un alias de ${t.name}.`;
+  for (const other of taken) {
+    if (other.name.toLowerCase() === lower) return t(other.name === owner ? "layout.alias.sameName" : "layout.alias.otherName");
+    if (other.aliases.some((a) => a.toLowerCase() === lower))
+      return other.name === owner ? t("layout.alias.listed") : t("layout.name.aliasOf", { name: other.name });
   }
   return null;
 }

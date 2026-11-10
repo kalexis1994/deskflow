@@ -1,0 +1,23 @@
+{
+  "channel.stable": "Stable",
+  "channel.stable.title": "Versions that have been tried",
+  "channel.alpha": "Alpha",
+  "channel.alpha.title": "Test versions, which may fail. It still asks before installing.",
+  "cut.server": "The other computers lose your keyboard and mouse until it finishes.",
+  "cut.client": "This computer loses the shared keyboard and mouse until it finishes.",
+  "cut.none": "Deskflow stops until it finishes.",
+  "ask.service": "There is nothing else to accept.",
+  "ask.windows": "Windows will ask for administrator permission.",
+  "whatHappens": "{ask} Installing takes a few seconds. {cut} Then it comes back by itself.",
+  "installing": "Installing version {version}…",
+  "downloading": "Downloading version {version}…",
+  "downloadingPercent": "Downloading version {version} ({percent}%)…",
+  "searching": "Checking…",
+  "upToDate": "Up to date",
+  "newVersion": "A new version is out: {version}",
+  "card.label": "Update available",
+  "card.title": "A new version of Deskflow is out: {version}",
+  "card.current": "(you have {current})",
+  "install": "Update",
+  "notNow": "Not now"
+}

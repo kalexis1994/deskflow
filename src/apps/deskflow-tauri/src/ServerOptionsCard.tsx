@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { t, type Key } from "./i18n";
 import "./ServerOptionsCard.css";
 
 // Mirrors src-tauri/src/server_options.rs
@@ -41,7 +42,8 @@ export function ServerOptionsCard({ running }: { running: boolean }) {
   const [saved, setSaved] = useState<ServerOptions | null>(null);
   const [draft, setDraft] = useState<ServerOptions | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "danger"; text: string } | null>(null);
+  // a key for our own messages, so they follow the language; the core's errors come as they are
+  const [message, setMessage] = useState<{ tone: "ok" | "danger"; text?: string; key?: Key } | null>(null);
 
   useEffect(() => {
     invoke<ServerOptions>("get_server_options")
@@ -69,7 +71,7 @@ export function ServerOptionsCard({ running }: { running: boolean }) {
       const o = await invoke<ServerOptions>("save_server_options", { options: draft });
       setSaved(o);
       setDraft(o);
-      setMessage({ tone: "ok", text: running ? "Guardado. Deskflow se reinició para aplicarlo." : "Guardado. Se aplica la próxima vez que inicies Deskflow." });
+      setMessage({ tone: "ok", key: running ? "options.saved.running" : "options.saved.stopped" });
     } catch (e) {
       setMessage({ tone: "danger", text: String(e) });
     } finally {
@@ -81,72 +83,72 @@ export function ServerOptionsCard({ running }: { running: boolean }) {
     <section className="card so">
       <div className="so__head">
         <div>
-          <h3>Opciones del servidor</h3>
-          <p className="muted small">Valen para todas las computadoras conectadas a esta.</p>
+          <h3>{t("options.title")}</h3>
+          <p className="muted small">{t("options.subtitle")}</p>
         </div>
         {!isDefault && (
           <button className="le__link" onClick={() => set(DEFAULT_SERVER_OPTIONS)}>
-            Volver a los valores por defecto
+            {t("options.reset")}
           </button>
         )}
       </div>
 
       <div className="so__grid">
-        <Group title="Portapapeles">
+        <Group title={t("options.group.clipboard")}>
           <Switch
-            label="Compartir el portapapeles"
-            hint="Copiás en una computadora y pegás en otra."
+            label={t("options.clipboard.label")}
+            hint={t("options.clipboard.hint")}
             on={draft.clipboard}
             onChange={(v) => set({ clipboard: v, clipboardSizeMb: v && draft.clipboardSizeMb < 1 ? 3 : draft.clipboardSizeMb })}
           >
-            <Num label="Hasta" value={draft.clipboardSizeMb} min={1} max={10000} step={1} unit="MB" onChange={(v) => set({ clipboardSizeMb: v })} />
+            <Num label={t("options.clipboard.size")} value={draft.clipboardSizeMb} min={1} max={10000} step={1} unit="MB" onChange={(v) => set({ clipboardSizeMb: v })} />
           </Switch>
         </Group>
 
-        <Group title="Pasar de una pantalla a otra">
+        <Group title={t("options.group.switch")}>
           <Switch
-            label="Esperar en el borde antes de pasar"
-            hint="Evita pasar sin querer cuando el mouse roza el borde."
+            label={t("options.switchDelay.label")}
+            hint={t("options.switchDelay.hint")}
             on={draft.switchDelay}
             onChange={(v) => set({ switchDelay: v })}
           >
-            <Num label="Esperar" value={draft.switchDelayMs} min={10} max={10000} step={10} unit="ms" onChange={(v) => set({ switchDelayMs: v })} />
+            <Num label={t("options.switchDelay.value")} value={draft.switchDelayMs} min={10} max={10000} step={10} unit="ms" onChange={(v) => set({ switchDelayMs: v })} />
           </Switch>
           <Switch
-            label="Pasar solo con doble toque en el borde"
-            hint="Tenés que llevar el mouse al borde dos veces seguidas."
+            label={t("options.doubleTap.label")}
+            hint={t("options.doubleTap.hint")}
             on={draft.doubleTap}
             onChange={(v) => set({ doubleTap: v })}
           >
-            <Num label="Entre toques" value={draft.doubleTapMs} min={10} max={10000} step={10} unit="ms" onChange={(v) => set({ doubleTapMs: v })} />
+            <Num label={t("options.doubleTap.value")} value={draft.doubleTapMs} min={10} max={10000} step={10} unit="ms" onChange={(v) => set({ doubleTapMs: v })} />
           </Switch>
         </Group>
 
-        <Group title="Fijar el mouse en una pantalla">
+        <Group title={t("options.group.lock")}>
           <Switch
-            label="Bloq Despl fija el mouse en la pantalla actual"
-            hint="Útil para juegos o programas a pantalla completa."
+            label={t("options.lockKey.label")}
+            hint={t("options.lockKey.hint")}
             on={draft.lockKey}
             onChange={(v) => set({ lockKey: v })}
           />
-          <Switch label="Empezar con el mouse fijado" on={draft.startLocked} onChange={(v) => set({ startLocked: v })} />
+          <Switch label={t("options.startLocked.label")} on={draft.startLocked} onChange={(v) => set({ startLocked: v })} />
           <Switch
-            label="Movimientos relativos del mouse"
-            hint="Para juegos en 3D que capturan el mouse."
+            label={t("options.relativeMoves.label")}
+            hint={t("options.relativeMoves.hint")}
             on={draft.relativeMoves}
             onChange={(v) => set({ relativeMoves: v })}
           />
         </Group>
 
-        <Group title="Conexión">
+        <Group title={t("options.group.connection")}>
           <Switch
-            label="Comprobar que las computadoras sigan conectadas"
-            hint="Reconecta antes si una deja de responder."
+            label={t("options.heartbeat.label")}
+            hint={t("options.heartbeat.hint")}
             on={draft.heartbeat}
             onChange={(v) => set({ heartbeat: v })}
           >
             <Num
-              label="Cada"
+              label={t("options.heartbeat.value")}
               value={draft.heartbeatMs / 1000}
               min={1}
               max={30}
@@ -156,23 +158,23 @@ export function ServerOptionsCard({ running }: { running: boolean }) {
             />
           </Switch>
           <div className="so__field">
-            <span className="so__label">Compatibilidad</span>
-            <div className="so__choices" role="radiogroup" aria-label="Protocolo de red">
+            <span className="so__label">{t("options.protocol.label")}</span>
+            <div className="so__choices" role="radiogroup" aria-label={t("options.protocol.aria")}>
               <Choice
                 on={draft.protocol === "barrier"}
                 onClick={() => set({ protocol: "barrier" })}
                 title="Deskflow, Barrier, Input Leap"
-                text="También Synergy 1. La opción normal."
+                text={t("options.protocol.barrier")}
               />
-              <Choice on={draft.protocol === "synergy"} onClick={() => set({ protocol: "synergy" })} title="Synergy 3" text="Si alguna computadora usa Synergy 3." />
+              <Choice on={draft.protocol === "synergy"} onClick={() => set({ protocol: "synergy" })} title="Synergy 3" text={t("options.protocol.synergy")} />
             </div>
           </div>
         </Group>
 
         <Group title="Windows">
           <Switch
-            label="No robar la ventana activa"
-            hint="Al volver a esta computadora, la ventana que estabas usando sigue al frente."
+            label={t("options.keepForeground.label")}
+            hint={t("options.keepForeground.hint")}
             on={draft.win32KeepForeground}
             onChange={(v) => set({ win32KeepForeground: v })}
           />
@@ -180,13 +182,13 @@ export function ServerOptionsCard({ running }: { running: boolean }) {
       </div>
 
       <div className="so__footer">
-        {message && <span className={`le__msg le__msg--${message.tone}`}>{message.text}</span>}
-        {dirty && !message && <span className="le__msg">Cambios sin guardar</span>}
+        {message && <span className={`le__msg le__msg--${message.tone}`}>{message.key ? t(message.key) : message.text}</span>}
+        {dirty && !message && <span className="le__msg">{t("options.unsaved")}</span>}
         <button className="btn btn--secondary btn--small" disabled={!dirty || busy} onClick={() => setDraft(saved)}>
-          Descartar
+          {t("common.discard")}
         </button>
         <button className="btn btn--primary btn--small" disabled={!dirty || busy} onClick={save}>
-          {busy ? "Guardando…" : running ? "Guardar y aplicar" : "Guardar"}
+          {busy ? t("options.saving") : running ? t("options.saveApply") : t("common.save")}
         </button>
       </div>
     </section>

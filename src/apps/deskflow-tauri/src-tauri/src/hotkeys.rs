@@ -12,6 +12,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n;
 use crate::settings::IniFile;
 
 pub const SHIFT: i64 = 0x0200_0000;
@@ -545,27 +546,24 @@ pub fn validate(hotkeys: &[Hotkey], known: &HashSet<String>) -> Result<(), Strin
     for (i, hk) in hotkeys.iter().enumerate() {
         let n = i + 1;
         if sequence_text(&hk.keys).is_none() {
-            return Err(format!(
-                "El atajo {n} necesita una tecla además de los modificadores."
-            ));
+            return Err(i18n::tf("error.hotkeys.noKey", &[("n", &n)]));
         }
         for a in &hk.actions {
             if a.kind.sends_keys()
                 && (sequence_text(&a.keys).is_none() || a.keys.iter().any(|&k| is_mouse_button(k)))
             {
-                return Err(format!(
-                    "Una acción del atajo {n} no tiene una combinación de teclas válida para enviar."
-                ));
+                return Err(i18n::tf("error.hotkeys.badSendKeys", &[("n", &n)]));
             }
             if a.kind == ActionKind::SwitchToScreen && !known.contains(&a.target) {
-                return Err(format!(
-                    "El atajo {n} apunta a “{}”, que no está en el diseño.",
-                    a.target
+                return Err(i18n::tf(
+                    "error.hotkeys.unknownTarget",
+                    &[("n", &n), ("name", &a.target)],
                 ));
             }
             if let Some(c) = a.computers.iter().find(|c| !known.contains(*c)) {
-                return Err(format!(
-                    "El atajo {n} envía teclas a “{c}”, que no está en el diseño."
+                return Err(i18n::tf(
+                    "error.hotkeys.unknownComputer",
+                    &[("n", &n), ("name", c)],
                 ));
             }
         }

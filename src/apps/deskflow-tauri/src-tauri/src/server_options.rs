@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n;
 use crate::paths;
 use crate::settings::IniFile;
 
@@ -88,26 +89,26 @@ pub fn read(ini: &IniFile) -> ServerOptions {
 
 /// Same limits as the spin boxes of the Qt dialog.
 pub fn validate(o: &ServerOptions) -> Result<(), String> {
-    let check = |ok: bool, msg: &str| if ok { Ok(()) } else { Err(msg.to_owned()) };
+    let check = |ok: bool, msg: String| if ok { Ok(()) } else { Err(msg) };
     check(
         o.clipboard_size_mb <= 10_000,
-        "El límite del portapapeles puede ser de hasta 10000 MB.",
+        i18n::t("error.serverOptions.clipboardMax"),
     )?;
     check(
         !o.clipboard || o.clipboard_size_mb >= 1,
-        "Si compartís el portapapeles, el límite tiene que ser de al menos 1 MB.",
+        i18n::t("error.serverOptions.clipboardMin"),
     )?;
     check(
         (10..=10_000).contains(&o.switch_delay_ms),
-        "La espera para cambiar de pantalla va de 10 a 10000 ms.",
+        i18n::t("error.serverOptions.switchDelay"),
     )?;
     check(
         (10..=10_000).contains(&o.double_tap_ms),
-        "El tiempo del doble toque va de 10 a 10000 ms.",
+        i18n::t("error.serverOptions.doubleTap"),
     )?;
     check(
         (1_000..=30_000).contains(&o.heartbeat_ms),
-        "El intervalo de chequeo va de 1 a 30 segundos.",
+        i18n::t("error.serverOptions.heartbeat"),
     )?;
     Ok(())
 }
@@ -163,7 +164,8 @@ pub fn save(o: &ServerOptions) -> Result<ServerOptions, String> {
         reset_portal_clipboard(&mut ini);
     }
     write(&mut ini, o);
-    ini.save().map_err(|e| format!("No se pudo guardar: {e}"))?;
+    ini.save()
+        .map_err(|e| i18n::tf("error.save", &[("reason", &e)]))?;
     Ok(read(&ini))
 }
 

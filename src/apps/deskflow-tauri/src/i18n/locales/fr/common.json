@@ -1,0 +1,18 @@
+{
+  "tab.home": "Accueil",
+  "tab.layout": "Écrans",
+  "tab.hotkeys": "Raccourcis",
+  "tab.clipboard": "Presse-papiers",
+  "tab.options": "Options",
+  "tab.security": "Sécurité",
+  "tab.activity": "Activité",
+  "tab.about": "À propos",
+  "tabs.label": "Sections",
+  "warnings_one": "{count} avertissement depuis le démarrage",
+  "warnings_other": "{count} avertissements depuis le démarrage",
+  "close": "Fermer",
+  "cancel": "Annuler",
+  "save": "Enregistrer",
+  "discard": "Abandonner",
+  "loading": "Chargement"
+}

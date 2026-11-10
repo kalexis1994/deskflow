@@ -34,26 +34,3 @@
 .update progress {
   width: 100%;
 }
-
-.update-footer {
-  white-space: nowrap;
-}
-
-.update-footer__channel {
-  padding: 0 2px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: inherit;
-  font: inherit;
-}
-
-.update-footer__check {
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}

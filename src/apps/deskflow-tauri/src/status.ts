@@ -1,3 +1,4 @@
+import { t, tn } from "./i18n";
 import type { ConnectionRefusal, CoreState, Overview } from "./types";
 
 export type Tone = "off" | "busy" | "wait" | "ok" | "warn";
@@ -15,12 +16,12 @@ export function describeStatus(
   retryIn: number | null,
   address: string | null,
 ): StatusView {
-  const host = ov.remoteHost || "la otra computadora";
+  const host = ov.remoteHost;
 
-  if (core.process === "starting") return { tone: "busy", title: "Iniciando…", detail: "Arrancando el servicio de Deskflow." };
-  if (core.process === "stopping") return { tone: "busy", title: "Deteniendo…", detail: "Cerrando la conexión." };
+  if (core.process === "starting") return { tone: "busy", title: t("app.status.starting.title"), detail: t("app.status.starting.detail") };
+  if (core.process === "stopping") return { tone: "busy", title: t("app.status.stopping.title"), detail: t("app.status.stopping.detail") };
   if (core.process === "stopped" || core.ipc === "disconnected") {
-    return { tone: "off", title: "Apagado", detail: "No se está compartiendo el teclado ni el mouse." };
+    return { tone: "off", title: t("app.status.off.title"), detail: t("app.status.off.detail") };
   }
 
   const isServer = ov.coreMode === "server";
@@ -30,48 +31,51 @@ export function describeStatus(
         const n = core.clients.length;
         return {
           tone: "ok",
-          title: n === 1 ? `Compartiendo con ${core.clients[0]}` : n > 1 ? `Compartiendo con ${n} computadoras` : "Compartiendo",
-          detail: "Llevá el mouse al borde de la pantalla para pasar a la otra computadora.",
+          title:
+            n === 1
+              ? t("app.status.sharing.titleOne", { name: core.clients[0] })
+              : n > 1
+                ? tn("app.status.sharing.titleMany", n)
+                : t("app.status.sharing.title"),
+          detail: t("app.status.sharing.detail"),
         };
       }
       return {
         tone: "ok",
-        title: `Conectado a ${host}`,
-        detail: "El teclado y el mouse de esa computadora ya pueden controlar esta.",
+        title: host ? t("app.status.connected.title", { host }) : t("app.status.connected.titleUnknown"),
+        detail: t("app.status.connected.detail"),
       };
     case "Listening":
       return {
         tone: "wait",
-        title: "Esperando computadoras",
-        detail: address
-          ? `En la otra computadora elegí “Usar el teclado de otra” y escribí ${address}.`
-          : "En la otra computadora elegí “Usar el teclado de otra” y escribí la IP de esta.",
+        title: t("app.status.listening.title"),
+        detail: address ? t("app.status.listening.detail", { address }) : t("app.status.listening.detailNoAddress"),
       };
     case "Connecting":
-      if (isServer) return { tone: "busy", title: "Preparando…", detail: "Abriendo el puerto para que se conecten." };
+      if (isServer) return { tone: "busy", title: t("app.status.preparing.title"), detail: t("app.status.preparing.detail") };
       return {
         tone: core.refusal ? "warn" : "busy",
-        title: `Buscando a ${host}…`,
+        title: host ? t("app.status.connecting.title", { host }) : t("app.status.connecting.titleUnknown"),
         detail:
           retryIn !== null && retryIn > 0
-            ? `No respondió. Reintento en ${retryIn} s.`
-            : "Asegurate de que Deskflow esté abierto y compartiendo en esa computadora.",
+            ? t("app.status.connecting.retry", { seconds: retryIn })
+            : t("app.status.connecting.hint"),
       };
     default:
-      return { tone: "warn", title: "Desconectado", detail: "El servicio está activo pero no hay conexión." };
+      return { tone: "warn", title: t("app.status.disconnected.title"), detail: t("app.status.disconnected.detail") };
   }
 }
 
 export function describeRefusal(reason: ConnectionRefusal, computerName: string): string {
   switch (reason) {
     case "IncompatibleVersion":
-      return "La otra computadora tiene una versión de Deskflow incompatible. Actualizá las dos a la misma versión.";
+      return t("app.refusal.incompatibleVersion");
     case "AlreadyConnected":
-      return `Ya hay otra computadora conectada con el nombre “${computerName}”. Cambiá el nombre de una de las dos.`;
+      return t("app.refusal.alreadyConnected", { name: computerName });
     case "UnknownClient":
-      return `La otra computadora no reconoce a “${computerName}”. Agregala a su diseño de pantallas.`;
+      return t("app.refusal.unknownClient", { name: computerName });
     case "ProtocolError":
-      return "Hubo un error de comunicación con la otra computadora.";
+      return t("app.refusal.protocolError");
   }
 }
 

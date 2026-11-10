@@ -1,0 +1,20 @@
+{
+  "tagline": "One keyboard and mouse for all your computers.",
+  "version": "Version {version}",
+  "core": "Core {version}",
+  "runsAsService": "Runs as a system service",
+  "runsInApp": "Runs inside this app",
+  "settingsFile": "Settings file",
+  "updates": "Updates",
+  "channel": "Channel",
+  "check": "Check for updates",
+  "checkFailed": "Couldn't check: {reason}",
+  "language": "Language",
+  "languageAuto": "Automatic ({name})",
+  "languageHint": "Automatic uses the Windows language. It also changes the menu of the taskbar icon.",
+  "links": "Links",
+  "source": "Source code",
+  "releases": "Published versions",
+  "upstream": "Original Deskflow project",
+  "license": "Free software under the GPL 2.0 license."
+}

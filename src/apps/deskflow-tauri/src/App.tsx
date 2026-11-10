@@ -7,12 +7,17 @@ import { ServerOptionsCard } from "./ServerOptionsCard";
 import { HotkeysCard } from "./hotkeys/HotkeysCard";
 import { FingerprintPromptCard, SecurityCard } from "./tls/Security";
 import { ClipboardCard } from "./clipboard/ClipboardCard";
-import { UpdateCard, UpdateFooter } from "./update/UpdateCard";
+import { UpdateCard } from "./update/UpdateCard";
+import { AboutCard } from "./about/AboutCard";
+import { t, tn, useLanguage, type Key } from "./i18n";
+import { tNode } from "./i18n/react";
 import { useUpdate } from "./update/useUpdate";
 import { recentProblems, saveTab, savedTab, shownTab, tabsFor, type Tab, type TabId } from "./tabs";
 import type { Autostart, CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
+  // every text is read while rendering, so a new language only needs a new render
+  useLanguage();
   const df = useDeskflow();
   const update = useUpdate();
   const retryIn = useCountdown(df.core?.retryAt ?? null);
@@ -23,7 +28,7 @@ export default function App() {
   if (!df.info || !df.core) {
     return (
       <main className="app app--loading">
-        {df.error ? <div className="alert alert--danger">{df.error}</div> : <div className="spinner" aria-label="Cargando" />}
+        {df.error ? <div className="alert alert--danger">{df.error}</div> : <div className="spinner" aria-label={t("common.loading")} />}
       </main>
     );
   }
@@ -41,7 +46,7 @@ export default function App() {
 
       {!df.info.coreFound && (
         <div className="alert alert--danger">
-          No encontré <code>deskflow-core</code>. Instalá Deskflow o indicá la carpeta con la variable <code>DESKFLOW_DIR</code>.
+          {tNode("app.coreMissing", { core: <code>deskflow-core</code>, variable: <code>DESKFLOW_DIR</code> })}
         </div>
       )}
 
@@ -118,30 +123,25 @@ export default function App() {
         <ActivityLog lines={log} visible={tab === "activity"} />
       </Panel>
 
-      <footer className="footer">
-        <span>{ov.processMode === "service" ? "Corre como servicio del sistema" : "Corre dentro de esta app"}</span>
-        {update.state && <UpdateFooter state={update.state} onCheck={update.check} onChannel={update.setChannel} />}
-        <span className="footer__path" title={ov.settingsFile}>
-          {ov.settingsFile}
-        </span>
-      </footer>
+      <Panel id="about" current={tab}>
+        <AboutCard ov={ov} coreVersion={core.coreVersion ?? null} update={update.state} onCheck={update.check} onChannel={update.setChannel} />
+      </Panel>
+
     </main>
   );
 }
 
 function Header({ ov, core }: { ov: Overview; core: CoreState }) {
-  const ipcLabel = { connected: "Core conectado", versionMismatch: "Core de otra versión", disconnected: "Core apagado" }[core.ipc];
+  const ipcLabel = t(`app.header.ipc.${core.ipc}`);
   return (
     <header className="header">
       <Logo />
       <div className="header__titles">
         <h1>Deskflow</h1>
-        <p>
-          Esta computadora: <strong>{ov.computerName}</strong>
-        </p>
+        <p>{tNode("app.header.thisComputer", { name: <strong>{ov.computerName}</strong> })}</p>
       </div>
       <div className="header__meta">
-        <span className={`pill pill--${core.ipc}`} title="Conexión de esta app con el proceso de Deskflow">
+        <span className={`pill pill--${core.ipc}`} title={t("app.header.ipc.title")}>
           <span className="dot" /> {ipcLabel}
         </span>
         {core.coreVersion && <span className="muted small">v{core.coreVersion}</span>}
@@ -161,24 +161,25 @@ function Logo() {
   );
 }
 
-const MODES: { value: CoreMode; title: string; text: string; icon: string }[] = [
+// keys, not texts: they are translated while rendering
+const MODES: { value: CoreMode; title: Key; text: Key; icon: string }[] = [
   {
     value: "server",
-    title: "Compartir mi teclado y mouse",
-    text: "Esta computadora controla a las demás.",
+    title: "app.mode.server.title",
+    text: "app.mode.server.text",
     icon: "M4 6h16v9H4zM9 19h6M12 15v4",
   },
   {
     value: "client",
-    title: "Usar el teclado de otra",
-    text: "Esta computadora se controla desde otra.",
+    title: "app.mode.client.title",
+    text: "app.mode.client.text",
     icon: "M5 4h14v10H5zM2 20h20M12 14v3",
   },
 ];
 
 function ModePicker({ mode, disabled, onChange }: { mode: CoreMode; disabled: boolean; onChange: (m: CoreMode) => void }) {
   return (
-    <section className="modes" role="radiogroup" aria-label="Qué hace esta computadora">
+    <section className="modes" role="radiogroup" aria-label={t("app.mode.label")}>
       {MODES.map((m) => (
         <button
           key={m.value}
@@ -191,8 +192,8 @@ function ModePicker({ mode, disabled, onChange }: { mode: CoreMode; disabled: bo
           <svg viewBox="0 0 24 24" className="mode__icon" aria-hidden="true">
             <path d={m.icon} />
           </svg>
-          <span className="mode__title">{m.title}</span>
-          <span className="mode__text">{m.text}</span>
+          <span className="mode__title">{t(m.title)}</span>
+          <span className="mode__text">{t(m.text)}</span>
         </button>
       ))}
     </section>
@@ -227,8 +228,8 @@ function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop, autosta
         <h2>
           {view.title}
           {core.connectionInferred && (
-            <span className="tag" title="Esta app se conectó a un Deskflow que ya estaba corriendo; el estado se deduce del registro hasta que cambie.">
-              estimado
+            <span className="tag" title={t("app.status.estimated.title")}>
+              {t("app.status.estimated")}
             </span>
           )}
         </h2>
@@ -237,28 +238,24 @@ function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop, autosta
           <p className="status__security">
             {core.tls ? (
               <>
-                <LockIcon /> Conexión cifrada · {core.tls}
+                <LockIcon /> {t("app.status.tls.connection", { protocol: core.tls })}
               </>
             ) : ov.tlsEnabled ? (
               <>
-                <LockIcon /> Cifrado activado
+                <LockIcon /> {t("app.status.tls.enabled")}
               </>
             ) : (
-              <span className="warn-text">Sin cifrado</span>
+              <span className="warn-text">{t("app.status.tls.off")}</span>
             )}
           </p>
         )}
         {autostart?.supported && (
           <p className={`status__autostart ${autostart.enabled ? "" : "status__autostart--off"}`}>
-            {autostart.enabled
-              ? "Arranca solo al prender la PC, ya en la pantalla de inicio de sesión."
-              : "No arranca solo al prender la PC: iniciá Deskflow una vez para que lo recuerde."}
+            {autostart.enabled ? t("app.status.autostart.on") : t("app.status.autostart.off")}
           </p>
         )}
         {confirmStop && (
-          <p className="status__confirm">
-            Si lo detenés, tampoco va a arrancar solo la próxima vez que prendas la PC.
-          </p>
+          <p className="status__confirm">{t("app.status.confirmStop")}</p>
         )}
       </div>
       <div className="status__actions">
@@ -266,10 +263,10 @@ function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop, autosta
           confirmStop ? (
             <div className="status__confirm-actions">
               <button className="btn btn--secondary" onClick={() => setConfirmStop(false)}>
-                Cancelar
+                {t("common.cancel")}
               </button>
               <button className="btn btn--danger" onClick={onStop} disabled={busy || transitioning}>
-                Detener igual
+                {t("app.status.stopAnyway")}
               </button>
             </div>
           ) : (
@@ -278,12 +275,12 @@ function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop, autosta
               onClick={() => (autostart?.enabled ? setConfirmStop(true) : onStop())}
               disabled={busy || transitioning}
             >
-              Detener
+              {t("app.status.stop")}
             </button>
           )
         ) : (
           <button className="btn btn--primary" onClick={onStart} disabled={busy || ov.coreMode === "none"}>
-            Iniciar
+            {t("app.status.start")}
           </button>
         )}
       </div>
@@ -305,9 +302,9 @@ function Alerts({ core, ov, error, onDismissError }: { core: CoreState; ov: Over
   if (error) items.push({ tone: "danger", text: error, onClose: onDismissError });
   else if (core.lastError) items.push({ tone: "danger", text: core.lastError });
   if (core.refusal && core.connection !== "Connected") items.push({ tone: "warn", text: describeRefusal(core.refusal, ov.computerName) });
-  if (core.missingLayouts) items.push({ tone: "info", text: `Faltan distribuciones de teclado en esta computadora: ${core.missingLayouts}.` });
+  if (core.missingLayouts) items.push({ tone: "info", text: t("app.alerts.missingLayouts", { layouts: core.missingLayouts }) });
   if (core.ipc === "versionMismatch") {
-    items.push({ tone: "info", text: "El Deskflow que está corriendo es de otra versión que el instalado. Algunos datos pueden faltar." });
+    items.push({ tone: "info", text: t("app.alerts.versionMismatch") });
   }
   if (items.length === 0) return null;
 
@@ -317,7 +314,7 @@ function Alerts({ core, ov, error, onDismissError }: { core: CoreState; ov: Over
         <div key={i} className={`alert alert--${a.tone}`} role={a.tone === "danger" ? "alert" : undefined}>
           <span>{a.text}</span>
           {a.onClose && (
-            <button className="alert__close" onClick={a.onClose} aria-label="Cerrar">
+            <button className="alert__close" onClick={a.onClose} aria-label={t("common.close")}>
               ×
             </button>
           )}
@@ -334,7 +331,7 @@ function ClientCard({ host, port, running, busy, onSave }: { host: string; port:
 
   return (
     <section className="card">
-      <h3>Computadora que comparte el teclado</h3>
+      <h3>{t("app.client.title")}</h3>
       <form
         className="field-row"
         onSubmit={(e) => {
@@ -343,43 +340,47 @@ function ClientCard({ host, port, running, busy, onSave }: { host: string; port:
         }}
       >
         <label className="field">
-          <span className="field__label">Nombre o dirección IP</span>
-          <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="192.168.1.10 o mi-pc.local" spellCheck={false} />
+          <span className="field__label">{t("app.client.address.label")}</span>
+          <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={t("app.client.address.placeholder")} spellCheck={false} />
         </label>
         <button className={`btn ${dirty ? "btn--primary" : "btn--secondary"}`} type="submit" disabled={!dirty || busy}>
-          {running ? "Guardar y reconectar" : "Guardar"}
+          {running ? t("app.client.saveAndReconnect") : t("common.save")}
         </button>
       </form>
-      <p className="muted small">Puerto {port}. Lo encontrás en la pantalla principal de Deskflow en la otra computadora.</p>
+      <p className="muted small">{t("app.client.port", { port })}</p>
     </section>
   );
 }
 
 function Tabs({ tabs, current, badges, onChange }: { tabs: Tab[]; current: TabId; badges: Partial<Record<TabId, number>>; onChange: (id: TabId) => void }) {
   const refs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
+  // in a narrow window with long names the bar scrolls: keep the open tab in sight
+  useEffect(() => {
+    refs.current[current]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [current]);
   const move = (by: number) => {
-    const i = tabs.findIndex((t) => t.id === current);
+    const i = tabs.findIndex((tab) => tab.id === current);
     const next = tabs[(i + by + tabs.length) % tabs.length].id;
     onChange(next);
     refs.current[next]?.focus();
   };
   return (
-    <nav className="tabs" role="tablist" aria-label="Secciones">
-      {tabs.map((t) => {
-        const badge = badges[t.id] ?? 0;
+    <nav className="tabs" role="tablist" aria-label={t("common.tabs.label")}>
+      {tabs.map((tab) => {
+        const badge = badges[tab.id] ?? 0;
         return (
           <button
-            key={t.id}
+            key={tab.id}
             ref={(el) => {
-              refs.current[t.id] = el;
+              refs.current[tab.id] = el;
             }}
-            id={`tab-${t.id}`}
+            id={`tab-${tab.id}`}
             role="tab"
-            aria-selected={t.id === current}
-            aria-controls={`panel-${t.id}`}
-            tabIndex={t.id === current ? 0 : -1}
-            className={`tab ${t.id === current ? "tab--on" : ""}`}
-            onClick={() => onChange(t.id)}
+            aria-selected={tab.id === current}
+            aria-controls={`panel-${tab.id}`}
+            tabIndex={tab.id === current ? 0 : -1}
+            className={`tab ${tab.id === current ? "tab--on" : ""}`}
+            onClick={() => onChange(tab.id)}
             onKeyDown={(e) => {
               if (e.key === "ArrowRight") move(1);
               else if (e.key === "ArrowLeft") move(-1);
@@ -387,9 +388,9 @@ function Tabs({ tabs, current, badges, onChange }: { tabs: Tab[]; current: TabId
               e.preventDefault();
             }}
           >
-            {t.label}
+            {t(`common.tab.${tab.id}`)}
             {badge > 0 && (
-              <span className="badge" title={badge === 1 ? "1 aviso desde que arrancó" : `${badge} avisos desde que arrancó`}>
+              <span className="badge" title={tn("common.warnings", badge)}>
                 {badge}
               </span>
             )}
@@ -422,14 +423,14 @@ function ActivityLog({ lines, visible }: { lines: ReturnType<typeof parseLogLine
   return (
     <section className="card log">
       <div className="log__header">
-        <h3>Actividad</h3>
+        <h3>{t("app.activity.title")}</h3>
         <label className="check">
           <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
-          Solo avisos y errores
+          {t("app.activity.onlyProblems")}
         </label>
       </div>
       <ol className="log__list" ref={listRef}>
-        {shown.length === 0 && <li className="muted">Sin actividad.</li>}
+        {shown.length === 0 && <li className="muted">{t("app.activity.empty")}</li>}
         {shown.slice(-500).map((l, i) => (
           <li key={i} className={`log__line log__line--${l.level}`}>
             {l.time && <time>{l.time}</time>}

@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n;
 use crate::paths;
 use crate::server_options;
 use crate::settings::IniFile;
@@ -162,7 +163,7 @@ pub fn set_preview(enabled: bool) -> Result<ClipboardPrefs, String> {
 /// from the next start.
 pub fn set_files(enabled: bool, limit_mb: u32) -> Result<ClipboardPrefs, String> {
     if !(1..=100_000).contains(&limit_mb) {
-        return Err("El límite tiene que estar entre 1 MB y 100 000 MB.".into());
+        return Err(i18n::t("error.clipboard.fileLimit"));
     }
     let mut ini = IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
     ini.set(

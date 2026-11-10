@@ -9,7 +9,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, Tray
 use tauri::{AppHandle, Manager, Wry};
 
 use crate::engine::{CoreState, Hub, IpcStatus, ProcessStatus};
-use crate::update;
+use crate::{i18n, update};
 
 /// Starts without showing the window.
 pub const HIDDEN_ARG: &str = "--tray";
@@ -22,6 +22,8 @@ pub struct Tray {
     menu: Menu<Wry>,
     status: MenuItem<Wry>,
     update: MenuItem<Wry>,
+    open: MenuItem<Wry>,
+    quit: MenuItem<Wry>,
     shown: Mutex<Shown>,
 }
 
@@ -36,23 +38,23 @@ struct Shown {
 /// `src/status.ts`, as far as the core's state alone tells.
 fn status_line(core: &CoreState) -> String {
     match core.process {
-        ProcessStatus::Starting => return "Iniciando…".into(),
-        ProcessStatus::Stopping => return "Deteniendo…".into(),
-        ProcessStatus::Stopped => return "Apagado".into(),
+        ProcessStatus::Starting => return i18n::t("tray.starting"),
+        ProcessStatus::Stopping => return i18n::t("tray.stopping"),
+        ProcessStatus::Stopped => return i18n::t("tray.off"),
         ProcessStatus::Running => {}
     }
     if core.ipc == IpcStatus::Disconnected {
-        return "Apagado".into();
+        return i18n::t("tray.off");
     }
     match core.connection.as_deref() {
         Some("Connected") => match core.clients.as_slice() {
-            [] => "Conectado".into(),
-            [client] => format!("Compartiendo con {client}"),
-            clients => format!("Compartiendo con {} computadoras", clients.len()),
+            [] => i18n::t("tray.connected"),
+            [client] => i18n::tf("tray.sharingWith", &[("name", client)]),
+            clients => i18n::tf("tray.sharingWithMany", &[("count", &clients.len())]),
         },
-        Some("Listening") => "Esperando computadoras".into(),
-        Some("Connecting") => "Buscando conexión…".into(),
-        _ => "Desconectado".into(),
+        Some("Listening") => i18n::t("tray.listening"),
+        Some("Connecting") => i18n::t("tray.connecting"),
+        _ => i18n::t("tray.disconnected"),
     }
 }
 
@@ -63,9 +65,9 @@ fn waiting_for_person(core: &CoreState) -> bool {
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let status = MenuItem::with_id(app, "status", "Deskflow", false, None::<&str>)?;
-    let update = MenuItem::with_id(app, "update", "Actualizar", true, None::<&str>)?;
-    let open = MenuItem::with_id(app, "open", "Abrir Deskflow", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", i18n::t("tray.update"), true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", i18n::t("tray.open"), true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", i18n::t("tray.quit"), true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -108,6 +110,8 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         menu,
         status,
         update,
+        open,
+        quit,
         shown: Mutex::new(Shown::default()),
     });
     Ok(())
@@ -155,7 +159,7 @@ pub fn show_update(app: &AppHandle, version: Option<&str>) {
         Some(version) => {
             let _ = tray
                 .update
-                .set_text(format!("Actualizar a la versión {version}…"));
+                .set_text(i18n::tf("tray.updateTo", &[("version", &version)]));
             if shown.update.is_none() {
                 let _ = tray.menu.insert(&tray.update, UPDATE_POSITION);
             }
@@ -165,6 +169,28 @@ pub fn show_update(app: &AppHandle, version: Option<&str>) {
         }
     }
     shown.update = version.map(Into::into);
+}
+
+/// Says everything again in the language just chosen.
+pub fn relabel(app: &AppHandle) {
+    let Some(tray) = app.try_state::<Tray>() else {
+        return;
+    };
+    let _ = tray.open.set_text(i18n::t("tray.open"));
+    let _ = tray.quit.set_text(i18n::t("tray.quit"));
+    let update = {
+        let mut shown = tray.shown.lock().unwrap();
+        shown.status.clear();
+        shown.update.clone()
+    };
+    if let Some(version) = update {
+        let _ = tray
+            .update
+            .set_text(i18n::tf("tray.updateTo", &[("version", &version)]));
+    }
+    if let Some(hub) = app.try_state::<Arc<Hub>>() {
+        refresh(app, &hub.snapshot());
+    }
 }
 
 /// Follows the core's state; called on every change.

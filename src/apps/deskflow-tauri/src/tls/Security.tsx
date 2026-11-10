@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { fingerprintArtBody, fingerprintColumns } from "./fingerprint";
+import { t, type Key } from "../i18n";
 import type { CoreMode, FingerprintPrompt as Prompt } from "../types";
 import "./Security.css";
 
@@ -34,33 +35,35 @@ function Fingerprint({ hex, title, large }: { hex: string; title?: string; large
   return (
     <figure className={`fp ${large ? "fp--large" : ""}`}>
       {title && <figcaption>{title}</figcaption>}
-      <pre className={`fp__art ${asText ? "fp__art--text" : ""}`} aria-label={`Huella ${fingerprintColumns(hex).replace(/\n/g, "")}`}>
+      <pre className={`fp__art ${asText ? "fp__art--text" : ""}`} aria-label={t("security.fingerprint.label", { hex: fingerprintColumns(hex).replace(/\n/g, "") })}>
         {asText ? fingerprintColumns(hex) : fingerprintArtBody(hex)}
       </pre>
       <div className="fp__tools">
         <button className="le__link" onClick={() => setAsText(!asText)}>
-          {asText ? "Ver dibujo" : "Ver como texto"}
+          {asText ? t("security.fingerprint.showArt") : t("security.fingerprint.showText")}
         </button>
         <button className="le__link" onClick={copy}>
-          {copied ? "Copiada" : "Copiar"}
+          {copied ? t("security.fingerprint.copied") : t("security.fingerprint.copy")}
         </button>
       </div>
     </figure>
   );
 }
 
-const PROMPT_TEXT: Record<"client" | "server", { title: string; body: string; accept: string; reject: string }> = {
+const PROMPT_TEXT: Record<"client" | "server", { title: Key; body: Key; accept: Key; reject: Key; print: Key }> = {
   client: {
-    title: "¿Es esta la computadora a la que te querés conectar?",
-    body: "Es la primera vez que te conectás a este servidor. En esa computadora abrí Deskflow y mirá “Mi huella” en Seguridad: si el dibujo es igual a este, es ella.",
-    accept: "Es esa, conectar",
-    reject: "No, no conectar",
+    title: "security.prompt.client.title",
+    body: "security.prompt.client.body",
+    accept: "security.prompt.client.accept",
+    reject: "security.prompt.client.reject",
+    print: "security.prompt.client.print",
   },
   server: {
-    title: "Una computadora nueva quiere conectarse",
-    body: "En la computadora que se está conectando abrí Deskflow y mirá “Mi huella” en Seguridad: si el dibujo es igual a este, dejala entrar.",
-    accept: "Es mía, dejarla entrar",
-    reject: "No dejarla entrar",
+    title: "security.prompt.server.title",
+    body: "security.prompt.server.body",
+    accept: "security.prompt.server.accept",
+    reject: "security.prompt.server.reject",
+    print: "security.prompt.server.print",
   },
 };
 
@@ -99,21 +102,21 @@ export function FingerprintPromptCard({ prompt, onDone }: { prompt: Prompt; onDo
           </svg>
         </span>
         <div>
-          <h3 id="fpp-title">{text.title}</h3>
-          <p className="muted small">{text.body}</p>
+          <h3 id="fpp-title">{t(text.title)}</h3>
+          <p className="muted small">{t(text.body, { mine: t("security.mine.title"), section: t("common.tab.security") })}</p>
         </div>
       </div>
       <div className="fpp__prints">
-        <Fingerprint hex={prompt.fingerprint} title={mode === "client" ? "Huella del servidor" : "Huella de la computadora nueva"} large />
-        {info?.localFingerprint && <Fingerprint hex={info.localFingerprint} title="Huella de esta computadora (por si la otra te la pide)" />}
+        <Fingerprint hex={prompt.fingerprint} title={t(text.print)} large />
+        {info?.localFingerprint && <Fingerprint hex={info.localFingerprint} title={t("security.prompt.localPrint")} />}
       </div>
       {error && <div className="alert alert--danger">{error}</div>}
       <div className="fpp__actions">
         <button className="btn btn--secondary" disabled={busy} onClick={() => run("reject_fingerprint")}>
-          {text.reject}
+          {t(text.reject)}
         </button>
         <button className="btn btn--primary" disabled={busy} onClick={() => run("trust_fingerprint")}>
-          {text.accept}
+          {t(text.accept)}
         </button>
       </div>
     </section>
@@ -132,17 +135,17 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
 
   if (!info) return error ? <div className="alert alert--danger">{error}</div> : null;
 
-  const forget = async (list: "servers" | "clients", t: Trusted) => {
+  const forget = async (list: "servers" | "clients", item: Trusted) => {
     try {
-      setInfo(await invoke<TlsInfo>("forget_fingerprint", { list, kind: t.kind, hex: t.hex }));
+      setInfo(await invoke<TlsInfo>("forget_fingerprint", { list, kind: item.kind, hex: item.hex }));
     } catch (e) {
       setError(String(e));
     }
   };
 
   const lists: { id: "servers" | "clients"; title: string; empty: string; items: Trusted[] }[] = [
-    { id: "servers", title: "Servidores en los que confío", empty: "Ninguno todavía.", items: info.trustedServers },
-    { id: "clients", title: "Computadoras que pueden conectarse a esta", empty: "Ninguna todavía.", items: info.trustedClients },
+    { id: "servers", title: t("security.trustedServers.title"), empty: t("security.trustedServers.empty"), items: info.trustedServers },
+    { id: "clients", title: t("security.trustedClients.title"), empty: t("security.trustedClients.empty"), items: info.trustedClients },
   ];
   // the list that matters in the current mode goes first
   if (mode === "server") lists.reverse();
@@ -150,17 +153,17 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
   return (
     <section className="card sec">
       <h3 className="sec__title">
-        Seguridad
-        <span className={`badge ${info.enabled ? "badge--ok" : ""}`}>{info.enabled ? "Cifrado activado" : "Sin cifrado"}</span>
+        {t("security.title")}
+        <span className={`badge ${info.enabled ? "badge--ok" : ""}`}>{info.enabled ? t("security.encryption.on") : t("security.encryption.off")}</span>
       </h3>
       <div className="sec__body">
         <div>
-          <h4>Mi huella</h4>
-          <p className="muted small">Cuando otra computadora se conecte por primera vez, te va a mostrar este dibujo para que confirmes que sos vos.</p>
+          <h4>{t("security.mine.title")}</h4>
+          <p className="muted small">{t("security.mine.hint")}</p>
           {info.localFingerprint ? (
             <Fingerprint hex={info.localFingerprint} />
           ) : (
-            <p className="le__warn">No encontré el certificado de esta computadora ({info.certificate}). Se crea la primera vez que Deskflow arranca con cifrado.</p>
+            <p className="le__warn">{t("security.mine.missing", { path: info.certificate })}</p>
           )}
         </div>
         <div className="sec__lists">
@@ -171,16 +174,16 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
                 <p className="muted small">{l.empty}</p>
               ) : (
                 <ul className="sec__trusted">
-                  {l.items.map((t) => (
-                    <li key={t.kind + t.hex}>
+                  {l.items.map((item) => (
+                    <li key={item.kind + item.hex}>
                       <pre className="sec__mini" aria-hidden="true">
-                        {t.kind === "sha256" ? fingerprintArtBody(t.hex) : ""}
+                        {item.kind === "sha256" ? fingerprintArtBody(item.hex) : ""}
                       </pre>
                       <div className="sec__meta">
-                        <code title={t.hex}>{fingerprintColumns(t.hex).split("\n")[0]}…</code>
-                        {t.kind !== "sha256" && <span className="muted small">formato viejo (SHA-1)</span>}
-                        <button className="le__link sec__forget" onClick={() => forget(l.id, t)}>
-                          Olvidar
+                        <code title={item.hex}>{fingerprintColumns(item.hex).split("\n")[0]}…</code>
+                        {item.kind !== "sha256" && <span className="muted small">{t("security.oldFormat")}</span>}
+                        <button className="le__link sec__forget" onClick={() => forget(l.id, item)}>
+                          {t("security.forget")}
                         </button>
                       </div>
                     </li>
@@ -191,7 +194,7 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
           ))}
         </div>
         {!info.checkPeers && mode === "server" && (
-          <p className="le__warn">Este servidor no verifica las huellas de las computadoras que se conectan (opción de la app clásica).</p>
+          <p className="le__warn">{t("security.noPeerCheck")}</p>
         )}
       </div>
     </section>

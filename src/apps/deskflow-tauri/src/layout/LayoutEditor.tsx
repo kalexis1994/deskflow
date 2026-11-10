@@ -11,6 +11,8 @@ import { invoke } from "@tauri-apps/api/core";
 import * as g from "./geometry";
 import { useLayoutHistory, type EditScreen } from "./useLayoutHistory";
 import type { CoreState } from "../types";
+import { t, tn, type Key } from "../i18n";
+import { tNode } from "../i18n/react";
 import { AdvancedPanel, KeyboardPanel } from "./OptionPanels";
 import { advancedCustomized, defaultOptions, keyboardCustomized, optionsSummary, type ComputerOptions } from "./options";
 import "./LayoutEditor.css";
@@ -41,11 +43,19 @@ type Drag =
   | { kind: "resize"; id: string; handle: g.Handle; pointer: g.Rect; start: g.Rect; rect: g.Rect; guides: g.Guide[] }
   | { kind: "pan"; clientX: number; clientY: number; start: View };
 
-type Message = { tone: "ok" | "warn" | "danger"; text: string };
+/** `text` is worked out on render, so a message on screen follows the language. */
+type Message = { tone: "ok" | "warn" | "danger"; text: () => string };
+/** A refused name; also a function, for the same reason. */
+type NameError = () => string;
 
 const HANDLES: g.Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const SNAP_PX = 14;
-const SIDE_NAMES: Record<g.Side, string> = { right: "por la derecha", left: "por la izquierda", up: "por arriba", down: "por abajo" };
+const SIDE_TEXTS: Record<g.Side, Key> = {
+  right: "layout.screen.link.right",
+  left: "layout.screen.link.left",
+  up: "layout.screen.link.up",
+  down: "layout.screen.link.down",
+};
 const ASPECTS: [string, number][] = [
   ["16:9", 16 / 9],
   ["16:10", 16 / 10],
@@ -82,7 +92,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
       setMeta({ serverName: v.serverName, foreignConfig: v.foreignConfig, imported: v.imported });
       setNeedsFit(true);
     } catch (e) {
-      setMessage({ tone: "danger", text: String(e) });
+      setMessage({ tone: "danger", text: () => String(e) });
     }
   }, [hist.reset]);
 
@@ -162,7 +172,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
     const others = screens.filter((s) => s.id !== id);
     const fitted = g.resolveOverlap(rect, others);
     if (!fitted) {
-      flash({ tone: "warn", text: "No hay lugar para ese tamaño sin superponerse con otra pantalla." });
+      flash({ tone: "warn", text: () => t("layout.editor.noRoom") });
       return false;
     }
     replace(id, fitted);
@@ -173,7 +183,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
     const anchor = sel ?? screens.find((s) => s.name === serverName) ?? null;
     const size = anchor ? { w: anchor.w, h: anchor.h } : { w: g.DEFAULT_W, h: g.DEFAULT_H };
     const rect = g.placeNear(anchor, size, screens);
-    const screen: EditScreen = { ...rect, name: name ?? g.nextFreeName(screens), id: newId(), orig: null, options: defaultOptions() };
+    const screen: EditScreen = { ...rect, name: name ?? g.nextFreeName(screens, t("layout.editor.newName")), id: newId(), orig: null, options: defaultOptions() };
     hist.commit([...screens, screen]);
     setSelected(screen.id);
     if (!name) setRenameFocus((n) => n + 1);
@@ -187,12 +197,12 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
     setSelected(null);
   };
 
-  const rename = (id: string, name: string): string | null => {
-    if (!g.isValidName(name)) return "Usá letras, números, punto, guion o guion bajo, sin espacios.";
+  const rename = (id: string, name: string): NameError | null => {
+    if (!g.isValidName(name)) return () => t("layout.name.invalid");
     const lower = name.toLowerCase();
-    if (screens.some((s) => s.id !== id && s.name.toLowerCase() === lower)) return "Ya hay una computadora con ese nombre.";
+    if (screens.some((s) => s.id !== id && s.name.toLowerCase() === lower)) return () => t("layout.name.taken");
     const owner = screens.find((s) => s.options.aliases.some((a) => a.toLowerCase() === lower));
-    if (owner) return owner.id === id ? "Ya es un alias de esta computadora: quitalo primero." : `Ya es un alias de ${owner.name}.`;
+    if (owner) return owner.id === id ? () => t("layout.name.ownAlias") : () => t("layout.name.aliasOf", { name: owner.name });
     const s = screens.find((x) => x.id === id);
     if (s && s.name === serverName) setMeta((m) => (m ? { ...m, serverName: name } : m));
     replace(id, { name });
@@ -214,10 +224,10 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
       setMeta({ serverName: v.serverName, foreignConfig: v.foreignConfig, imported: v.imported });
       setSelected(fresh.find((s) => s.name === selName)?.id ?? null);
       const running = core.process === "running";
-      flash({ tone: "ok", text: running ? "Guardado. Deskflow se reinició con el nuevo diseño." : "Guardado. Se aplica la próxima vez que inicies Deskflow." });
+      flash({ tone: "ok", text: () => t(running ? "layout.editor.savedRunning" : "layout.editor.savedNext") });
       onSaved();
     } catch (e) {
-      flash({ tone: "danger", text: String(e) });
+      flash({ tone: "danger", text: () => String(e) });
     } finally {
       setSaving(false);
     }
@@ -291,9 +301,9 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
       if (!d.moved) return;
       const fitted = g.resolveOverlap(d.rect, others);
       if (fitted) replace(d.id, fitted);
-      else flash({ tone: "warn", text: "Ahí se superpone con otra pantalla." });
+      else flash({ tone: "warn", text: () => t("layout.editor.overlapsHere") });
     } else if (g.overlapsAny(d.rect, others)) {
-      flash({ tone: "warn", text: "Las pantallas no pueden superponerse." });
+      flash({ tone: "warn", text: () => t("layout.editor.cantOverlap") });
     } else {
       replace(d.id, d.rect);
     }
@@ -357,54 +367,51 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
     <section className="card le">
       <div className="le__head">
         <div>
-          <h3>Diseño de pantallas</h3>
-          <p className="muted small">Ubicá las pantallas como están en tu escritorio. El mouse pasa por los bordes que se tocan.</p>
+          <h3>{t("layout.editor.title")}</h3>
+          <p className="muted small">{t("layout.editor.intro")}</p>
         </div>
       </div>
 
       {meta?.imported && (
         <div className="alert alert--info">
-          <span>Traje el diseño de la app clásica. Acomodalo y guardá para empezar a usar el editor libre.</span>
+          <span>{t("layout.editor.imported")}</span>
         </div>
       )}
       {meta?.foreignConfig && (
         <div className="alert alert--warn">
-          <span>
-            Hoy Deskflow usa tu propio archivo <code>{meta.foreignConfig}</code>. Al guardar pasará a usar este diseño (tu archivo no se borra).
-          </span>
+          <span>{tNode("layout.editor.foreignConfig", { file: <code>{meta.foreignConfig}</code> })}</span>
         </div>
       )}
       {pending && !(pendingInLayout && !hist.dirty) && (
         <div className="alert alert--warn le__pending">
           <span>
-            <strong>{pending}</strong>{" "}
-            {pendingInLayout ? "ya está en el diseño: guardá para que pueda conectarse." : "quiere conectarse pero no está en el diseño."}
+            {tNode(pendingInLayout ? "layout.editor.pendingInLayout" : "layout.editor.pendingMissing", { name: <strong>{pending}</strong> })}
           </span>
           {!pendingInLayout && (
             <button className="btn btn--primary btn--small" onClick={() => addScreen(pending)}>
-              Agregar
+              {t("layout.add")}
             </button>
           )}
         </div>
       )}
 
       <div className="le__toolbar">
-        <button className="btn btn--secondary btn--small" onClick={() => addScreen()} title="Agregar una computadora al lado de la seleccionada">
-          <Icon d="M8 3v10M3 8h10" /> Agregar computadora
+        <button className="btn btn--secondary btn--small" onClick={() => addScreen()} title={t("layout.editor.addComputerTitle")}>
+          <Icon d="M8 3v10M3 8h10" /> {t("layout.editor.addComputer")}
         </button>
         <div className="le__group">
-          <IconButton title="Deshacer (Ctrl+Z)" disabled={!hist.canUndo} onClick={hist.undo} d="M5 4 2 7l3 3M2 7h8a4 4 0 0 1 0 8H7" />
-          <IconButton title="Rehacer (Ctrl+Y)" disabled={!hist.canRedo} onClick={hist.redo} d="m11 4 3 3-3 3M14 7H6a4 4 0 0 0 0 8h3" />
-          <IconButton title="Ajustar vista" onClick={() => fit(screens)} d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" />
+          <IconButton title={t("layout.editor.undo")} disabled={!hist.canUndo} onClick={hist.undo} d="M5 4 2 7l3 3M2 7h8a4 4 0 0 1 0 8H7" />
+          <IconButton title={t("layout.editor.redo")} disabled={!hist.canRedo} onClick={hist.redo} d="m11 4 3 3-3 3M14 7H6a4 4 0 0 0 0 8h3" />
+          <IconButton title={t("layout.editor.fit")} onClick={() => fit(screens)} d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" />
         </div>
         <div className="le__spacer" />
-        {message && <span className={`le__msg le__msg--${message.tone}`}>{message.text}</span>}
-        {hist.dirty && !message && <span className="le__msg">Cambios sin guardar</span>}
+        {message && <span className={`le__msg le__msg--${message.tone}`}>{message.text()}</span>}
+        {hist.dirty && !message && <span className="le__msg">{t("layout.editor.unsaved")}</span>}
         <button className="btn btn--secondary btn--small" disabled={!hist.dirty || saving} onClick={hist.revert}>
-          Descartar
+          {t("common.discard")}
         </button>
         <button className="btn btn--primary btn--small" disabled={!hist.dirty || saving} onClick={save}>
-          {saving ? "Guardando…" : running ? "Guardar y aplicar" : "Guardar"}
+          {saving ? t("layout.editor.saving") : running ? t("layout.editor.saveApply") : t("common.save")}
         </button>
       </div>
 
@@ -417,7 +424,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          aria-label="Lienzo del diseño de pantallas"
+          aria-label={t("layout.editor.canvas")}
         >
           {shown.map((s) => {
             const isServer = s.name === serverName;
@@ -440,7 +447,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
                   <span className="le__name">{s.name}</span>
                   <span className="le__sub">
                     {running && <span className={`dot ${connected ? "dot--ok" : ""}`} />}
-                    {isServer ? "Esta computadora" : running ? (connected ? "Conectada" : "Sin conectar") : ""}
+                    {isServer ? t("layout.editor.thisComputer") : running ? t(connected ? "layout.editor.connected" : "layout.editor.notConnected") : ""}
                   </span>
                   {(isSel || active) && <span className="le__aspect">{g.aspectLabel(s.w, s.h)}</span>}
                   {optionsSummary(s.options).length > 0 && (
@@ -501,7 +508,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
           )}
         </aside>
       </div>
-      <p className="le__hint">Arrastrá para mover · bordes y esquinas para cambiar el tamaño · Shift: tamaño libre · Alt: sin imanes · rueda: zoom · Ctrl+Z: deshacer</p>
+      <p className="le__hint">{t("layout.editor.hint")}</p>
     </section>
   );
 }
@@ -509,22 +516,14 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
 function Summary({ count, lost, address, port }: { count: number; lost: string[]; address: string | null; port: number }) {
   return (
     <div className="le__panel">
-      <h4>{count === 1 ? "1 computadora" : `${count} computadoras`}</h4>
-      {lost.length > 0 && (
-        <p className="le__warn">
-          {lost.join(", ")} no {lost.length === 1 ? "toca" : "tocan"} ninguna pantalla conectada a esta: el mouse no puede llegar.
-        </p>
-      )}
+      <h4>{tn("layout.summary.computers", count)}</h4>
+      {lost.length > 0 && <p className="le__warn">{tn("layout.summary.unreachable", lost.length, { names: lost.join(", ") })}</p>}
       <ul className="le__tips">
-        <li>Hacé clic en una pantalla para editarla.</li>
-        <li>Las líneas de color marcan por dónde pasa el mouse.</li>
-        <li>Si una pantalla es más grande, agrandala: el paso entre pantallas respeta la altura real.</li>
+        <li>{t("layout.summary.tipClick")}</li>
+        <li>{t("layout.summary.tipLines")}</li>
+        <li>{t("layout.summary.tipSize")}</li>
       </ul>
-      {address && (
-        <p className="muted small">
-          Las demás computadoras se conectan a <code>{address}</code> (puerto {port}) con el mismo nombre que ves acá.
-        </p>
-      )}
+      {address && <p className="muted small">{tNode("layout.summary.address", { address: <code>{address}</code>, port })}</p>}
     </div>
   );
 }
@@ -535,7 +534,7 @@ interface InspectorProps {
   screens: EditScreen[];
   lost: boolean;
   renameFocus: number;
-  onRename: (name: string) => string | null;
+  onRename: (name: string) => NameError | null;
   onRect: (r: g.Rect) => boolean;
   onOptions: (o: ComputerOptions) => void;
   onRemove: () => void;
@@ -547,17 +546,17 @@ function Inspector(props: InspectorProps) {
   const { screen, screens, onOptions } = props;
   const [tab, setTab] = useState<Tab>("screen");
   const tabs: { id: Tab; label: string; dot: boolean }[] = [
-    { id: "screen", label: "Pantalla", dot: false },
-    { id: "keyboard", label: "Teclado", dot: keyboardCustomized(screen.options) },
-    { id: "advanced", label: "Avanzado", dot: advancedCustomized(screen.options) },
+    { id: "screen", label: t("layout.inspector.tab.screen"), dot: false },
+    { id: "keyboard", label: t("layout.inspector.tab.keyboard"), dot: keyboardCustomized(screen.options) },
+    { id: "advanced", label: t("layout.inspector.tab.advanced"), dot: advancedCustomized(screen.options) },
   ];
   return (
     <div className="le__panel">
       <div className="le__tabs" role="tablist">
-        {tabs.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} className={`le__tab ${tab === t.id ? "le__tab--on" : ""}`} onClick={() => setTab(t.id)}>
-            {t.label}
-            {t.dot && <span className="le__tab-dot" aria-label="(personalizado)" />}
+        {tabs.map((it) => (
+          <button key={it.id} role="tab" aria-selected={tab === it.id} className={`le__tab ${tab === it.id ? "le__tab--on" : ""}`} onClick={() => setTab(it.id)}>
+            {it.label}
+            {it.dot && <span className="le__tab-dot" aria-label={t("layout.inspector.customized")} />}
           </button>
         ))}
       </div>
@@ -577,7 +576,7 @@ function Inspector(props: InspectorProps) {
 
 function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, onRect, onRemove }: InspectorProps) {
   const [name, setName] = useState(screen.name);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<NameError | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   useEffect(() => setName(screen.name), [screen.name]);
   useEffect(() => {
@@ -601,7 +600,7 @@ function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, o
   return (
     <>
       <label className="field">
-        <span className="field__label">{isServer ? "Nombre de esta computadora" : "Nombre de la computadora"}</span>
+        <span className="field__label">{t(isServer ? "layout.screen.nameServer" : "layout.screen.nameClient")}</span>
         <input
           ref={nameRef}
           value={name}
@@ -617,15 +616,15 @@ function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, o
           }}
         />
       </label>
-      {error && <p className="le__error">{error}</p>}
-      {!isServer && !error && <p className="muted small">Tiene que coincidir con el nombre que usa Deskflow en esa computadora.</p>}
+      {error && <p className="le__error">{error()}</p>}
+      {!isServer && !error && <p className="muted small">{t("layout.screen.nameHint")}</p>}
 
       <div className="le__row">
-        <NumberField label="Ancho" value={screen.w} onCommit={(w) => onRect({ ...screen, w })} />
-        <NumberField label="Alto" value={screen.h} onCommit={(h) => onRect({ ...screen, h })} />
+        <NumberField label={t("layout.screen.width")} value={screen.w} onCommit={(w) => onRect({ ...screen, w })} />
+        <NumberField label={t("layout.screen.height")} value={screen.h} onCommit={(h) => onRect({ ...screen, h })} />
       </div>
 
-      <div className="le__chips" role="group" aria-label="Proporción">
+      <div className="le__chips" role="group" aria-label={t("layout.screen.aspect")}>
         {ASPECTS.map(([label, r]) => (
           <button
             key={label}
@@ -635,30 +634,28 @@ function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, o
             {label}
           </button>
         ))}
-        <button className="le__chip" title="Girar entre horizontal y vertical" onClick={() => onRect({ ...screen, w: screen.h, h: screen.w })}>
-          ⟲ Girar
+        <button className="le__chip" title={t("layout.screen.rotateTitle")} onClick={() => onRect({ ...screen, w: screen.h, h: screen.w })}>
+          ⟲ {t("layout.screen.rotate")}
         </button>
       </div>
 
       <div className="le__links">
-        <span className="field__label">El mouse pasa a</span>
+        <span className="field__label">{t("layout.screen.linksTitle")}</span>
         {links.length ? (
           <ul>
             {links.map((l, i) => (
-              <li key={i}>
-                <strong>{l.name}</strong> {SIDE_NAMES[l.side]}
-              </li>
+              <li key={i}>{tNode(SIDE_TEXTS[l.side], { name: <strong>{l.name}</strong> })}</li>
             ))}
           </ul>
         ) : (
-          <p className="le__warn">No toca ninguna otra pantalla. Arrimala a otra para conectarla.</p>
+          <p className="le__warn">{t("layout.screen.noLinks")}</p>
         )}
-        {lost && links.length > 0 && <p className="le__warn">Está conectada a otras, pero ninguna llega hasta esta computadora.</p>}
+        {lost && links.length > 0 && <p className="le__warn">{t("layout.screen.unreachable")}</p>}
       </div>
 
       {!isServer && (
         <button className="btn btn--danger btn--small" onClick={onRemove}>
-          Quitar del diseño
+          {t("layout.screen.remove")}
         </button>
       )}
     </>

@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter, Manager, State, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::engine::Hub;
+use crate::i18n;
 use crate::ipc;
 use crate::settings::{self, ProcessMode};
 use crate::tray;
@@ -235,7 +236,7 @@ impl Updates {
                     });
                     inner.phase = known.unwrap_or(if asked {
                         Phase::Failed {
-                            message: format!("No se pudo buscar actualizaciones: {e}"),
+                            message: i18n::tf("error.update.check", &[("reason", &e)]),
                         }
                     } else {
                         Phase::Idle
@@ -323,14 +324,15 @@ pub async fn set_update_channel(
     channel: Channel,
 ) -> Result<(), String> {
     if updates.inner.lock().unwrap().busy() {
-        return Err("Esperá a que termine la actualización en curso".into());
+        return Err(i18n::t("error.update.busy"));
     }
-    let file = channel_file(&app).ok_or("No encontré dónde guardar el canal")?;
+    let file = channel_file(&app).ok_or_else(|| i18n::t("error.update.noChannelFolder"))?;
     if let Some(dir) = file.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("No se pudo guardar el canal: {e}"))?;
+        std::fs::create_dir_all(dir)
+            .map_err(|e| i18n::tf("error.update.saveChannel", &[("reason", &e)]))?;
     }
     std::fs::write(&file, channel.name())
-        .map_err(|e| format!("No se pudo guardar el canal: {e}"))?;
+        .map_err(|e| i18n::tf("error.update.saveChannel", &[("reason", &e)]))?;
 
     updates.change(&app, |inner| {
         inner.channel = channel;
@@ -374,7 +376,7 @@ pub async fn install_update(
         inner.found.clone()
     };
     let Some(update) = update else {
-        return Err("No hay ninguna actualización para instalar".into());
+        return Err(i18n::t("error.update.nothingToInstall"));
     };
     let version = update.version.clone();
 
@@ -448,8 +450,9 @@ fn failed(app: &AppHandle, updates: &Updates, update: &Update, reason: &str) {
         inner.phase = Phase::Available {
             version: version.clone(),
             notes: update.body.clone(),
-            error: Some(format!(
-                "No se pudo instalar la versión {version}, y Deskflow sigue como estaba: {reason}"
+            error: Some(i18n::tf(
+                "error.update.installFailed",
+                &[("version", &version), ("reason", &reason)],
             )),
         };
     });

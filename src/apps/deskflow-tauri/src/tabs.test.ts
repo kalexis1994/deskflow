@@ -6,9 +6,9 @@ const ids = (mode: Parameters<typeof tabsFor>[0]) => tabsFor(mode).map((t) => t.
 
 describe("tabs", () => {
   it("offers what each mode uses", () => {
-    expect(ids("server")).toEqual(["home", "layout", "hotkeys", "clipboard", "options", "security", "activity"]);
-    expect(ids("client")).toEqual(["home", "clipboard", "security", "activity"]);
-    expect(ids("none")).toEqual(["home", "security", "activity"]);
+    expect(ids("server")).toEqual(["home", "layout", "hotkeys", "clipboard", "options", "security", "activity", "about"]);
+    expect(ids("client")).toEqual(["home", "clipboard", "security", "activity", "about"]);
+    expect(ids("none")).toEqual(["home", "security", "activity", "about"]);
   });
 
   it("goes back to Inicio when the mode doesn't have the chosen tab", () => {

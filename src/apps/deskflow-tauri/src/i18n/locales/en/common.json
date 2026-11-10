@@ -1,0 +1,18 @@
+{
+  "tab.home": "Home",
+  "tab.layout": "Screens",
+  "tab.hotkeys": "Shortcuts",
+  "tab.clipboard": "Clipboard",
+  "tab.options": "Options",
+  "tab.security": "Security",
+  "tab.activity": "Activity",
+  "tab.about": "About",
+  "tabs.label": "Sections",
+  "warnings_one": "{count} warning since it started",
+  "warnings_other": "{count} warnings since it started",
+  "close": "Close",
+  "cancel": "Cancel",
+  "save": "Save",
+  "discard": "Discard",
+  "loading": "Loading"
+}

@@ -1,0 +1,18 @@
+{
+  "tab.home": "Start",
+  "tab.layout": "Bildschirme",
+  "tab.hotkeys": "Tastenkürzel",
+  "tab.clipboard": "Zwischenablage",
+  "tab.options": "Optionen",
+  "tab.security": "Sicherheit",
+  "tab.activity": "Aktivität",
+  "tab.about": "Info",
+  "tabs.label": "Bereiche",
+  "warnings_one": "{count} Warnung seit dem Start",
+  "warnings_other": "{count} Warnungen seit dem Start",
+  "close": "Schließen",
+  "cancel": "Abbrechen",
+  "save": "Speichern",
+  "discard": "Verwerfen",
+  "loading": "Wird geladen"
+}

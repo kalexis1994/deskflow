@@ -2,6 +2,7 @@ mod clipboard;
 mod computer;
 mod engine;
 mod hotkeys;
+mod i18n;
 mod ipc;
 mod layout;
 mod paths;
@@ -69,7 +70,7 @@ async fn stop_core(hub: State<'_, Arc<Hub>>) -> Result<(), String> {
 /// Saves the changes and, if the core is running, restarts it so they take effect.
 #[tauri::command]
 async fn save_settings(hub: State<'_, Arc<Hub>>, changes: Changes) -> Result<Overview, String> {
-    settings::apply_changes(&changes).map_err(|e| format!("No se pudo guardar: {e}"))?;
+    settings::apply_changes(&changes).map_err(|e| i18n::tf("error.save", &[("reason", &e)]))?;
     if hub.snapshot().process != engine::ProcessStatus::Stopped {
         hub.inner().restart().await?;
     }
@@ -178,7 +179,7 @@ async fn save_hotkeys(
     let mut ini = settings::IniFile::load(&paths::settings_file()).map_err(|e| e.to_string())?;
     hotkeys::write(&mut ini, &hotkeys);
     ini.save()
-        .map_err(|e| format!("No se pudieron guardar los atajos: {e}"))?;
+        .map_err(|e| i18n::tf("error.hotkeys.save", &[("reason", &e)]))?;
     layout::regenerate()?;
     let serving =
         settings::read_overview().is_ok_and(|o| o.core_mode == settings::CoreMode::Server);
@@ -285,6 +286,7 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            i18n::load(app.handle());
             let hub = Hub::new(app.handle().clone(), engine::detect_version_id());
             app.manage(hub.clone());
             app.manage(Updates::new(
@@ -333,7 +335,9 @@ pub fn run() {
             update::check_for_updates,
             update::set_update_channel,
             update::dismiss_update,
-            update::install_update
+            update::install_update,
+            i18n::language_choice,
+            i18n::set_language
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

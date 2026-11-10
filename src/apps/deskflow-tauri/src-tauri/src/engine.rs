@@ -13,6 +13,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
 use crate::clipboard::{self, ClipboardActivity, FileProgress};
+use crate::i18n;
 use crate::ipc::{self, Connection, Handshake};
 use crate::layout;
 use crate::paths;
@@ -395,27 +396,21 @@ impl Hub {
 
     pub async fn start(self: &Arc<Self>) -> Result<(), String> {
         let ov = settings::read_overview()
-            .map_err(|e| format!("No se pudo leer la configuración: {e}"))?;
+            .map_err(|e| i18n::tf("error.engine.readSettings", &[("reason", &e)]))?;
         let mode = match ov.core_mode {
             CoreMode::Client => "client",
             CoreMode::Server => "server",
             CoreMode::None => {
-                return Err(
-                    "Primero elegí si esta computadora comparte su teclado o usa el de otra."
-                        .into(),
-                );
+                return Err(i18n::t("error.engine.noMode"));
             }
         };
         if ov.core_mode == CoreMode::Client && ov.remote_host.trim().is_empty() {
-            return Err("Falta la dirección de la computadora que comparte el teclado.".into());
+            return Err(i18n::t("error.engine.noServerAddress"));
         }
         if ov.core_mode == CoreMode::Server {
             layout::prepare_start()?;
             if !server_config_file().is_file() {
-                return Err(
-                    "Todavía no hay un diseño de pantallas. Guardalo una vez desde el editor."
-                        .into(),
-                );
+                return Err(i18n::t("error.engine.noLayout"));
             }
         }
 
@@ -438,7 +433,7 @@ impl Hub {
             )
             .await
             .map(|_| ())
-            .map_err(|e| format!("El servicio de Deskflow no respondió: {e}")),
+            .map_err(|e| i18n::tf("error.engine.serviceNoAnswer", &[("reason", &e)])),
             ProcessMode::Desktop => self.spawn_desktop(mode).await,
         };
 
@@ -454,7 +449,7 @@ impl Hub {
     }
 
     async fn spawn_desktop(self: &Arc<Self>, mode: &str) -> Result<(), String> {
-        let bin = paths::core_bin().ok_or("No encontré deskflow-core.")?;
+        let bin = paths::core_bin().ok_or_else(|| i18n::t("error.engine.coreNotFound"))?;
         let mut cmd = Command::new(bin);
         cmd.arg(mode)
             .stdout(Stdio::piped())
@@ -464,7 +459,7 @@ impl Hub {
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         let mut child = cmd
             .spawn()
-            .map_err(|e| format!("No se pudo iniciar deskflow-core: {e}"))?;
+            .map_err(|e| i18n::tf("error.engine.coreNotStarted", &[("reason", &e)]))?;
         if let Some(out) = child.stdout.take() {
             self.pipe_output(out);
         }
@@ -486,10 +481,11 @@ impl Hub {
                         s.process = ProcessStatus::Stopped;
                         s.connection = None;
                         if !status.success() {
-                            s.last_error = Some(format!(
-                                "deskflow-core terminó con código {:?}",
-                                status.code()
-                            ));
+                            let code = status
+                                .code()
+                                .map_or_else(|| "?".to_owned(), |c| c.to_string());
+                            s.last_error =
+                                Some(i18n::tf("error.engine.coreExited", &[("code", &code)]));
                         }
                     });
                     return;
@@ -514,7 +510,7 @@ impl Hub {
             ProcessMode::Service => {
                 ipc::daemon_request(&self.version_id, &["stop".into()])
                     .await
-                    .map_err(|e| format!("El servicio de Deskflow no respondió: {e}"))?;
+                    .map_err(|e| i18n::tf("error.engine.serviceNoAnswer", &[("reason", &e)]))?;
             }
             ProcessMode::Desktop => {
                 if let Some(w) = self.core_writer.lock().await.as_mut() {

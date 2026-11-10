@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n;
 use crate::layout::is_valid_name;
 use crate::settings::IniFile;
 
@@ -264,25 +265,30 @@ pub fn validate(computers: &[(&str, &ComputerOptions)]) -> Result<(), String> {
         let m = &o.modifiers;
         for v in [&m.shift, &m.ctrl, &m.alt, &m.altgr, &m.meta, &m.super_] {
             if !MODIFIERS.contains(&v.as_str()) {
-                return Err(format!("Tecla modificadora desconocida “{v}” en “{name}”."));
+                return Err(i18n::tf(
+                    "error.computer.unknownModifier",
+                    &[("key", v), ("name", name)],
+                ));
             }
         }
         if o.corner_size > 1000 {
-            return Err(format!(
-                "El tamaño de las esquinas de “{name}” es demasiado grande."
-            ));
+            return Err(i18n::tf("error.computer.cornerTooBig", &[("name", name)]));
         }
         for alias in &o.aliases {
             if !is_valid_name(alias) || looks_like_ip(alias) {
-                return Err(format!(
-                    "“{alias}” no sirve como alias: usá un nombre sin espacios, no una dirección IP."
-                ));
+                return Err(i18n::tf("error.computer.invalidAlias", &[("alias", alias)]));
             }
             if let Some(owner) = taken.insert(alias.to_lowercase(), name) {
                 return Err(if owner == *name {
-                    format!("“{alias}” está repetido en “{name}”.")
+                    i18n::tf(
+                        "error.computer.repeatedAlias",
+                        &[("alias", alias), ("name", name)],
+                    )
                 } else {
-                    format!("“{alias}” ya es el nombre o un alias de “{owner}”.")
+                    i18n::tf(
+                        "error.computer.aliasTaken",
+                        &[("alias", alias), ("owner", &owner)],
+                    )
                 });
             }
         }

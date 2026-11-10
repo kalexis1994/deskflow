@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::computer::{self, ComputerOptions};
 use crate::hotkeys;
+use crate::i18n;
 use crate::paths;
 use crate::settings::{self, IniFile};
 
@@ -181,29 +182,23 @@ pub fn validate(screens: &[Screen], server: &str) -> Result<(), String> {
     let mut names = HashSet::new();
     for s in screens {
         if !is_valid_name(&s.name) {
-            return Err(format!(
-                "“{}” no es un nombre válido: usá letras, números, punto, guion o guion bajo, sin espacios.",
-                s.name
-            ));
+            return Err(i18n::tf("error.layout.invalidName", &[("name", &s.name)]));
         }
         if !names.insert(s.name.to_lowercase()) {
-            return Err(format!("Hay dos computadoras llamadas “{}”.", s.name));
+            return Err(i18n::tf("error.layout.duplicateName", &[("name", &s.name)]));
         }
         if !(s.w >= MIN_SIZE && s.h >= MIN_SIZE && s.x.is_finite() && s.y.is_finite()) {
-            return Err(format!(
-                "La pantalla de “{}” tiene un tamaño inválido.",
-                s.name
-            ));
+            return Err(i18n::tf("error.layout.invalidSize", &[("name", &s.name)]));
         }
     }
     if !screens.iter().any(|s| s.name == server) {
-        return Err("El diseño tiene que incluir a esta computadora.".into());
+        return Err(i18n::t("error.layout.missingThisComputer"));
     }
     for (i, a) in screens.iter().enumerate() {
         if let Some(b) = screens[i + 1..].iter().find(|b| a.overlaps(b)) {
-            return Err(format!(
-                "Las pantallas de “{}” y “{}” se superponen.",
-                a.name, b.name
+            return Err(i18n::tf(
+                "error.layout.overlap",
+                &[("a", &a.name), ("b", &b.name)],
             ));
         }
     }
@@ -374,7 +369,7 @@ pub fn load() -> Result<LayoutView, String> {
     // computers Deskflow 1.26 kept only in its grid: the core needs them in [computer_*]
     if !computer::upgrade_legacy(&mut ini).is_empty() {
         ini.save()
-            .map_err(|e| format!("No se pudo actualizar la configuración: {e}"))?;
+            .map_err(|e| i18n::tf("error.layout.upgradeSettings", &[("reason", &e)]))?;
     }
 
     let (mut screens, imported) = match read_layout_file() {
@@ -497,7 +492,7 @@ pub struct Rename {
 }
 
 pub fn save(screens: Vec<Screen>, renames: &[Rename]) -> Result<LayoutView, String> {
-    let io = |e: std::io::Error| format!("No se pudo guardar el diseño: {e}");
+    let io = |e: std::io::Error| i18n::tf("error.layout.save", &[("reason", &e)]);
     let old_server = settings::read_overview().map_err(io)?.computer_name;
     let new_server = renames
         .iter()

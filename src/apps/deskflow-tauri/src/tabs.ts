@@ -1,21 +1,20 @@
 import type { CoreMode } from "./types";
 import type { parseLogLine } from "./status";
 
-export type TabId = "home" | "layout" | "hotkeys" | "clipboard" | "options" | "security" | "activity";
+export type TabId = "home" | "layout" | "hotkeys" | "clipboard" | "options" | "security" | "activity" | "about";
 
 export interface Tab {
   id: TabId;
-  label: string;
 }
 
-/** The tabs that make sense for what this computer does, in order. */
+/** The tabs that make sense for what this computer does, in order; `common.tab.<id>` names them. */
 export function tabsFor(mode: CoreMode): Tab[] {
-  const tabs: Tab[] = [{ id: "home", label: "Inicio" }];
-  if (mode === "server") tabs.push({ id: "layout", label: "Pantallas" }, { id: "hotkeys", label: "Atajos" });
-  if (mode !== "none") tabs.push({ id: "clipboard", label: "Portapapeles" });
-  if (mode === "server") tabs.push({ id: "options", label: "Opciones" });
-  tabs.push({ id: "security", label: "Seguridad" }, { id: "activity", label: "Actividad" });
-  return tabs;
+  const ids: TabId[] = ["home"];
+  if (mode === "server") ids.push("layout", "hotkeys");
+  if (mode !== "none") ids.push("clipboard");
+  if (mode === "server") ids.push("options");
+  ids.push("security", "activity", "about");
+  return ids.map((id) => ({ id }));
 }
 
 /** The chosen tab, or Inicio when this mode doesn't have it (say, Atajos on a client). */

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "../i18n";
+import { tNode } from "../i18n/react";
 import type { CoreMode } from "../types";
 import {
   describeActivity,
   describeProgress,
+  formatNumber,
   relativeTime,
   type ClipboardActivity,
   type ClipboardPrefs,
@@ -65,17 +68,16 @@ export function ClipboardCard({ activity, progress, mode, self, running }: Props
     <section className="card clip" aria-labelledby="clip-title">
       <div className="clip__head">
         <div>
-          <h3 id="clip-title">Portapapeles compartido</h3>
+          <h3 id="clip-title">{t("clipboard.card.title")}</h3>
           <p className="muted small">
-            {mode === "server"
-              ? prefs && !prefs.sharing
-                ? "Está desactivado en las opciones del servidor."
-                : `Texto e imágenes de hasta ${limitMb} MB · se cambia en Opciones del servidor.${
-                    prefs?.files ? ` Archivos de hasta ${filesLimitMb.toLocaleString("es-AR")} MB.` : ""
-                  }`
-              : `El servidor decide si se comparte y hasta qué tamaño.${
-                  prefs?.files ? ` Archivos de hasta ${filesLimitMb.toLocaleString("es-AR")} MB.` : ""
-                }`}
+            {mode === "server" && prefs && !prefs.sharing
+              ? t("clipboard.card.off")
+              : [
+                  mode === "server" ? t("clipboard.card.server", { limit: limitMb }) : t("clipboard.card.client"),
+                  prefs?.files ? t("clipboard.card.filesLimit", { limit: formatNumber(filesLimitMb) }) : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
           </p>
         </div>
         {prefs && (
@@ -84,10 +86,10 @@ export function ClipboardCard({ activity, progress, mode, self, running }: Props
             role="switch"
             aria-checked={prefs.preview}
             onClick={togglePreview}
-            title="Muestra el comienzo del texto copiado. Solo se ve en esta ventana y no se guarda."
+            title={t("clipboard.preview.hint")}
           >
             <span className="clip__switch" aria-hidden="true" />
-            <span>Mostrar el texto</span>
+            <span>{t("clipboard.preview.label")}</span>
           </button>
         )}
       </div>
@@ -109,14 +111,14 @@ export function ClipboardCard({ activity, progress, mode, self, running }: Props
       ) : (
         <p className="clip__empty muted">
           {running
-            ? "Todavía no pasó nada por el portapapeles. Copiá texto, una imagen o archivos en cualquiera de las computadoras."
-            : "Cuando Deskflow esté funcionando, acá vas a ver lo que se copia entre las computadoras."}
+            ? t("clipboard.empty.running")
+            : t("clipboard.empty.stopped")}
         </p>
       )}
 
       {older.length > 0 && (
         <details className="clip__older">
-          <summary>Anteriores ({older.length})</summary>
+          <summary>{t("clipboard.older", { count: older.length })}</summary>
           <ul>
             {older.map((a) => {
               const v = describeActivity(a, mode, self, limitMb, filesLimitMb);
@@ -146,7 +148,7 @@ function Progress({ p }: { p: FileProgress }) {
         <div className="clip__body">
           <div className="clip__title">
             <strong>{v.title}</strong>
-            <span className="muted small">{v.percent} %</span>
+            <span className="muted small">{t("clipboard.progress.percent", { percent: v.percent })}</span>
           </div>
           <div
             className="clip__bar"
@@ -158,7 +160,7 @@ function Progress({ p }: { p: FileProgress }) {
           >
             <span style={{ width: `${v.percent}%` }} />
           </div>
-          <p className="muted small">{v.detail} · podés seguir usando el teclado y el mouse.</p>
+          <p className="muted small">{t("clipboard.progress.keepWorking", { progress: v.detail })}</p>
         </div>
       </div>
     </div>
@@ -185,26 +187,26 @@ function FilesSettings({ prefs, onChange }: { prefs: ClipboardPrefs; onChange: (
         onClick={() => onChange(!prefs.files, prefs.filesLimitMb)}
       >
         <span className="clip__switch" aria-hidden="true" />
-        <span>Copiar archivos</span>
+        <span>{t("clipboard.files.toggle")}</span>
       </button>
       <label className={`clip__limit small ${prefs.files ? "" : "muted"}`}>
-        hasta
-        <input
-          type="number"
-          min={1}
-          max={100000}
-          value={limit}
-          disabled={!prefs.files}
-          onChange={(e) => setLimit(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === "Enter" && commit()}
-          aria-label="Tamaño máximo de una copia de archivos, en MB"
-        />
-        MB por copia
+        {tNode("clipboard.files.limit", {
+          input: (
+            <input
+              type="number"
+              min={1}
+              max={100000}
+              value={limit}
+              disabled={!prefs.files}
+              onChange={(e) => setLimit(e.target.value)}
+              onBlur={commit}
+              onKeyDown={(e) => e.key === "Enter" && commit()}
+              aria-label={t("clipboard.files.limitLabel")}
+            />
+          ),
+        })}
       </label>
-      <p className="muted small clip__files-note">
-        Lo decide cada computadora, para lo que manda y lo que recibe. Se aplica la próxima vez que arranque Deskflow.
-      </p>
+      <p className="muted small clip__files-note">{t("clipboard.files.note")}</p>
     </div>
   );
 }
@@ -250,7 +252,7 @@ function Activity({
         </div>
       )}
       {showsContent && (a.text == null || !preview) && a.chars != null && a.chars > 0 && (
-        <p className="clip__hidden muted small">Texto oculto: la vista previa está desactivada.</p>
+        <p className="clip__hidden muted small">{t("clipboard.hidden")}</p>
       )}
 
       {v.facts.length > 0 && (

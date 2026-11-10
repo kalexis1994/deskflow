@@ -1,0 +1,23 @@
+{
+  "channel.stable": "Stable",
+  "channel.stable.title": "Les versions déjà éprouvées",
+  "channel.alpha": "Alpha",
+  "channel.alpha.title": "Versions de test, qui peuvent échouer. Deskflow demande quand même avant d’installer.",
+  "cut.server": "Les autres ordinateurs n’ont plus votre clavier ni votre souris jusqu’à la fin.",
+  "cut.client": "Cet ordinateur n’a plus le clavier ni la souris partagés jusqu’à la fin.",
+  "cut.none": "Deskflow s’arrête jusqu’à la fin.",
+  "ask.service": "Il n’y a rien d’autre à accepter.",
+  "ask.windows": "Windows va demander l’autorisation d’administrateur.",
+  "whatHappens": "{ask} L’installation prend quelques secondes. {cut} Ensuite, tout revient tout seul.",
+  "installing": "Installation de la version {version}…",
+  "downloading": "Téléchargement de la version {version}…",
+  "downloadingPercent": "Téléchargement de la version {version} ({percent} %)…",
+  "searching": "Recherche…",
+  "upToDate": "À jour",
+  "newVersion": "Une nouvelle version est disponible : {version}",
+  "card.label": "Mise à jour disponible",
+  "card.title": "Une nouvelle version de Deskflow est disponible : {version}",
+  "card.current": "(vous avez la {current})",
+  "install": "Mettre à jour",
+  "notNow": "Pas maintenant"
+}

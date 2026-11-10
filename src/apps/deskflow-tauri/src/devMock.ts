@@ -195,12 +195,19 @@ const core: CoreState = {
 
 let clipboardPrefs = { preview: true, sharing: true, limitMb: 3, files: true, filesLimitMb: 500 };
 
+let languageChoice = "auto";
+
 const log = ["[2026-10-13T08:00:00.000] INFO: starting core", "[2026-10-13T08:00:00.100] INFO: started server, waiting for clients"];
 
 mockIPC(
   async (cmd, args) => {
     const a = args as Record<string, unknown> | undefined;
     switch (cmd) {
+      case "language_choice":
+        return languageChoice;
+      case "set_language":
+        languageChoice = (a as { choice: string }).choice;
+        return null;
       case "update_state":
         return updateState;
       case "check_for_updates":

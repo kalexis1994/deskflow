@@ -1,0 +1,20 @@
+{
+  "tagline": "Um teclado e um mouse para todos os seus computadores.",
+  "version": "Versão {version}",
+  "core": "Núcleo {version}",
+  "runsAsService": "Roda como serviço do sistema",
+  "runsInApp": "Roda dentro deste aplicativo",
+  "settingsFile": "Arquivo de configuração",
+  "updates": "Atualizações",
+  "channel": "Canal",
+  "check": "Procurar atualizações",
+  "checkFailed": "Não foi possível procurar: {reason}",
+  "language": "Idioma",
+  "languageAuto": "Automático ({name})",
+  "languageHint": "Automático usa o idioma do Windows. Também muda o menu do ícone na barra de tarefas.",
+  "links": "Links",
+  "source": "Código-fonte",
+  "releases": "Versões publicadas",
+  "upstream": "Projeto Deskflow original",
+  "license": "Software livre sob a licença GPL 2.0."
+}

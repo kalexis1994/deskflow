@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { t, type Key } from "../i18n";
 import { hasMainKey, heldModifiers, keyLabel, sequenceFromEvent } from "./keys";
 import {
   ACTION_KINDS,
@@ -42,7 +43,8 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
   const [server, setServer] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "danger"; text: string } | null>(null);
+  // `key` texts are translated when shown, so they follow a language change
+  const [message, setMessage] = useState<{ tone: "ok" | "danger"; text?: string; key?: Key } | null>(null);
   const dirtyRef = useRef(false);
 
   const apply = (v: HotkeysView) => {
@@ -88,7 +90,7 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
     try {
       apply(await invoke<HotkeysView>("save_hotkeys", { hotkeys: draft }));
       setEditing(null);
-      setMessage({ tone: "ok", text: running ? "Guardado. Deskflow se reinició para aplicarlo." : "Guardado. Se aplica la próxima vez que inicies Deskflow." });
+      setMessage({ tone: "ok", key: running ? "hotkeys.card.savedRestarted" : "hotkeys.card.savedNextStart" });
     } catch (e) {
       setMessage({ tone: "danger", text: String(e) });
     } finally {
@@ -102,15 +104,15 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
     <section className="card hk">
       <div className="hk__head">
         <div>
-          <h3>Atajos de teclado</h3>
-          <p className="muted small">Combinaciones que apretás en esta computadora para moverte entre pantallas o mandar teclas a otra.</p>
+          <h3>{t("hotkeys.card.title")}</h3>
+          <p className="muted small">{t("hotkeys.card.intro")}</p>
         </div>
         <button className="btn btn--secondary btn--small" onClick={addNew}>
-          + Nuevo atajo
+          {t("hotkeys.card.new")}
         </button>
       </div>
 
-      {draft.length === 0 && <p className="muted hk__empty">Todavía no hay atajos. Podés empezar con alguno de estos:</p>}
+      {draft.length === 0 && <p className="muted hk__empty">{t("hotkeys.card.empty")}</p>}
 
       {draft.length > 0 && (
         <ul className="hk__list">
@@ -121,13 +123,13 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
               <li key={i} className={`hk__item ${open ? "hk__item--open" : ""}`}>
                 <div className="hk__row">
                   <button className="hk__summary" onClick={() => setEditing(open ? null : i)} aria-expanded={open}>
-                    <Combo keys={hk.keys} placeholder="Sin combinación" />
+                    <Combo keys={hk.keys} placeholder={t("hotkeys.card.noCombo")} />
                     <span className="hk__arrow" aria-hidden="true">
                       →
                     </span>
-                    <span className="hk__actions-text">{hk.actions.length ? hk.actions.map(describeAction).join(" · ") : "No hace nada"}</span>
+                    <span className="hk__actions-text">{hk.actions.length ? hk.actions.map(describeAction).join(" · ") : t("hotkeys.card.doesNothing")}</span>
                   </button>
-                  <button className="hk__icon" title="Quitar atajo" aria-label="Quitar atajo" onClick={() => remove(i)}>
+                  <button className="hk__icon" title={t("hotkeys.card.remove")} aria-label={t("hotkeys.card.remove")} onClick={() => remove(i)}>
                     ×
                   </button>
                 </div>
@@ -147,24 +149,24 @@ export function HotkeysCard({ running, layoutVersion }: Props) {
 
       {presets.length > 0 && (
         <div className="hk__presets">
-          {draft.length > 0 && <span className="muted small">Sugerencias:</span>}
+          {draft.length > 0 && <span className="muted small">{t("hotkeys.card.suggestions")}</span>}
           {presets.map((p) => (
             <button key={p.id} className="hk__preset" onClick={() => update(addPreset(draft, p, computers, server))}>
-              <strong>{p.title}</strong>
-              <span className="muted small">{p.text}</span>
+              <strong>{p.title()}</strong>
+              <span className="muted small">{p.text()}</span>
             </button>
           ))}
         </div>
       )}
 
       <div className="so__footer">
-        {message && <span className={`le__msg le__msg--${message.tone}`}>{message.text}</span>}
-        {dirty && !message && <span className="le__msg">{canSave ? "Cambios sin guardar" : "Corregí los atajos marcados para guardar"}</span>}
+        {message && <span className={`le__msg le__msg--${message.tone}`}>{message.key ? t(message.key) : message.text}</span>}
+        {dirty && !message && <span className="le__msg">{canSave ? t("hotkeys.card.unsaved") : t("hotkeys.card.fixToSave")}</span>}
         <button className="btn btn--secondary btn--small" disabled={!dirty || busy} onClick={() => update(saved)}>
-          Descartar
+          {t("common.discard")}
         </button>
         <button className="btn btn--primary btn--small" disabled={!canSave || busy} onClick={save}>
-          {busy ? "Guardando…" : running ? "Guardar y aplicar" : "Guardar"}
+          {busy ? t("hotkeys.card.saving") : running ? t("hotkeys.card.saveAndApply") : t("common.save")}
         </button>
       </div>
     </section>
@@ -187,12 +189,12 @@ function HotkeyEditor({ hotkey, computers, onChange, onDone }: { hotkey: Hotkey;
   return (
     <div className="hk__editor">
       <div className="hk__field">
-        <span className="field__label">Combinación que lo activa</span>
+        <span className="field__label">{t("hotkeys.editor.trigger")}</span>
         <KeyRecorder keys={hotkey.keys} autoStart={!hotkey.keys.length} onChange={(keys) => onChange({ ...hotkey, keys })} />
       </div>
 
       <div className="hk__field">
-        <span className="field__label">Qué hace</span>
+        <span className="field__label">{t("hotkeys.editor.does")}</span>
         {hotkey.actions.map((a, i) => (
           <ActionEditor
             key={i}
@@ -203,13 +205,13 @@ function HotkeyEditor({ hotkey, computers, onChange, onDone }: { hotkey: Hotkey;
           />
         ))}
         <button className="le__link" onClick={() => onChange({ ...hotkey, actions: [...hotkey.actions, newAction("switchToScreen", computers)] })}>
-          + Agregar otra acción
+          {t("hotkeys.editor.addAction")}
         </button>
       </div>
 
       <div className="hk__editor-footer">
         <button className="btn btn--secondary btn--small" onClick={onDone}>
-          Listo
+          {t("hotkeys.editor.done")}
         </button>
       </div>
     </div>
@@ -268,12 +270,12 @@ function KeyRecorder({ keys, autoStart, onChange }: { keys: number[]; autoStart?
         held.length ? (
           <Combo keys={held} placeholder="" />
         ) : (
-          <span className="muted">Apretá la combinación… (Esc para cancelar)</span>
+          <span className="muted">{t("hotkeys.recorder.listening")}</span>
         )
       ) : (
         <>
-          <Combo keys={keys} placeholder="Hacé clic y apretá la combinación" />
-          {keys.length > 0 && <span className="muted small hk__change">Cambiar</span>}
+          <Combo keys={keys} placeholder={t("hotkeys.recorder.idle")} />
+          {keys.length > 0 && <span className="muted small hk__change">{t("hotkeys.recorder.change")}</span>}
         </>
       )}
     </button>
@@ -285,26 +287,27 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
   const setKind = (kind: ActionKind) => onChange({ ...newAction(kind, computers), onRelease: action.onRelease });
   const toggleComputer = (name: string) =>
     onChange({ ...action, computers: action.computers.includes(name) ? action.computers.filter((c) => c !== name) : [...action.computers, name] });
+  const ctrlAltDel = CTRL_ALT_DEL.map(keyLabel).join("+");
 
   return (
     <div className="hk__action">
       <div className="hk__action-row">
-        <select value={action.kind} onChange={(e) => setKind(e.target.value as ActionKind)} aria-label="Tipo de acción" disabled={!known}>
-          {!known && <option value={action.kind}>Botón del mouse (de la app clásica)</option>}
+        <select value={action.kind} onChange={(e) => setKind(e.target.value as ActionKind)} aria-label={t("hotkeys.actionEditor.kind")} disabled={!known}>
+          {!known && <option value={action.kind}>{t("hotkeys.actionEditor.mouseClassic")}</option>}
           {ACTION_KINDS.map((k) => (
             <option key={k.kind} value={k.kind}>
-              {k.label}
+              {t(k.label)}
             </option>
           ))}
         </select>
-        <button className="hk__icon" title="Quitar acción" aria-label="Quitar acción" onClick={onRemove}>
+        <button className="hk__icon" title={t("hotkeys.actionEditor.remove")} aria-label={t("hotkeys.actionEditor.remove")} onClick={onRemove}>
           ×
         </button>
       </div>
 
       {action.kind === "switchToScreen" && (
-        <select value={action.target} onChange={(e) => onChange({ ...action, target: e.target.value })} aria-label="Computadora de destino">
-          {!computers.includes(action.target) && <option value={action.target}>{action.target ? `${action.target} (ya no está)` : "Elegí una…"}</option>}
+        <select value={action.target} onChange={(e) => onChange({ ...action, target: e.target.value })} aria-label={t("hotkeys.actionEditor.target")}>
+          {!computers.includes(action.target) && <option value={action.target}>{action.target ? t("hotkeys.actionEditor.targetGone", { name: action.target }) : t("hotkeys.actionEditor.chooseTarget")}</option>}
           {computers.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -316,7 +319,7 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
       {action.kind === "switchInDirection" && (
         <Segmented<Direction>
           value={action.direction}
-          options={(["left", "right", "up", "down"] as Direction[]).map((d) => [d, { left: "←", right: "→", up: "↑", down: "↓" }[d], DIRECTION_LABELS[d]])}
+          options={(["left", "right", "up", "down"] as Direction[]).map((d) => [d, { left: "←", right: "→", up: "↑", down: "↓" }[d], t(DIRECTION_LABELS[d])])}
           onChange={(direction) => onChange({ ...action, direction })}
         />
       )}
@@ -324,7 +327,7 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
       {action.kind === "lockCursorToScreen" && (
         <Segmented<LockMode>
           value={action.lockMode}
-          options={(["toggle", "on", "off"] as LockMode[]).map((m) => [m, LOCK_LABELS[m], LOCK_LABELS[m]])}
+          options={(["toggle", "on", "off"] as LockMode[]).map((m) => [m, t(LOCK_LABELS[m]), t(LOCK_LABELS[m])])}
           onChange={(lockMode) => onChange({ ...action, lockMode })}
         />
       )}
@@ -335,16 +338,16 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
             <KeyRecorder keys={action.keys} onChange={(keys) => onChange({ ...action, keys })} />
             <button
               className="le__chip"
-              title="Ctrl+Alt+Supr no se puede grabar: lo atrapa Windows"
+              title={t("hotkeys.actionEditor.ctrlAltDelHint", { combo: ctrlAltDel })}
               onClick={() => onChange({ ...action, keys: CTRL_ALT_DEL })}
             >
-              Ctrl+Alt+Supr
+              {ctrlAltDel}
             </button>
           </div>
-          <div className="hk__targets" role="group" aria-label="Computadoras donde funciona">
-            <span className="muted small">Funciona en:</span>
+          <div className="hk__targets" role="group" aria-label={t("hotkeys.actionEditor.worksOnLabel")}>
+            <span className="muted small">{t("hotkeys.actionEditor.worksOn")}</span>
             <button className={`le__chip ${action.computers.length === 0 ? "le__chip--on" : ""}`} onClick={() => onChange({ ...action, computers: [] })}>
-              Cualquiera
+              {t("hotkeys.actionEditor.any")}
             </button>
             {computers.map((c) => (
               <button key={c} className={`le__chip ${action.computers.includes(c) ? "le__chip--on" : ""}`} onClick={() => toggleComputer(c)}>
@@ -352,13 +355,13 @@ function ActionEditor({ action, computers, onChange, onRemove }: { action: Actio
               </button>
             ))}
           </div>
-          <p className="muted small">Las teclas van solo a la computadora donde está el mouse.</p>
+          <p className="muted small">{t("hotkeys.actionEditor.mouseOnly")}</p>
         </>
       )}
 
       <label className="le__check hk__release">
         <input type="checkbox" checked={action.onRelease} onChange={(e) => onChange({ ...action, onRelease: e.target.checked })} />
-        <span>Hacerlo al soltar el atajo, no al apretarlo</span>
+        <span>{t("hotkeys.actionEditor.onRelease")}</span>
       </label>
     </div>
   );

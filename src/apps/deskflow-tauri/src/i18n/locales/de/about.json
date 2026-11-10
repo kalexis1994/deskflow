@@ -1,0 +1,20 @@
+{
+  "tagline": "Eine Tastatur und eine Maus für alle Ihre Computer.",
+  "version": "Version {version}",
+  "core": "Kern {version}",
+  "runsAsService": "Läuft als Systemdienst",
+  "runsInApp": "Läuft in dieser App",
+  "settingsFile": "Einstellungsdatei",
+  "updates": "Updates",
+  "channel": "Kanal",
+  "check": "Nach Updates suchen",
+  "checkFailed": "Suche fehlgeschlagen: {reason}",
+  "language": "Sprache",
+  "languageAuto": "Automatisch ({name})",
+  "languageHint": "Automatisch verwendet die Sprache von Windows. Ändert auch das Menü des Symbols in der Taskleiste.",
+  "links": "Links",
+  "source": "Quellcode",
+  "releases": "Veröffentlichte Versionen",
+  "upstream": "Ursprüngliches Deskflow-Projekt",
+  "license": "Freie Software unter der GPL-2.0-Lizenz."
+}

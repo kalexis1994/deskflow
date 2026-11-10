@@ -1,0 +1,18 @@
+{
+  "tab.home": "Início",
+  "tab.layout": "Telas",
+  "tab.hotkeys": "Atalhos",
+  "tab.clipboard": "Área de transferência",
+  "tab.options": "Opções",
+  "tab.security": "Segurança",
+  "tab.activity": "Atividade",
+  "tab.about": "Sobre",
+  "tabs.label": "Seções",
+  "warnings_one": "{count} aviso desde que iniciou",
+  "warnings_other": "{count} avisos desde que iniciou",
+  "close": "Fechar",
+  "cancel": "Cancelar",
+  "save": "Salvar",
+  "discard": "Descartar",
+  "loading": "Carregando"
+}
