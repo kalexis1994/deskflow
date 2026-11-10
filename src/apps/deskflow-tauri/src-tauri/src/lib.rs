@@ -241,6 +241,13 @@ fn forget_fingerprint(list: String, kind: String, hex: String) -> Result<tls::Tl
     tls::info()
 }
 
+/// Gives a trusted computer a name, or takes it away with an empty one.
+#[tauri::command]
+fn rename_trusted(hex: String, name: String) -> Result<tls::TlsInfo, String> {
+    tls::rename(&hex, &name)?;
+    tls::info()
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Autostart {
@@ -327,6 +334,7 @@ pub fn run() {
             trust_fingerprint,
             reject_fingerprint,
             forget_fingerprint,
+            rename_trusted,
             autostart_status,
             clipboard_prefs,
             set_clipboard_preview,

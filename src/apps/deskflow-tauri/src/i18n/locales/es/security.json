@@ -27,5 +27,10 @@
   "prompt.server.accept": "Es mía, dejarla entrar",
   "prompt.server.reject": "No dejarla entrar",
   "prompt.server.print": "Huella de la computadora nueva",
-  "prompt.localPrint": "Huella de esta computadora (por si la otra te la pide)"
+  "prompt.localPrint": "Huella de esta computadora (por si la otra te la pide)",
+  "unnamed": "Sin nombre",
+  "rename": "Cambiar nombre",
+  "name.label": "Nombre de esta computadora",
+  "name.placeholder": "Por ejemplo, Notebook de la oficina",
+  "name.hint": "El nombre es solo para reconocerla acá: quién puede conectarse lo decide la huella."
 }

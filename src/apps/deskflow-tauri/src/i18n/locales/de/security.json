@@ -27,5 +27,10 @@
   "prompt.server.accept": "Das ist meiner, zulassen",
   "prompt.server.reject": "Nicht zulassen",
   "prompt.server.print": "Fingerabdruck des neuen Computers",
-  "prompt.localPrint": "Fingerabdruck dieses Computers (falls der andere danach fragt)"
+  "prompt.localPrint": "Fingerabdruck dieses Computers (falls der andere danach fragt)",
+  "unnamed": "Ohne Namen",
+  "rename": "Umbenennen",
+  "name.label": "Name dieses Computers",
+  "name.placeholder": "Zum Beispiel: Büro-Laptop",
+  "name.hint": "Der Name dient nur zum Wiedererkennen. Wer sich verbinden darf, entscheidet der Fingerabdruck."
 }

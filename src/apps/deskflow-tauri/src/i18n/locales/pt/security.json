@@ -27,5 +27,10 @@
   "prompt.server.accept": "É meu, deixar entrar",
   "prompt.server.reject": "Não deixar entrar",
   "prompt.server.print": "Impressão digital do computador novo",
-  "prompt.localPrint": "Impressão digital deste computador (caso o outro peça)"
+  "prompt.localPrint": "Impressão digital deste computador (caso o outro peça)",
+  "unnamed": "Sem nome",
+  "rename": "Renomear",
+  "name.label": "Nome deste computador",
+  "name.placeholder": "Por exemplo, Notebook do escritório",
+  "name.hint": "O nome serve só para reconhecê-lo aqui: quem pode se conectar é decidido pela impressão digital."
 }

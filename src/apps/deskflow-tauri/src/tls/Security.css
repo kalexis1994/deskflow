@@ -172,6 +172,31 @@
   color: var(--danger);
 }
 
+.sec__name {
+  font-size: 13px;
+}
+
+.sec__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sec__rename {
+  gap: 6px;
+  max-width: 280px;
+}
+
+.sec__rename input {
+  font: inherit;
+  width: 100%;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 8px;
+}
+
 @media (max-width: 700px) {
   .sec__body {
     grid-template-columns: 1fr;

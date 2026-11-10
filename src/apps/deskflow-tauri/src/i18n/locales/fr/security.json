@@ -27,5 +27,10 @@
   "prompt.server.accept": "C’est le mien, le laisser entrer",
   "prompt.server.reject": "Ne pas le laisser entrer",
   "prompt.server.print": "Empreinte du nouvel ordinateur",
-  "prompt.localPrint": "Empreinte de cet ordinateur (au cas où l’autre vous la demande)"
+  "prompt.localPrint": "Empreinte de cet ordinateur (au cas où l’autre vous la demande)",
+  "unnamed": "Sans nom",
+  "rename": "Renommer",
+  "name.label": "Nom de cet ordinateur",
+  "name.placeholder": "Par exemple, Portable du bureau",
+  "name.hint": "Le nom sert seulement à le reconnaître ici : c’est l’empreinte qui décide qui peut se connecter."
 }

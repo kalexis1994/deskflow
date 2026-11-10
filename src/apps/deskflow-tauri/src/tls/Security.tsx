@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { fingerprintArtBody, fingerprintColumns } from "./fingerprint";
 import { t, type Key } from "../i18n";
 import type { CoreMode, FingerprintPrompt as Prompt } from "../types";
@@ -17,7 +18,12 @@ export interface TlsInfo {
   certificate: string;
   trustedServers: Trusted[];
   trustedClients: Trusted[];
+  /** Names people gave the trusted computers, by fingerprint. */
+  names: Record<string, string>;
 }
+
+/** Longest name the Rust side keeps (`tls::MAX_NAME`). */
+const MAX_NAME = 64;
 
 /** A fingerprint as the picture (default) or as hex, with a toggle and a copy button. */
 function Fingerprint({ hex, title, large }: { hex: string; title?: string; large?: boolean }) {
@@ -132,12 +138,27 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
     invoke<TlsInfo>("tls_info").then(setInfo, (e) => setError(String(e)));
   }, []);
   useEffect(load, [load, refreshKey]);
+  // a computer that connects gets a name by itself
+  useEffect(() => {
+    const unlisten = listen("tls-changed", load);
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [load]);
 
   if (!info) return error ? <div className="alert alert--danger">{error}</div> : null;
 
   const forget = async (list: "servers" | "clients", item: Trusted) => {
     try {
       setInfo(await invoke<TlsInfo>("forget_fingerprint", { list, kind: item.kind, hex: item.hex }));
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const rename = async (item: Trusted, name: string) => {
+    try {
+      setInfo(await invoke<TlsInfo>("rename_trusted", { hex: item.hex, name }));
     } catch (e) {
       setError(String(e));
     }
@@ -179,13 +200,12 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
                       <pre className="sec__mini" aria-hidden="true">
                         {item.kind === "sha256" ? fingerprintArtBody(item.hex) : ""}
                       </pre>
-                      <div className="sec__meta">
-                        <code title={item.hex}>{fingerprintColumns(item.hex).split("\n")[0]}…</code>
-                        {item.kind !== "sha256" && <span className="muted small">{t("security.oldFormat")}</span>}
-                        <button className="le__link sec__forget" onClick={() => forget(l.id, item)}>
-                          {t("security.forget")}
-                        </button>
-                      </div>
+                      <TrustedMeta
+                        item={item}
+                        name={info.names?.[item.hex] ?? ""}
+                        onRename={(name) => rename(item, name)}
+                        onForget={() => forget(l.id, item)}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -198,5 +218,65 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
         )}
       </div>
     </section>
+  );
+}
+
+/** A trusted computer's name, fingerprint and what can be done with it. */
+function TrustedMeta({ item, name, onRename, onForget }: { item: Trusted; name: string; onRename: (name: string) => void; onForget: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+
+  if (editing) {
+    return (
+      <form
+        className="sec__meta sec__rename"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onRename(draft);
+          setEditing(false);
+        }}
+      >
+        <input
+          autoFocus
+          value={draft}
+          maxLength={MAX_NAME}
+          aria-label={t("security.name.label")}
+          placeholder={t("security.name.placeholder")}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
+        />
+        <span className="muted small">{t("security.name.hint")}</span>
+        <span className="sec__actions">
+          <button className="btn btn--primary" type="submit">
+            {t("common.save")}
+          </button>
+          <button className="le__link" type="button" onClick={() => setEditing(false)}>
+            {t("common.cancel")}
+          </button>
+        </span>
+      </form>
+    );
+  }
+
+  return (
+    <div className="sec__meta">
+      {name ? <strong className="sec__name">{name}</strong> : <span className="muted small">{t("security.unnamed")}</span>}
+      <code title={item.hex}>{fingerprintColumns(item.hex).split("\n")[0]}…</code>
+      {item.kind !== "sha256" && <span className="muted small">{t("security.oldFormat")}</span>}
+      <span className="sec__actions">
+        <button
+          className="le__link"
+          onClick={() => {
+            setDraft(name);
+            setEditing(true);
+          }}
+        >
+          {t("security.rename")}
+        </button>
+        <button className="le__link sec__forget" onClick={onForget}>
+          {t("security.forget")}
+        </button>
+      </span>
+    </div>
   );
 }

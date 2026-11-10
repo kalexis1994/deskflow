@@ -92,6 +92,30 @@ pub struct Hub {
     child: tokio::sync::Mutex<Option<Child>>,
     /// Fingerprints rejected in this session, so they are not asked about again.
     dismissed: Mutex<HashSet<String>>,
+    /// Fingerprints clients presented lately, with when, to name the one that connects.
+    recent_fingerprints: Mutex<Vec<(String, u64)>>,
+}
+
+/// How long a client's fingerprint waits for the client to finish connecting.
+const RECENT_FINGERPRINT_MS: u64 = 15_000;
+
+/// The computer behind a fingerprint, when it can't be anyone else: exactly one
+/// fingerprint was presented and exactly one computer arrived. The handshake that
+/// shows the fingerprint comes before the name, so with two computers connecting at
+/// once there is no telling which is which, and no name is better than a wrong one.
+fn pair_new_client(
+    recent: &[String],
+    before: &[String],
+    after: &[String],
+) -> Option<(String, String)> {
+    let [fingerprint] = recent else {
+        return None;
+    };
+    let arrived: Vec<&String> = after.iter().filter(|c| !before.contains(c)).collect();
+    let [name] = arrived.as_slice() else {
+        return None;
+    };
+    Some((fingerprint.clone(), (*name).clone()))
 }
 
 fn now_ms() -> u64 {
@@ -149,6 +173,7 @@ impl Hub {
             core_writer: tokio::sync::Mutex::new(None),
             child: tokio::sync::Mutex::new(None),
             dismissed: Mutex::new(HashSet::new()),
+            recent_fingerprints: Mutex::new(Vec::new()),
         })
     }
 
@@ -298,7 +323,58 @@ impl Hub {
         self.clear_fingerprint_prompt();
     }
 
+    /// Names a trusted computer that just connected and has no name yet: a server by
+    /// the address this client connects to, a client by the name it announces.
+    fn name_trusted(&self, command: &str, args: &str, before: Option<Vec<String>>) {
+        let now = now_ms();
+        let named = match command {
+            "peerFingerprint" => {
+                if let Some(fingerprint) = tls::normalize(args) {
+                    let mut recent = self.recent_fingerprints.lock().unwrap();
+                    recent.retain(|(_, at)| now.saturating_sub(*at) < RECENT_FINGERPRINT_MS);
+                    recent.push((fingerprint, now));
+                }
+                false
+            }
+            "connectedClients" => {
+                let recent: Vec<String> = {
+                    let mut recent = self.recent_fingerprints.lock().unwrap();
+                    recent.retain(|(_, at)| now.saturating_sub(*at) < RECENT_FINGERPRINT_MS);
+                    recent.iter().map(|(f, _)| f.clone()).collect()
+                };
+                let after = self.state.lock().unwrap().clients.clone();
+                match pair_new_client(&recent, &before.unwrap_or_default(), &after) {
+                    Some((fingerprint, name)) => {
+                        self.recent_fingerprints.lock().unwrap().clear();
+                        tls::name_if_unnamed(CoreMode::Server, &fingerprint, &name)
+                    }
+                    None => false,
+                }
+            }
+            "connectionState" if args == "Connected" => {
+                let fingerprint = self.state.lock().unwrap().peer_fingerprint.clone();
+                match (fingerprint, settings::read_overview()) {
+                    (Some(fingerprint), Ok(ov)) if ov.core_mode == CoreMode::Client => {
+                        tls::name_if_unnamed(CoreMode::Client, &fingerprint, &ov.remote_host)
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        };
+        if named {
+            let _ = self.app.emit("tls-changed", ());
+        }
+    }
+
     fn apply_event(&self, command: &str, args: &str) {
+        let before_clients =
+            (command == "connectedClients").then(|| self.state.lock().unwrap().clients.clone());
+        self.apply_state_event(command, args);
+        self.name_trusted(command, args, before_clients);
+    }
+
+    fn apply_state_event(&self, command: &str, args: &str) {
         let args = args.to_owned();
         let prompt = (command == "peerFingerprint").then(|| self.fingerprint_prompt(&args));
         self.update(|s| match command {
@@ -605,6 +681,31 @@ fn infer_connection(lines: &[String]) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn names_a_client_only_when_it_cant_be_another() {
+        let one = names(&["aa"]);
+        assert_eq!(
+            pair_new_client(&one, &names(&["laptop"]), &names(&["laptop", "work"])),
+            Some(("aa".into(), "work".into()))
+        );
+        // two handshakes, or two arrivals: no telling which is which
+        assert_eq!(
+            pair_new_client(&names(&["aa", "bb"]), &[], &names(&["work"])),
+            None
+        );
+        assert_eq!(
+            pair_new_client(&one, &[], &names(&["laptop", "work"])),
+            None
+        );
+        // a computer leaving, or nothing seen
+        assert_eq!(pair_new_client(&one, &names(&["work"]), &[]), None);
+        assert_eq!(pair_new_client(&[], &[], &names(&["work"])), None);
+    }
 
     #[test]
     fn parses_version_output() {

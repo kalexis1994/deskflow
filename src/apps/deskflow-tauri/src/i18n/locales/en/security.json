@@ -27,5 +27,10 @@
   "prompt.server.accept": "It's mine, let it in",
   "prompt.server.reject": "Don't let it in",
   "prompt.server.print": "New computer's fingerprint",
-  "prompt.localPrint": "This computer's fingerprint (in case the other one asks for it)"
+  "prompt.localPrint": "This computer's fingerprint (in case the other one asks for it)",
+  "unnamed": "Unnamed",
+  "rename": "Rename",
+  "name.label": "Name of this computer",
+  "name.placeholder": "For example, Office laptop",
+  "name.hint": "The name only helps you recognize it here: the fingerprint decides who can connect."
 }

@@ -5,6 +5,7 @@
 //! `src/lib/net/SecureSocket.cpp`, which checks `trusted-servers` when connecting as a
 //! client and `trusted-clients` when serving.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use base64::Engine;
@@ -150,9 +151,94 @@ pub fn trust(mode: CoreMode, fingerprint: &str) -> Result<(), String> {
 }
 
 pub fn forget(mode: CoreMode, kind: &str, hex: &str) -> Result<(), String> {
+    let hex = hex.to_lowercase();
     let mut entries = read_db(mode);
-    entries.retain(|t| !(t.kind == kind && t.hex == hex.to_lowercase()));
-    write_db(mode, &entries)
+    entries.retain(|t| !(t.kind == kind && t.hex == hex));
+    write_db(mode, &entries)?;
+    // the same computer can be in both lists: its name goes with the last one
+    let still_trusted = [CoreMode::Client, CoreMode::Server]
+        .into_iter()
+        .any(|m| read_db(m).iter().any(|t| t.hex == hex));
+    if !still_trusted {
+        let mut names = read_names();
+        if names.remove(&hex).is_some() {
+            write_names(&names)?;
+        }
+    }
+    Ok(())
+}
+
+// ---- names ------------------------------------------------------------------------
+
+/// Longest name kept for a trusted computer.
+pub const MAX_NAME: usize = 64;
+
+/// Names for trusted fingerprints, so the lists say which computer each one is. Only
+/// this app reads it: the core trusts by fingerprint alone, so a name changes nothing
+/// about who may connect.
+fn names_path() -> PathBuf {
+    tls_dir().join("trusted-names.json")
+}
+
+pub fn read_names() -> BTreeMap<String, String> {
+    std::fs::read_to_string(names_path())
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+fn write_names(names: &BTreeMap<String, String>) -> Result<(), String> {
+    let path = names_path();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let text = serde_json::to_string_pretty(names).map_err(|e| e.to_string())?;
+    std::fs::write(&path, text).map_err(|e| {
+        i18n::tf(
+            "error.tls.write",
+            &[("path", &path.display()), ("reason", &e)],
+        )
+    })
+}
+
+/// A name as kept: trimmed, one line, at most `MAX_NAME` characters; empty means none.
+pub fn clean_name(name: &str) -> String {
+    name.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(MAX_NAME)
+        .collect()
+}
+
+/// Names a trusted computer, or takes its name away with an empty one.
+pub fn rename(hex: &str, name: &str) -> Result<(), String> {
+    let hex = hex.to_lowercase();
+    let name = clean_name(name);
+    let mut names = read_names();
+    if name.is_empty() {
+        names.remove(&hex);
+    } else {
+        names.insert(hex, name);
+    }
+    write_names(&names)
+}
+
+/// Names a computer the moment it connects, if it is trusted in `mode` and nobody
+/// named it yet; never replaces a name someone chose. True if it named it.
+pub fn name_if_unnamed(mode: CoreMode, fingerprint: &str, name: &str) -> bool {
+    let (Some(hex), name) = (normalize(fingerprint), clean_name(name)) else {
+        return false;
+    };
+    if name.is_empty() || !is_trusted(mode, &hex) {
+        return false;
+    }
+    let mut names = read_names();
+    if names.contains_key(&hex) {
+        return false;
+    }
+    names.insert(hex, name);
+    write_names(&names).is_ok()
 }
 
 #[derive(Debug, Serialize)]
@@ -165,6 +251,8 @@ pub struct TlsInfo {
     pub certificate: String,
     pub trusted_servers: Vec<Trusted>,
     pub trusted_clients: Vec<Trusted>,
+    /// Names by fingerprint (hex), for the computers that have one.
+    pub names: BTreeMap<String, String>,
 }
 
 pub fn info() -> Result<TlsInfo, String> {
@@ -183,12 +271,26 @@ pub fn info() -> Result<TlsInfo, String> {
         certificate: cert.to_string_lossy().into_owned(),
         trusted_servers: read_db(CoreMode::Client),
         trusted_clients: read_db(CoreMode::Server),
+        names: read_names(),
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keeps_names_short_and_on_one_line() {
+        assert_eq!(
+            clean_name(
+                "  Notebook   de
+Alexis "
+            ),
+            "Notebook de Alexis"
+        );
+        assert_eq!(clean_name("   "), "");
+        assert_eq!(clean_name(&"x".repeat(100)).chars().count(), MAX_NAME);
+    }
 
     // Not a real certificate: only the PEM framing and base64 matter here.
     const PEM: &str = "-----BEGIN CERTIFICATE-----

@@ -18,7 +18,11 @@ let tlsInfo: TlsInfo = {
   localFingerprint: "a89ec7e43bd8aede07834acac760d9f8dcdf891c08745b3dc08ffe9319aa9fb5",
   certificate: "C:/ProgramData/Deskflow/tls/deskflow.pem",
   trustedServers: [],
-  trustedClients: [{ kind: "sha256", hex: "1f0e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0" }],
+  trustedClients: [
+    { kind: "sha256", hex: "1f0e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0" },
+    { kind: "sha256", hex: "9a8b7c6d5e4f30211203f4e5d6c7b8a99a8b7c6d5e4f30211203f4e5d6c7b8a9" },
+  ],
+  names: { "1f0e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0": "laptop" },
 };
 
 let hotkeys: Hotkey[] = [
@@ -280,6 +284,14 @@ mockIPC(
         core.fingerprintPrompt = null;
         emit("core-state", { ...core });
         return null;
+      case "rename_trusted": {
+        const names = { ...tlsInfo.names };
+        const name = String(a!.name).trim();
+        if (name) names[String(a!.hex)] = name;
+        else delete names[String(a!.hex)];
+        tlsInfo = { ...tlsInfo, names };
+        return tlsInfo;
+      }
       case "forget_fingerprint": {
         const key = a!.list === "clients" ? "trustedClients" : "trustedServers";
         tlsInfo = { ...tlsInfo, [key]: tlsInfo[key].filter((t) => t.hex !== a!.hex) };
