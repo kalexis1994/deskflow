@@ -1373,8 +1373,23 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
 
 bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
 {
-  // from before the last switch, or nothing to send
-  if (ignore() || m_isOnComputer || (dx == 0 && dy == 0)) {
+  // from before the last switch
+  if (ignore() || m_isOnComputer) {
+    return true;
+  }
+
+  // The cursor must stay at the center, where a blank window hides it: anywhere else it
+  // shows, as a cursor stuck at the edge just crossed. A motion the system worked out
+  // before the warp there can still land after it and take the cursor back to the edge,
+  // so every motion checks, even one of nothing (pushing against that edge) or one
+  // dropped below. Close to the center, the next motions measured from where it was are
+  // off by that little; far, they are large and dropped as from before the warp.
+  if (POINT pos; getThisCursorPos(&pos) && (std::abs(pos.x - m_xCenter) > 2 || std::abs(pos.y - m_yCenter) > 2)) {
+    LOG_DEBUG("cursor wandered to %d,%d, back to the center", pos.x, pos.y);
+    setThisCursorPos(m_xCenter, m_yCenter);
+  }
+
+  if (dx == 0 && dy == 0) {
     return true;
   }
 
@@ -1384,14 +1399,6 @@ bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
     return true;
   }
   sendEvent(EventTypes::PrimaryComputerMotionOnSecondary, MotionInfo::alloc(dx, dy));
-
-  // the hook eats every motion, so the cursor stays put; but something else may have
-  // moved it, and near an edge the system would cut motions short
-  if (POINT pos;
-      getThisCursorPos(&pos) && (std::abs(pos.x - m_xCenter) > m_w / 4 || std::abs(pos.y - m_yCenter) > m_h / 4)) {
-    LOG_DEBUG("cursor wandered to %d,%d, back to the center", pos.x, pos.y);
-    setThisCursorPos(m_xCenter, m_yCenter);
-  }
   return true;
 }
 
