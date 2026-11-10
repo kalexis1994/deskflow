@@ -186,12 +186,15 @@
   border-color: var(--warn);
 }
 
-/* a computer's monitors, drawn inside its rectangle */
+/* a computer's monitors, as panels inside its rectangle: inset, so the rectangle's
+   own border and the link lines on it stay whole */
 .le__monitor {
+  --gap: 3px;
   position: absolute;
   box-sizing: border-box;
-  border: 1px dashed color-mix(in srgb, var(--text-2) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-2) 35%, transparent);
   border-radius: 3px;
+  background: color-mix(in srgb, var(--text-2) 6%, transparent);
   pointer-events: none;
 }
 

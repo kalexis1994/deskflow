@@ -471,7 +471,12 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
                     <span
                       key={i}
                       className="le__monitor"
-                      style={{ left: `${m.x * 100}%`, top: `${m.y * 100}%`, width: `${m.w * 100}%`, height: `${m.h * 100}%` }}
+                      style={{
+                        left: `calc(${m.x * 100}% + var(--gap))`,
+                        top: `calc(${m.y * 100}% + var(--gap))`,
+                        width: `calc(${m.w * 100}% - 2 * var(--gap))`,
+                        height: `calc(${m.h * 100}% - 2 * var(--gap))`,
+                      }}
                     />
                   ))}
                 <div className="le__screen-inner">
