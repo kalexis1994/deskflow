@@ -35,6 +35,7 @@
 #include <Shlobj.h>
 #include <algorithm>
 #include <comutil.h>
+#include <cstdlib>
 #include <string.h>
 
 // suppress warning about GetVersionEx, which is used indirectly in this
@@ -991,6 +992,9 @@ bool MSWindowsComputer::onPreDispatchPrimary(HWND, UINT message, WPARAM wParam, 
   case DESKFLOW_MSG_MOUSE_MOVE:
     return onMouseMove(static_cast<int32_t>(wParam), static_cast<int32_t>(lParam));
 
+  case DESKFLOW_MSG_MOUSE_DELTA:
+    return onMouseDelta(static_cast<int32_t>(wParam), static_cast<int32_t>(lParam));
+
   case DESKFLOW_MSG_MOUSE_WHEEL:
     return onMouseWheel(static_cast<int32_t>(lParam), static_cast<int32_t>(wParam));
 
@@ -1339,19 +1343,14 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
     return true;
   }
 
-  if (m_isOnComputer) {
-    // save position to compute delta of next motion
-    saveMousePosition(mx, my);
+  // save position to compute delta of next motion
+  saveMousePosition(mx, my);
 
+  if (m_isOnComputer) {
     // motion on primary computer
     sendEvent(EventTypes::PrimaryComputerMotionOnPrimary, MotionInfo::alloc(m_xCursor, m_yCursor));
   } else {
-    // The hook swallows every motion while the cursor is on another computer, so this
-    // one's cursor never left the center it was warped to: each motion is measured from
-    // there, and that stays the reference. Taking the position this motion would have
-    // reached instead measured motions waiting together, as they do while switching,
-    // from each other: their differences, often backwards, took the cursor straight
-    // back over the edge it had just crossed.
+    // only when the hook can't measure the motion itself (onMouseDelta)
     // the motion is on the secondary computer, so we warp mouse back to
     // center on the server computer. if we don't do this, then the mouse
     // will always try to return to the original entry point on the
@@ -1369,6 +1368,30 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
     }
   }
 
+  return true;
+}
+
+bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
+{
+  // from before the last switch, or nothing to send
+  if (ignore() || m_isOnComputer || (dx == 0 && dy == 0)) {
+    return true;
+  }
+
+  // a large one is an event from before the warp to the center, measured from it
+  if (isPreWarpMotion(dx, dy, m_x, m_y, m_w, m_h, m_xCenter, m_yCenter)) {
+    LOG_DEBUG("dropped bogus delta motion: %+d,%+d", dx, dy);
+    return true;
+  }
+  sendEvent(EventTypes::PrimaryComputerMotionOnSecondary, MotionInfo::alloc(dx, dy));
+
+  // the hook eats every motion, so the cursor stays put; but something else may have
+  // moved it, and near an edge the system would cut motions short
+  if (POINT pos;
+      getThisCursorPos(&pos) && (std::abs(pos.x - m_xCenter) > m_w / 4 || std::abs(pos.y - m_yCenter) > m_h / 4)) {
+    LOG_DEBUG("cursor wandered to %d,%d, back to the center", pos.x, pos.y);
+    setThisCursorPos(m_xCenter, m_yCenter);
+  }
   return true;
 }
 

@@ -6,10 +6,10 @@
  */
 
 #include "platform/MSWindowsHook.h"
-#include <cassert>
 #include "base/DirectionTypes.h"
 #include "base/Log.h"
 #include "deskflow/DisplayException.h"
+#include <cassert>
 
 #include <cstring>
 #include <mutex>
@@ -567,8 +567,19 @@ static bool mouseHookHandler(WPARAM wParam, int32_t x, int32_t y, int32_t data)
   case WM_NCMOUSEMOVE:
   case WM_MOUSEMOVE:
     if (g_mode == kHOOK_RELAY_EVENTS) {
-      // relay and eat event
-      PostThreadMessage(g_threadID, DESKFLOW_MSG_MOUSE_MOVE, x, y);
+      // Relay and eat the event. Eaten, it never moves the cursor, so the motion is where
+      // this event would take the cursor from where the cursor is now, both in physical
+      // coordinates: exact however many events queue up while the server is busy, and
+      // whatever coordinates the warp to the center used. (Measured from the position the
+      // previous event would have reached, queued events came out as differences, often
+      // backwards: the cursor bounced back to the computer it had just left.)
+      if (POINT now; GetPhysicalCursorPos(&now)) {
+        PostThreadMessage(
+            g_threadID, DESKFLOW_MSG_MOUSE_DELTA, static_cast<WPARAM>(x - now.x), static_cast<LPARAM>(y - now.y)
+        );
+      } else {
+        PostThreadMessage(g_threadID, DESKFLOW_MSG_MOUSE_MOVE, x, y);
+      }
       return true;
     } else if (g_mode == kHOOK_WATCH_JUMP_ZONE) {
       // low level hooks can report bogus mouse positions that are

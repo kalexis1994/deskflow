@@ -12,6 +12,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#define DESKFLOW_MSG_MOUSE_DELTA WM_APP + 0x0010  // dx; dy: a motion, while relaying
 #define DESKFLOW_MSG_MARK WM_APP + 0x0011         // mark id; <unused>
 #define DESKFLOW_MSG_KEY WM_APP + 0x0012          // vk code; key data
 #define DESKFLOW_MSG_MOUSE_BUTTON WM_APP + 0x0013 // button msg; <unused>

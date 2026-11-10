@@ -176,6 +176,8 @@ private: // HACK
   bool onHotKey(WPARAM, LPARAM);
   bool onMouseButton(WPARAM, LPARAM);
   bool onMouseMove(int32_t x, int32_t y);
+  //! A motion the hook measured while the cursor is on another computer
+  bool onMouseDelta(int32_t dx, int32_t dy);
   bool onMouseWheel(int32_t xDelta, int32_t yDelta);
   //! The mouse's own motion, while the cursor is on another computer
   void onRawInput(HRAWINPUT input);
