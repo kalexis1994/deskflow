@@ -12,7 +12,9 @@
 #include "platform/MSWindowsClipboardBitmapConverter.h"
 #include "platform/MSWindowsClipboardFacade.h"
 #include "platform/MSWindowsClipboardHTMLConverter.h"
+#include "platform/MSWindowsClipboardPNGConverter.h"
 #include "platform/MSWindowsClipboardUTF16Converter.h"
+#include "platform/MSWindowsImage.h"
 
 //
 // MSWindowsClipboard
@@ -30,6 +32,7 @@ MSWindowsClipboard::MSWindowsClipboard(HWND window)
   m_converters.push_back(new MSWindowsClipboardUTF16Converter);
   m_converters.push_back(new MSWindowsClipboardBitmapConverter);
   m_converters.push_back(new MSWindowsClipboardHTMLConverter);
+  m_converters.push_back(new MSWindowsClipboardPNGConverter);
 }
 
 MSWindowsClipboard::~MSWindowsClipboard()
@@ -53,6 +56,7 @@ void MSWindowsClipboard::setFacade(IMSWindowsClipboardFacade &facade)
 bool MSWindowsClipboard::emptyUnowned()
 {
   LOG_DEBUG("empty clipboard");
+  m_wroteBitmap = false;
 
   // empty the clipboard (and take ownership)
   if (!EmptyClipboard()) {
@@ -111,6 +115,18 @@ void MSWindowsClipboard::add(Format format, const std::string &data)
   if (!isSucceeded) {
     LOG_DEBUG("missed clipboard data convert for format: %d", format);
   }
+
+  // Formats come in order, the bitmap before the PNG: a PNG alone also leaves a bitmap,
+  // which every program that pastes images takes, besides the PNG for those that prefer it.
+  if (format == Format::Bitmap && isSucceeded) {
+    m_wroteBitmap = true;
+  } else if (format == Format::PNG && !m_wroteBitmap) {
+    if (const auto bitmap = deskflow::platform::image::pngToBitmap(data); bitmap) {
+      add(Format::Bitmap, *bitmap);
+    } else {
+      LOG_WARN("could not turn the copied PNG into a bitmap");
+    }
+  }
 }
 
 bool MSWindowsClipboard::open(Time time) const
@@ -127,6 +143,8 @@ bool MSWindowsClipboard::open(Time time) const
     if (OpenClipboard(m_window)) {
       std::scoped_lock lock{m_mutex};
       m_time = time;
+      m_pngRead = false;
+      m_png.reset();
       return true;
     }
 
@@ -154,6 +172,13 @@ IClipboard::Time MSWindowsClipboard::getTime() const
 
 bool MSWindowsClipboard::has(Format format) const
 {
+  // An image goes as PNG, a fraction of the bitmap's size; the bitmap only when the PNG
+  // can't be had, as for a peer that predates it, which then gets nothing worse than before.
+  if (format == Format::PNG)
+    return png().has_value();
+  if (format == Format::Bitmap && png().has_value())
+    return false;
+
   for (ConverterList::const_iterator index = m_converters.begin(); index != m_converters.end(); ++index) {
     IMSWindowsClipboardConverter *converter = *index;
     if (converter->getFormat() == format) {
@@ -166,6 +191,34 @@ bool MSWindowsClipboard::has(Format format) const
 }
 
 std::string MSWindowsClipboard::get(Format format) const
+{
+  if (format == Format::PNG)
+    return png().value_or(std::string());
+  return read(format);
+}
+
+const std::optional<std::string> &MSWindowsClipboard::png() const
+{
+  if (m_pngRead)
+    return m_png;
+  m_pngRead = true;
+  m_png.reset();
+
+  if (IsClipboardFormatAvailable(MSWindowsClipboardPNGConverter::format())) {
+    if (auto data = read(Format::PNG); !data.empty())
+      m_png = std::move(data);
+  }
+  if (!m_png && IsClipboardFormatAvailable(CF_DIB)) {
+    if (const auto bitmap = read(Format::Bitmap); !bitmap.empty()) {
+      m_png = deskflow::platform::image::bitmapToPng(bitmap);
+      if (!m_png)
+        LOG_DEBUG("could not encode the copied image as PNG, sharing it as a bitmap");
+    }
+  }
+  return m_png;
+}
+
+std::string MSWindowsClipboard::read(Format format) const
 {
   // find the converter for the first clipboard format we can handle
   IMSWindowsClipboardConverter *converter = nullptr;

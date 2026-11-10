@@ -130,7 +130,7 @@ files, it would replace them, because writing to the Windows clipboard empties i
 The same goes for a copy that can't be shared at all, and for both of Deskflow's
 clipboards, which on Windows are the same one.
 
-## Reading the files from the service
+## Reading the clipboard from the service
 
 Under the service the core runs as SYSTEM in the user's session, and there it doesn't
 see what the user copied. Opening the clipboard works and gives no error, but listing
@@ -140,8 +140,22 @@ a process of the user sees all 13 formats at the same moment, `CF_HDROP` among t
 impersonating the user. The cause isn't known: the core isn't in session 0, nothing
 overwrites the copy, and Deskflow's own writes reach the user's clipboard.
 
-So a core running as SYSTEM doesn't read the list itself. It starts itself with
-`--print-clipboard-files` as the session's user (`WTSQueryUserToken`), which reads the
-clipboard and sends the paths back through a pipe, the only handle it inherits. It has
-5 seconds, and the result is kept for that clipboard sequence number, since one copy
-is asked about several times. A core running as the user reads the clipboard directly.
+So a core running as SYSTEM doesn't read the clipboard itself. It starts itself with
+`--print-clipboard` as the session's user (`WTSQueryUserToken`), which reads all of it,
+text, HTML, image and files, and sends it back through a pipe, the only handle it
+inherits. It has 5 seconds, and the result is kept for that clipboard sequence number,
+since one copy is asked about several times. The same blindness hid images too: the
+Snipping Tool, browsers and Office copy through OLE, so SYSTEM saw nothing to share. A
+core running as the user, or at the login screen where there is no user, reads the
+clipboard directly; so does one whose helper failed.
+
+## Images
+
+An image travels as PNG (`IClipboard::Format::PNG`): a 1920×1080 screenshot is 8 MB as
+a bitmap and usually well under 1 MB as PNG, so it fits the clipboard limit. Windows
+reads the "PNG" format that most programs put on the clipboard as is, and encodes the
+bitmap with Windows' own codecs (WIC) when there is none; the bitmap then stays home.
+Writing, it puts the PNG and a bitmap made from it, so that both the programs that
+paste PNG and those that only take a bitmap get the picture. Over the limit, the bitmap
+goes first, then the PNG, then the HTML; the text always goes. Peers that predate the
+PNG format skip it, and other systems don't read or write it yet.

@@ -6,6 +6,7 @@
 
 #include "MSWindowsClipboardFilesTests.h"
 
+#include "deskflow/Clipboard.h"
 #include "platform/MSWindowsClipboardFiles.h"
 
 #include <ShlObj.h>
@@ -115,6 +116,33 @@ void MSWindowsClipboardFilesTests::truncatedPathIsDropped()
   QVERIFY(MSWindowsClipboardFiles::unpackPaths(packed).empty());
 }
 
+void MSWindowsClipboardFilesTests::packedClipboardRoundTrips()
+{
+  MSWindowsClipboardFiles::UserClipboard clipboard;
+  clipboard.marshalled = std::string("\0\0\0\x01marshalled", 14);
+  clipboard.files = {L"C:\\a.txt", L"D:\\b"};
+  const auto back = MSWindowsClipboardFiles::unpackClipboard(MSWindowsClipboardFiles::packClipboard(clipboard));
+  QVERIFY(back.has_value());
+  QCOMPARE(back->marshalled, clipboard.marshalled);
+  QCOMPARE(back->files, clipboard.files);
+
+  // nothing copied: still an answer
+  const auto empty = MSWindowsClipboardFiles::unpackClipboard(MSWindowsClipboardFiles::packClipboard({}));
+  QVERIFY(empty.has_value());
+  QVERIFY(empty->marshalled.empty());
+  QVERIFY(empty->files.empty());
+}
+
+void MSWindowsClipboardFilesTests::cutShortClipboardIsNoAnswer()
+{
+  MSWindowsClipboardFiles::UserClipboard clipboard;
+  clipboard.marshalled = std::string(100, 'm');
+  auto packed = MSWindowsClipboardFiles::packClipboard(clipboard);
+  packed.resize(50);
+  QVERIFY(!MSWindowsClipboardFiles::unpackClipboard(packed).has_value());
+  QVERIFY(!MSWindowsClipboardFiles::unpackClipboard("ab").has_value());
+}
+
 void MSWindowsClipboardFilesTests::readsWhatExplorerCopied()
 {
   if (qEnvironmentVariableIsEmpty("DESKFLOW_TEST_REAL_CLIPBOARD"))
@@ -141,6 +169,27 @@ void MSWindowsClipboardFilesTests::readsThroughTheHelper()
   QVERIFY2(!files->empty(), "no files read from the clipboard");
   for (const auto &file : *files)
     qInfo("%ls", file.c_str());
+}
+
+void MSWindowsClipboardFilesTests::readsTheWholeClipboardThroughTheHelper()
+{
+  if (qEnvironmentVariableIsEmpty("DESKFLOW_TEST_REAL_CLIPBOARD") || qEnvironmentVariableIsEmpty("DESKFLOW_TEST_CORE"))
+    QSKIP("reads the real clipboard: run by hand");
+
+  const auto clipboard = MSWindowsClipboardFiles::readClipboardThroughHelper(
+      qEnvironmentVariable("DESKFLOW_TEST_CORE").toStdWString(), nullptr
+  );
+  QVERIFY2(clipboard.has_value(), "the helper failed");
+  Clipboard read;
+  read.unmarshall(clipboard->marshalled, 0);
+  read.open(0);
+  for (const auto format :
+       {IClipboard::Format::Text, IClipboard::Format::HTML, IClipboard::Format::Bitmap, IClipboard::Format::PNG}) {
+    if (read.has(format))
+      qInfo("format %d: %zu bytes", static_cast<int>(format), read.get(format).size());
+  }
+  read.close();
+  qInfo("%zu files", clipboard->files.size());
 }
 
 QTEST_MAIN(MSWindowsClipboardFilesTests)

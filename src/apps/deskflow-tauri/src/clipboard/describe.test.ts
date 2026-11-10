@@ -31,6 +31,8 @@ describe("contentKind", () => {
     expect(contentKind(["text", "HTML"]).phrase).toBe("texto con formato");
     expect(contentKind(["HTML"]).phrase).toBe("texto con formato");
     expect(contentKind(["bitmap"])).toEqual({ kind: "image", phrase: "una imagen" });
+    expect(contentKind(["png"])).toEqual({ kind: "image", phrase: "una imagen" });
+    expect(contentKind(["text", "png"]).kind).toBe("mixed");
     expect(contentKind(["text", "bitmap"]).kind).toBe("mixed");
     expect(contentKind([]).kind).toBe("none");
   });
@@ -55,6 +57,16 @@ describe("describeActivity", () => {
   it("explains what was left out to fit", () => {
     const v = describeActivity(
       { ...base, event: "shared", computer: "laptop", formats: ["text"], dropped: ["bitmap"], image: null },
+      "server",
+      "escritorio",
+      3,
+    );
+    expect(v.note).toBe("Se compartió sin la imagen: no entraba en el límite de 3 MB.");
+  });
+
+  it("counts a picture left out as bitmap and as PNG once", () => {
+    const v = describeActivity(
+      { ...base, event: "shared", computer: "laptop", formats: ["text"], dropped: ["bitmap", "png"], image: null },
       "server",
       "escritorio",
       3,

@@ -78,10 +78,13 @@ export const formatNumber = (n: number) => n.toLocaleString(locale());
 /** "3 archivos", "1 línea": a count, with the number in the language's format. */
 const count = (key: PluralKey, n: number, vars?: Vars) => tn(key, n, { ...vars, count: formatNumber(n) });
 
+/** The bitmap and the PNG are the same picture, in two forms. */
+const isImage = (format: string) => format === "bitmap" || format === "png";
+
 /** What was copied, as a noun phrase: "texto", "una imagen", "texto e imagen". */
 export function contentKind(formats: string[]): { kind: ClipboardView["kind"]; phrase: string } {
   const text = formats.includes("text") || formats.includes("HTML");
-  const image = formats.includes("bitmap");
+  const image = formats.some(isImage);
   if (text && image) return { kind: "mixed", phrase: t("clipboard.kind.mixed") };
   if (image) return { kind: "image", phrase: t("clipboard.kind.image") };
   if (formats.includes("HTML")) return { kind: "text", phrase: t("clipboard.kind.formatted") };
@@ -200,9 +203,12 @@ export function describeProgress(p: FileProgress): { title: string; detail: stri
 }
 
 function droppedPhrase(dropped: string[]): string {
-  const names = dropped.map((d) =>
-    d === "bitmap" ? t("clipboard.dropped.image") : d === "HTML" ? t("clipboard.dropped.format") : t("clipboard.dropped.text"),
-  );
+  // a picture left out as bitmap and as PNG is still one picture left out
+  const names = [
+    ...new Set(
+      dropped.map((d) => (isImage(d) ? t("clipboard.dropped.image") : d === "HTML" ? t("clipboard.dropped.format") : t("clipboard.dropped.text"))),
+    ),
+  ];
   return names.reduce((first, second) => t("clipboard.dropped.list", { first, second }));
 }
 

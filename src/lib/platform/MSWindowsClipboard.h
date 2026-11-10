@@ -11,6 +11,8 @@
 #include "deskflow/IClipboard.h"
 
 #include <mutex>
+#include <optional>
+#include <string>
 #include <vector>
 
 #define WIN32_LEAN_AND_MEAN
@@ -59,6 +61,13 @@ public:
 private:
   void clearConverters();
 
+  //! The data of `format` through its converter; empty if it isn't there
+  std::string read(Format format) const;
+
+  //! The image as PNG: the "PNG" format if a program put it there, else the bitmap
+  //! encoded; read once per open(), since both has() and get() ask for it
+  const std::optional<std::string> &png() const;
+
   UINT convertFormatToWin32(Format) const;
   HANDLE convertTextToWin32(const std::string &data) const;
   std::string convertTextFromWin32(HANDLE) const;
@@ -75,6 +84,10 @@ private:
   static UINT s_ownershipFormat;
   IMSWindowsClipboardFacade *m_facade;
   bool m_deleteFacade;
+  mutable bool m_pngRead = false;
+  mutable std::optional<std::string> m_png;
+  //! Whether this write has put a bitmap yet, or a PNG must also bring one
+  bool m_wroteBitmap = false;
 };
 
 //! Clipboard format converter interface

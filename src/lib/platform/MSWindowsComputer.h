@@ -9,6 +9,7 @@
 #pragma once
 
 #include "deskflow/PlatformComputer.h"
+#include "platform/MSWindowsClipboardFiles.h"
 #include "platform/MSWindowsHook.h"
 #include "platform/MSWindowsPowerManager.h"
 
@@ -309,6 +310,12 @@ private:
   //! The files of the clipboard change last read
   mutable std::optional<std::vector<std::filesystem::path>> m_files;
   mutable DWORD m_filesSequenceNumber = 0;
+
+  //! The clipboard as its user sees it, when this process is SYSTEM; read once per change
+  const MSWindowsClipboardFiles::UserClipboard *userClipboard() const;
+  mutable std::optional<MSWindowsClipboardFiles::UserClipboard> m_userClipboard;
+  mutable DWORD m_userClipboardSequenceNumber = 0;
+  mutable bool m_userClipboardRead = false;
 
   bool m_ownClipboard = false;
 

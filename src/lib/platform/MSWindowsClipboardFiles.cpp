@@ -7,6 +7,7 @@
 #include "platform/MSWindowsClipboardFiles.h"
 
 #include "base/Log.h"
+#include "deskflow/ClipboardUtil.h"
 #include "deskflow/files/FileTransfer.h"
 #include "platform/MSWindowsClipboard.h"
 
@@ -147,19 +148,113 @@ int MSWindowsClipboardFiles::printFiles()
   const auto files = readDropFiles(static_cast<HDROP>(GetClipboardData(CF_HDROP)));
   CloseClipboard();
 
-  const auto packed = packPaths(files);
+  return writeOutput(packPaths(files)) ? 0 : 1;
+}
+
+bool MSWindowsClipboardFiles::writeOutput(const std::string &data)
+{
   const auto output = GetStdHandle(STD_OUTPUT_HANDLE);
   std::size_t sent = 0;
-  while (sent < packed.size()) {
+  while (sent < data.size()) {
     DWORD written = 0;
-    if (!WriteFile(output, packed.data() + sent, static_cast<DWORD>(packed.size() - sent), &written, nullptr))
-      return 1;
+    if (!WriteFile(output, data.data() + sent, static_cast<DWORD>(data.size() - sent), &written, nullptr))
+      return false;
     sent += written;
   }
-  return 0;
+  return true;
+}
+
+int MSWindowsClipboardFiles::printClipboard()
+{
+  // a log of our own with no outputter: the default one would write into the answer
+  Log log;
+  log.pop_front();
+
+  UserClipboard clipboard;
+  MSWindowsClipboard source(nullptr);
+  const auto marshalled = deskflow::clipboard::snapshot(source);
+  if (!marshalled)
+    return 1;
+  clipboard.marshalled = *marshalled;
+
+  bool opened = false;
+  for (int i = 0; i < kOpenAttempts && !opened; ++i) {
+    opened = OpenClipboard(nullptr) != FALSE;
+    if (!opened)
+      Sleep(kOpenRetryMs);
+  }
+  if (!opened)
+    return 1;
+  clipboard.files = readDropFiles(static_cast<HDROP>(GetClipboardData(CF_HDROP)));
+  CloseClipboard();
+
+  return writeOutput(packClipboard(clipboard)) ? 0 : 1;
+}
+
+std::string MSWindowsClipboardFiles::packClipboard(const UserClipboard &clipboard)
+{
+  const auto size = static_cast<uint32_t>(clipboard.marshalled.size());
+  std::string packed;
+  packed += static_cast<char>((size >> 24) & 0xFF);
+  packed += static_cast<char>((size >> 16) & 0xFF);
+  packed += static_cast<char>((size >> 8) & 0xFF);
+  packed += static_cast<char>(size & 0xFF);
+  packed += clipboard.marshalled;
+  packed += packPaths(clipboard.files);
+  return packed;
+}
+
+std::optional<MSWindowsClipboardFiles::UserClipboard> MSWindowsClipboardFiles::unpackClipboard(const std::string &packed
+)
+{
+  if (packed.size() < 4)
+    return std::nullopt;
+  const auto *b = reinterpret_cast<const unsigned char *>(packed.data());
+  const std::size_t size = (std::size_t{b[0]} << 24) | (std::size_t{b[1]} << 16) | (std::size_t{b[2]} << 8) | b[3];
+  if (packed.size() - 4 < size)
+    return std::nullopt;
+  UserClipboard clipboard;
+  clipboard.marshalled = packed.substr(4, size);
+  clipboard.files = unpackPaths(packed.substr(4 + size));
+  return clipboard;
 }
 
 std::optional<std::vector<fs::path>> MSWindowsClipboardFiles::readThroughHelper(const fs::path &program, HANDLE token)
+{
+  const auto output = runHelper(program, token, kPrintFilesArg);
+  if (!output)
+    return std::nullopt;
+  return unpackPaths(*output);
+}
+
+std::optional<MSWindowsClipboardFiles::UserClipboard>
+MSWindowsClipboardFiles::readClipboardThroughHelper(const fs::path &program, HANDLE token)
+{
+  const auto output = runHelper(program, token, kPrintClipboardArg);
+  if (!output)
+    return std::nullopt;
+  return unpackClipboard(*output);
+}
+
+std::optional<MSWindowsClipboardFiles::UserClipboard> MSWindowsClipboardFiles::readAsUser()
+{
+  if (!deskflow::files::runningAsSystem())
+    return std::nullopt;
+  const auto token = static_cast<HANDLE>(deskflow::files::sessionUserToken());
+  if (token == nullptr)
+    return std::nullopt; // a login screen: nobody to have copied anything
+
+  std::wstring program(32768, L'\0');
+  program.resize(GetModuleFileNameW(nullptr, program.data(), static_cast<DWORD>(program.size())));
+  auto clipboard = readClipboardThroughHelper(program, token);
+  CloseHandle(token);
+  if (!clipboard)
+    LOG_WARN("could not read the clipboard as its user, reading it here instead");
+  return clipboard;
+}
+
+std::optional<std::string>
+MSWindowsClipboardFiles::runHelper(const fs::path &program, HANDLE token, const char *argument)
 {
   SECURITY_ATTRIBUTES inheritable = {sizeof(inheritable), nullptr, TRUE};
   HANDLE readEnd = nullptr;
@@ -186,7 +281,7 @@ std::optional<std::vector<fs::path>> MSWindowsClipboardFiles::readThroughHelper(
   startup.StartupInfo.lpDesktop = desktop;
   startup.lpAttributeList = attributes;
 
-  auto command = L"\"" + program.native() + L"\" " + fs::path(kPrintFilesArg).native();
+  auto command = L"\"" + program.native() + L"\" " + fs::path(argument).native();
   const DWORD flags = CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT;
   PROCESS_INFORMATION process = {};
   BOOL started = FALSE;
@@ -205,7 +300,7 @@ std::optional<std::vector<fs::path>> MSWindowsClipboardFiles::readThroughHelper(
     DeleteProcThreadAttributeList(attributes);
   CloseHandle(writeEnd); // or the reader would never see the end of the output
   if (!started) {
-    LOG_WARN("could not start the helper that reads the copied files: %d", startError);
+    LOG_WARN("could not start the helper that reads the clipboard: %d", startError);
     CloseHandle(readEnd);
     return std::nullopt;
   }
@@ -221,7 +316,7 @@ std::optional<std::vector<fs::path>> MSWindowsClipboardFiles::readThroughHelper(
   // Explorer renders the list when asked for it, and a hung program must not stall this
   const bool finished = WaitForSingleObject(process.hProcess, kHelperTimeoutMs) == WAIT_OBJECT_0;
   if (!finished) {
-    LOG_WARN("the helper that reads the copied files didn't answer");
+    LOG_WARN("the helper that reads the clipboard didn't answer");
     TerminateProcess(process.hProcess, 1);
   }
   reader.join();
@@ -233,7 +328,7 @@ std::optional<std::vector<fs::path>> MSWindowsClipboardFiles::readThroughHelper(
   CloseHandle(readEnd);
   if (!finished || exitCode != 0)
     return std::nullopt;
-  return unpackPaths(output);
+  return output;
 }
 
 std::optional<std::vector<fs::path>> MSWindowsClipboardFiles::get(HWND window)

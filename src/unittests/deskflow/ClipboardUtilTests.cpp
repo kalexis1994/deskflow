@@ -27,6 +27,8 @@ struct Content
   bool hasText = true;
   bool hasHtml = false;
   bool hasBitmap = false;
+  std::string png;
+  bool hasPng = false;
 };
 
 std::string marshalled(const Content &content)
@@ -40,6 +42,8 @@ std::string marshalled(const Content &content)
     clipboard.add(Format::HTML, content.html);
   if (content.hasBitmap)
     clipboard.add(Format::Bitmap, content.bitmap);
+  if (content.hasPng)
+    clipboard.add(Format::PNG, content.png);
   clipboard.close();
   return clipboard.marshall();
 }
@@ -142,6 +146,42 @@ void ClipboardUtilTests::fitDropsBitmapThenHtml()
   QVERIFY(!has(fitted.data, Format::HTML));
 }
 
+void ClipboardUtilTests::fitDropsTheBitmapBeforeThePng()
+{
+  // the same image as a bitmap and as a much smaller PNG: the PNG still goes
+  const auto both = marshalled(
+      {.text = "caption",
+       .bitmap = std::string(100000, 'x'),
+       .hasBitmap = true,
+       .png = std::string(500, 'p'),
+       .hasPng = true}
+  );
+  auto fitted = fitToLimit(both, 1024);
+  QVERIFY(fitted.fits);
+  QVERIFY(fitted.dropped == std::vector<Format>{Format::Bitmap});
+  QVERIFY(has(fitted.data, Format::PNG));
+  QVERIFY(has(fitted.data, Format::Text));
+
+  // a PNG too big as well: the text goes alone, and both images are reported
+  const auto big = marshalled(
+      {.text = "caption",
+       .bitmap = std::string(100000, 'x'),
+       .hasBitmap = true,
+       .png = std::string(5000, 'p'),
+       .hasPng = true}
+  );
+  fitted = fitToLimit(big, 1024);
+  QVERIFY(fitted.fits);
+  QVERIFY((fitted.dropped == std::vector<Format>{Format::Bitmap, Format::PNG}));
+  QVERIFY(!has(fitted.data, Format::PNG));
+
+  // only a PNG, too big: nothing left to share
+  const auto lonely = marshalled({.hasText = false, .png = std::string(5000, 'p'), .hasPng = true});
+  fitted = fitToLimit(lonely, 1024);
+  QVERIFY(!fitted.fits);
+  QVERIFY(fitted.dropped == std::vector<Format>{Format::PNG});
+}
+
 void ClipboardUtilTests::fitGivesUpWhenTextIsTooBig()
 {
   QVERIFY(!fitToLimit(text(std::string(5000, 't')), 1024).fits);
@@ -221,6 +261,20 @@ void ClipboardUtilTests::activityJsonDescribesContent()
   QCOMPARE(skipped["reason"].toString(), QStringLiteral("nothingToShare"));
   QVERIFY(!skipped.contains("size"));
   QCOMPARE(skipped["formats"].toArray(), QJsonArray());
+}
+
+void ClipboardUtilTests::activityJsonReadsThePngSize()
+{
+  // the signature, then IHDR: its length, its type, then big-endian width and height
+  std::string png = "\x89PNG\r\n\x1a\n";
+  png += std::string("\0\0\0\x0d", 4) + "IHDR";
+  png += std::string("\0\0\x0f\0", 4) + std::string("\0\0\x08\x70", 4); // 3840 × 2160
+  png += std::string(20, '\0');
+  const auto data = marshalled({.hasText = false, .png = png, .hasPng = true});
+  const auto json = parsedJson(activityJson({.event = "shared", .marshalled = data}, true));
+  QCOMPARE(json["formats"].toArray(), QJsonArray({"png"}));
+  QCOMPARE(json["image"].toObject()["width"].toInt(), 3840);
+  QCOMPARE(json["image"].toObject()["height"].toInt(), 2160);
 }
 
 void ClipboardUtilTests::activityJsonPreviewIsOptionalAndShort()

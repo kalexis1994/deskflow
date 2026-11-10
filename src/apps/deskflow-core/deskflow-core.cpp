@@ -113,6 +113,8 @@ int main(int argc, char **argv)
   // the core, when it's SYSTEM, asking a process of the user what the user copied
   if (argc == 2 && std::string_view(argv[1]) == MSWindowsClipboardFiles::kPrintFilesArg)
     return MSWindowsClipboardFiles::printFiles();
+  if (argc == 2 && std::string_view(argv[1]) == MSWindowsClipboardFiles::kPrintClipboardArg)
+    return MSWindowsClipboardFiles::printClipboard();
 
   ArchMiscWindows::setInstanceWin32(GetModuleHandle(nullptr));
 #endif

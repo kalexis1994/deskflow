@@ -38,6 +38,8 @@ if(WIN32)
     MSWindowsMotion.h
     MSWindowsClipboardHTMLConverter.cpp
     MSWindowsClipboardHTMLConverter.h
+    MSWindowsClipboardPNGConverter.cpp
+    MSWindowsClipboardPNGConverter.h
     MSWindowsClipboardUTF16Converter.cpp
     MSWindowsClipboardUTF16Converter.h
     MSWindowsComputer.cpp
@@ -50,6 +52,8 @@ if(WIN32)
     MSWindowsEventQueueBuffer.h
     MSWindowsHook.cpp
     MSWindowsHook.h
+    MSWindowsImage.cpp
+    MSWindowsImage.h
     MSWindowsKeyState.cpp
     MSWindowsKeyState.h
     MSWindowsPowerManager.cpp
@@ -188,8 +192,8 @@ add_library(platform STATIC ${PLATFORM_SOURCES})
 target_link_libraries(platform PUBLIC client ${libs})
 
 if(WIN32)
-  # DragQueryFileW, for files on the clipboard
-  target_link_libraries(platform PRIVATE shell32)
+  # DragQueryFileW, for files on the clipboard; WIC, for images as PNG
+  target_link_libraries(platform PRIVATE shell32 windowscodecs ole32)
 endif()
 
 if(UNIX)

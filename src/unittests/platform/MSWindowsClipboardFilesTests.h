@@ -23,7 +23,10 @@ private Q_SLOTS:
   void truncatedPathIsDropped();
   //! By hand: copy a file in Explorer, then run with DESKFLOW_TEST_REAL_CLIPBOARD=1.
   //! Only reads the clipboard.
+  void packedClipboardRoundTrips();
+  void cutShortClipboardIsNoAnswer();
   void readsWhatExplorerCopied();
   //! By hand, the same, with DESKFLOW_TEST_CORE set to deskflow-core.exe
   void readsThroughTheHelper();
+  void readsTheWholeClipboardThroughTheHelper();
 };

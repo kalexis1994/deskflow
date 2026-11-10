@@ -22,6 +22,7 @@
 #include "deskflow/Clipboard.h"
 #include "deskflow/DisplayException.h"
 #include "deskflow/KeyMap.h"
+#include "deskflow/files/FileTransfer.h"
 #include "deskflow/win32/AppUtilWindows.h"
 #include "platform/MSWindowsClipboard.h"
 #include "platform/MSWindowsClipboardFiles.h"
@@ -345,8 +346,28 @@ bool MSWindowsComputer::canShareFiles() const
   return true;
 }
 
+const MSWindowsClipboardFiles::UserClipboard *MSWindowsComputer::userClipboard() const
+{
+  if (!deskflow::files::runningAsSystem())
+    return nullptr;
+  // reading starts a process, and one copy is asked about several times
+  const auto sequenceNumber = GetClipboardSequenceNumber();
+  if (!m_userClipboardRead || sequenceNumber == 0 || sequenceNumber != m_userClipboardSequenceNumber) {
+    m_userClipboard = MSWindowsClipboardFiles::readAsUser();
+    m_userClipboardSequenceNumber = sequenceNumber;
+    m_userClipboardRead = true;
+  }
+  return m_userClipboard ? &*m_userClipboard : nullptr;
+}
+
 std::optional<std::vector<std::filesystem::path>> MSWindowsComputer::getClipboardFiles() const
 {
+  if (const auto *user = userClipboard(); user) {
+    if (user->files.empty())
+      return std::nullopt;
+    return user->files;
+  }
+
   // reading can start a process, and one copy is asked about several times
   const auto sequenceNumber = GetClipboardSequenceNumber();
   if (sequenceNumber == 0 || sequenceNumber != m_filesSequenceNumber) {
@@ -453,6 +474,13 @@ void *MSWindowsComputer::getEventTarget() const
 
 bool MSWindowsComputer::getClipboard(ClipboardID, IClipboard *dst) const
 {
+  // as SYSTEM, a process of the user reads it: SYSTEM misses most of what is copied
+  if (const auto *user = userClipboard(); user) {
+    Clipboard copy;
+    copy.unmarshall(user->marshalled, 0);
+    return Clipboard::copy(dst, &copy);
+  }
+
   // false when another program holds the clipboard open: callers must not take the
   // untouched destination for the clipboard's content
   MSWindowsClipboard src(m_window);

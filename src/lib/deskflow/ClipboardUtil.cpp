@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <utility>
 
 namespace deskflow::clipboard {
 
@@ -20,7 +21,12 @@ namespace {
 
 using Format = IClipboard::Format;
 
-constexpr std::array kAllFormats = {Format::Text, Format::HTML, Format::Bitmap};
+constexpr std::array kAllFormats = {Format::Text, Format::HTML, Format::Bitmap, Format::PNG};
+
+bool isImage(Format format)
+{
+  return format == Format::Bitmap || format == Format::PNG;
+}
 
 //! Text without CRs and without trailing line breaks
 std::string normalizedText(const std::string &text)
@@ -79,8 +85,8 @@ bool sameContent(const std::string &a, const std::string &b)
       return false;
     if (!left[i])
       continue;
-    const bool same = kAllFormats[i] == Format::Bitmap ? *left[i] == *right[i]
-                                                       : normalizedText(*left[i]) == normalizedText(*right[i]);
+    const bool same =
+        isImage(kAllFormats[i]) ? *left[i] == *right[i] : normalizedText(*left[i]) == normalizedText(*right[i]);
     if (!same)
       return false;
   }
@@ -98,9 +104,11 @@ Fitted fitToLimit(const std::string &marshalled, std::size_t limitBytes)
 
   const auto formats = unpack(marshalled);
 
-  // formats to leave out, least valuable first
-  const std::array<std::vector<Format>, 2> attempts = {
-      std::vector<Format>{Format::Bitmap}, std::vector<Format>{Format::Bitmap, Format::HTML}
+  // formats to leave out, least valuable first: the bitmap before the much smaller PNG
+  // of the same image, the image before the HTML, the text never
+  const std::array<std::vector<Format>, 3> attempts = {
+      std::vector<Format>{Format::Bitmap}, std::vector<Format>{Format::Bitmap, Format::PNG},
+      std::vector<Format>{Format::Bitmap, Format::PNG, Format::HTML}
   };
   for (const auto &drop : attempts) {
     Clipboard candidate;
@@ -134,7 +142,7 @@ Fitted fitToLimit(const std::string &marshalled, std::size_t limitBytes)
     }
   }
 
-  for (const auto format : {Format::Bitmap, Format::HTML, Format::Text}) {
+  for (const auto format : {Format::Bitmap, Format::PNG, Format::HTML, Format::Text}) {
     const auto index =
         static_cast<std::size_t>(std::find(kAllFormats.begin(), kAllFormats.end(), format) - kAllFormats.begin());
     if (formats[index])
@@ -158,6 +166,9 @@ std::string formatNames(const std::vector<IClipboard::Format> &formats)
       break;
     case Format::Bitmap:
       names += "bitmap";
+      break;
+    case Format::PNG:
+      names += "png";
       break;
     default:
       names += "unknown";
@@ -212,6 +223,27 @@ void appendFormatList(std::string &json, const std::vector<Format> &formats)
     appendJsonString(json, formatNames({formats[i]}));
   }
   json += ']';
+}
+
+//! Width and height of the image, from the bitmap or the PNG
+std::optional<std::pair<int64_t, int64_t>>
+imageSize(const std::optional<std::string> &bitmap, const std::optional<std::string> &png)
+{
+  // a DIB: BITMAPINFOHEADER first, width and height after its size
+  if (bitmap && bitmap->size() >= 12) {
+    const auto width = static_cast<int32_t>(deskflow::fromLittleEndian<uint32_t>(bitmap->data() + 4));
+    const auto height = static_cast<int32_t>(deskflow::fromLittleEndian<uint32_t>(bitmap->data() + 8));
+    return std::pair<int64_t, int64_t>{width < 0 ? -int64_t{width} : width, height < 0 ? -int64_t{height} : height};
+  }
+  // a PNG: the 8-byte signature, then IHDR's length and type, then big-endian width and height
+  if (png && png->size() >= 24 && png->compare(12, 4, "IHDR") == 0) {
+    const auto bigEndian = [&](std::size_t at) {
+      const auto *b = reinterpret_cast<const unsigned char *>(png->data() + at);
+      return (uint32_t{b[0]} << 24) | (uint32_t{b[1]} << 16) | (uint32_t{b[2]} << 8) | uint32_t{b[3]};
+    };
+    return std::pair<int64_t, int64_t>{bigEndian(16), bigEndian(20)};
+  }
+  return std::nullopt;
 }
 
 bool isUtf8Continuation(char c)
@@ -271,12 +303,9 @@ std::string activityJson(const Activity &activity, bool includeText)
       }
     }
 
-    // the bitmap is a DIB: BITMAPINFOHEADER first, width and height after its size
-    if (const auto &bitmap = formats[2]; bitmap && bitmap->size() >= 12) {
-      const auto width = static_cast<int32_t>(deskflow::fromLittleEndian<uint32_t>(bitmap->data() + 4));
-      const auto height = static_cast<int32_t>(deskflow::fromLittleEndian<uint32_t>(bitmap->data() + 8));
-      json += ",\"image\":{\"width\":" + std::to_string(width < 0 ? -width : width) +
-              ",\"height\":" + std::to_string(height < 0 ? -height : height) + "}";
+    if (const auto size = imageSize(formats[2], formats[3]); size) {
+      json +=
+          ",\"image\":{\"width\":" + std::to_string(size->first) + ",\"height\":" + std::to_string(size->second) + "}";
     }
   }
   json += ",\"formats\":";

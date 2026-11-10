@@ -19,9 +19,11 @@ private Q_SLOTS:
   void sameContentComparesFormats();
   void fitKeepsEverythingUnderTheLimit();
   void fitDropsBitmapThenHtml();
+  void fitDropsTheBitmapBeforeThePng();
   void fitGivesUpWhenTextIsTooBig();
   void echoGuard();
   void activityJsonDescribesContent();
+  void activityJsonReadsThePngSize();
   void activityJsonPreviewIsOptionalAndShort();
 
 private:

@@ -24,6 +24,13 @@ if (WIN32)
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
   )
   create_test(
+    NAME MSWindowsImageTests
+    DEPENDS platform
+    LIBS base arch
+    SOURCE MSWindowsImageTests.cpp
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/platform"
+  )
+  create_test(
     NAME MSWindowsMotionTests
     DEPENDS platform
     LIBS base arch
