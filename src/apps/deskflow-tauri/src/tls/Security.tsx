@@ -123,7 +123,6 @@ export function FingerprintPromptCard({ prompt, onDone }: { prompt: Prompt; onDo
 /** This computer's fingerprint and the computers it already trusts. */
 export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey: unknown }) {
   const [info, setInfo] = useState<TlsInfo | null>(null);
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -150,54 +149,51 @@ export function SecurityCard({ mode, refreshKey }: { mode: CoreMode; refreshKey:
 
   return (
     <section className="card sec">
-      <button className="log__toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className={`chevron ${open ? "chevron--open" : ""}`} aria-hidden="true" />
+      <h3 className="sec__title">
         Seguridad
         <span className={`badge ${info.enabled ? "badge--ok" : ""}`}>{info.enabled ? "Cifrado activado" : "Sin cifrado"}</span>
-      </button>
-      {open && (
-        <div className="sec__body">
-          <div>
-            <h4>Mi huella</h4>
-            <p className="muted small">Cuando otra computadora se conecte por primera vez, te va a mostrar este dibujo para que confirmes que sos vos.</p>
-            {info.localFingerprint ? (
-              <Fingerprint hex={info.localFingerprint} />
-            ) : (
-              <p className="le__warn">No encontré el certificado de esta computadora ({info.certificate}). Se crea la primera vez que Deskflow arranca con cifrado.</p>
-            )}
-          </div>
-          <div className="sec__lists">
-            {lists.map((l) => (
-              <div key={l.id}>
-                <h4>{l.title}</h4>
-                {l.items.length === 0 ? (
-                  <p className="muted small">{l.empty}</p>
-                ) : (
-                  <ul className="sec__trusted">
-                    {l.items.map((t) => (
-                      <li key={t.kind + t.hex}>
-                        <pre className="sec__mini" aria-hidden="true">
-                          {t.kind === "sha256" ? fingerprintArtBody(t.hex) : ""}
-                        </pre>
-                        <div className="sec__meta">
-                          <code title={t.hex}>{fingerprintColumns(t.hex).split("\n")[0]}…</code>
-                          {t.kind !== "sha256" && <span className="muted small">formato viejo (SHA-1)</span>}
-                          <button className="le__link sec__forget" onClick={() => forget(l.id, t)}>
-                            Olvidar
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-          {!info.checkPeers && mode === "server" && (
-            <p className="le__warn">Este servidor no verifica las huellas de las computadoras que se conectan (opción de la app clásica).</p>
+      </h3>
+      <div className="sec__body">
+        <div>
+          <h4>Mi huella</h4>
+          <p className="muted small">Cuando otra computadora se conecte por primera vez, te va a mostrar este dibujo para que confirmes que sos vos.</p>
+          {info.localFingerprint ? (
+            <Fingerprint hex={info.localFingerprint} />
+          ) : (
+            <p className="le__warn">No encontré el certificado de esta computadora ({info.certificate}). Se crea la primera vez que Deskflow arranca con cifrado.</p>
           )}
         </div>
-      )}
+        <div className="sec__lists">
+          {lists.map((l) => (
+            <div key={l.id}>
+              <h4>{l.title}</h4>
+              {l.items.length === 0 ? (
+                <p className="muted small">{l.empty}</p>
+              ) : (
+                <ul className="sec__trusted">
+                  {l.items.map((t) => (
+                    <li key={t.kind + t.hex}>
+                      <pre className="sec__mini" aria-hidden="true">
+                        {t.kind === "sha256" ? fingerprintArtBody(t.hex) : ""}
+                      </pre>
+                      <div className="sec__meta">
+                        <code title={t.hex}>{fingerprintColumns(t.hex).split("\n")[0]}…</code>
+                        {t.kind !== "sha256" && <span className="muted small">formato viejo (SHA-1)</span>}
+                        <button className="le__link sec__forget" onClick={() => forget(l.id, t)}>
+                          Olvidar
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+        {!info.checkPeers && mode === "server" && (
+          <p className="le__warn">Este servidor no verifica las huellas de las computadoras que se conectan (opción de la app clásica).</p>
+        )}
+      </div>
     </section>
   );
 }

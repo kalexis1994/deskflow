@@ -98,6 +98,81 @@ button {
   min-height: 100vh;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+/* tabs */
+
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 10px 12px 9px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-2);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 6px 6px 0 0;
+}
+
+.tab--on {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab .badge {
+  padding: 0 6px;
+}
+
+@media (max-width: 680px) {
+  .tabs {
+    gap: 0;
+  }
+
+  .tab {
+    padding-inline: 7px;
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel[hidden] {
+  display: none;
+}
+
 .app--loading {
   align-items: center;
   justify-content: center;
@@ -533,6 +608,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 4px 0;
 }
 
 .log__toggle {
@@ -582,7 +658,7 @@ button {
   list-style: none;
   margin: 0;
   padding: 8px 10px;
-  max-height: 260px;
+  height: max(220px, calc(100vh - 330px));
   overflow-y: auto;
   background: var(--bg);
   border-radius: 8px;

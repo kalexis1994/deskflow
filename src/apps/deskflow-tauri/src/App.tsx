@@ -9,6 +9,7 @@ import { FingerprintPromptCard, SecurityCard } from "./tls/Security";
 import { ClipboardCard } from "./clipboard/ClipboardCard";
 import { UpdateCard, UpdateFooter } from "./update/UpdateCard";
 import { useUpdate } from "./update/useUpdate";
+import { recentProblems, saveTab, savedTab, shownTab, tabsFor, type Tab, type TabId } from "./tabs";
 import type { Autostart, CoreMode, CoreState, Overview } from "./types";
 
 export default function App() {
@@ -16,6 +17,8 @@ export default function App() {
   const update = useUpdate();
   const retryIn = useCountdown(df.core?.retryAt ?? null);
   const [layoutVersion, setLayoutVersion] = useState(0);
+  const [chosenTab, setChosenTab] = useState(savedTab);
+  const log = useMemo(() => df.log.map(parseLogLine), [df.log]);
 
   if (!df.info || !df.core) {
     return (
@@ -28,6 +31,9 @@ export default function App() {
   const { overview: ov } = df.info;
   const core = df.core;
   const running = core.process !== "stopped";
+  const tabs = tabsFor(ov.coreMode);
+  const tab = shownTab(chosenTab, tabs);
+  const problems = recentProblems(log);
 
   return (
     <main className="app">
@@ -41,49 +47,76 @@ export default function App() {
 
       {update.state && <UpdateCard state={update.state} mode={ov.coreMode} service={ov.processMode === "service"} onInstall={update.install} onDismiss={update.dismiss} />}
 
-      <ModePicker mode={ov.coreMode} disabled={df.busy} onChange={(coreMode) => df.save({ coreMode })} />
-
-      <StatusCard
-        core={core}
-        ov={ov}
-        retryIn={retryIn}
-        address={df.address}
-        busy={df.busy}
-        onStart={df.start}
-        onStop={df.stop}
-        autostart={df.autostart}
-      />
-
       {core.fingerprintPrompt && <FingerprintPromptCard key={core.fingerprintPrompt.fingerprint} prompt={core.fingerprintPrompt} onDone={() => {}} />}
 
       <Alerts core={core} ov={ov} error={df.error} onDismissError={df.dismissError} />
 
-      {ov.coreMode !== "none" && (
-        <ClipboardCard activity={core.clipboard ?? []} progress={core.fileProgress ?? null} mode={ov.coreMode} self={ov.computerName} running={core.process === "running"} />
-      )}
+      <Tabs
+        tabs={tabs}
+        current={tab}
+        badges={{ activity: problems }}
+        onChange={(id) => {
+          setChosenTab(id);
+          saveTab(id);
+        }}
+      />
 
-      {ov.coreMode === "client" && (
-        <ClientCard host={ov.remoteHost} port={ov.port} running={running} busy={df.busy} onSave={(remoteHost) => df.save({ remoteHost })} />
-      )}
+      {/* every panel stays mounted, so what is being edited in one survives a look at another */}
+      <Panel id="home" current={tab}>
+        <ModePicker mode={ov.coreMode} disabled={df.busy} onChange={(coreMode) => df.save({ coreMode })} />
+        <StatusCard
+          core={core}
+          ov={ov}
+          retryIn={retryIn}
+          address={df.address}
+          busy={df.busy}
+          onStart={df.start}
+          onStop={df.stop}
+          autostart={df.autostart}
+        />
+        {ov.coreMode === "client" && (
+          <ClientCard host={ov.remoteHost} port={ov.port} running={running} busy={df.busy} onSave={(remoteHost) => df.save({ remoteHost })} />
+        )}
+      </Panel>
+
       {ov.coreMode === "server" && (
         <>
-          <LayoutEditor
-            core={core}
-            address={df.address}
-            port={ov.port}
-            onSaved={() => {
-              df.refresh();
-              setLayoutVersion((v) => v + 1);
-            }}
-          />
-          <HotkeysCard running={core.process === "running"} layoutVersion={layoutVersion} />
-          <ServerOptionsCard running={core.process === "running"} />
+          <Panel id="layout" current={tab}>
+            <LayoutEditor
+              core={core}
+              address={df.address}
+              port={ov.port}
+              onSaved={() => {
+                df.refresh();
+                setLayoutVersion((v) => v + 1);
+              }}
+            />
+          </Panel>
+          <Panel id="hotkeys" current={tab}>
+            <HotkeysCard running={core.process === "running"} layoutVersion={layoutVersion} />
+          </Panel>
         </>
       )}
 
-      <SecurityCard mode={ov.coreMode} refreshKey={core.fingerprintPrompt?.fingerprint ?? ""} />
+      {ov.coreMode !== "none" && (
+        <Panel id="clipboard" current={tab}>
+          <ClipboardCard activity={core.clipboard ?? []} progress={core.fileProgress ?? null} mode={ov.coreMode} self={ov.computerName} running={core.process === "running"} />
+        </Panel>
+      )}
 
-      <ActivityLog lines={df.log} />
+      {ov.coreMode === "server" && (
+        <Panel id="options" current={tab}>
+          <ServerOptionsCard running={core.process === "running"} />
+        </Panel>
+      )}
+
+      <Panel id="security" current={tab}>
+        <SecurityCard mode={ov.coreMode} refreshKey={core.fingerprintPrompt?.fingerprint ?? ""} />
+      </Panel>
+
+      <Panel id="activity" current={tab}>
+        <ActivityLog lines={log} visible={tab === "activity"} />
+      </Panel>
 
       <footer className="footer">
         <span>{ov.processMode === "service" ? "Corre como servicio del sistema" : "Corre dentro de esta app"}</span>
@@ -322,47 +355,88 @@ function ClientCard({ host, port, running, busy, onSave }: { host: string; port:
   );
 }
 
-function ActivityLog({ lines }: { lines: string[] }) {
-  const [open, setOpen] = useState(false);
+function Tabs({ tabs, current, badges, onChange }: { tabs: Tab[]; current: TabId; badges: Partial<Record<TabId, number>>; onChange: (id: TabId) => void }) {
+  const refs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
+  const move = (by: number) => {
+    const i = tabs.findIndex((t) => t.id === current);
+    const next = tabs[(i + by + tabs.length) % tabs.length].id;
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+  return (
+    <nav className="tabs" role="tablist" aria-label="Secciones">
+      {tabs.map((t) => {
+        const badge = badges[t.id] ?? 0;
+        return (
+          <button
+            key={t.id}
+            ref={(el) => {
+              refs.current[t.id] = el;
+            }}
+            id={`tab-${t.id}`}
+            role="tab"
+            aria-selected={t.id === current}
+            aria-controls={`panel-${t.id}`}
+            tabIndex={t.id === current ? 0 : -1}
+            className={`tab ${t.id === current ? "tab--on" : ""}`}
+            onClick={() => onChange(t.id)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") move(1);
+              else if (e.key === "ArrowLeft") move(-1);
+              else return;
+              e.preventDefault();
+            }}
+          >
+            {t.label}
+            {badge > 0 && (
+              <span className="badge" title={badge === 1 ? "1 aviso desde que arrancó" : `${badge} avisos desde que arrancó`}>
+                {badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function Panel({ id, current, children }: { id: TabId; current: TabId; children: ReactNode }) {
+  return (
+    <div className="panel" role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`} hidden={id !== current}>
+      {children}
+    </div>
+  );
+}
+
+function ActivityLog({ lines, visible }: { lines: ReturnType<typeof parseLogLine>[]; visible: boolean }) {
   const [onlyProblems, setOnlyProblems] = useState(false);
   const listRef = useRef<HTMLOListElement>(null);
-  const parsed = useMemo(() => lines.map(parseLogLine), [lines]);
-  const shown = onlyProblems ? parsed.filter((l) => l.level === "error" || l.level === "warn") : parsed;
-  // only count problems since the core last started, older ones are history
-  const sinceStart = Math.max(0, parsed.map((l) => l.text).lastIndexOf("starting core"));
-  const problems = parsed.slice(sinceStart).filter((l) => l.level === "error" || l.level === "warn").length;
+  const shown = onlyProblems ? lines.filter((l) => l.level === "error" || l.level === "warn") : lines;
 
+  // a hidden list can't scroll, so go to the end each time it shows
   useEffect(() => {
     const el = listRef.current;
-    if (open && el) el.scrollTop = el.scrollHeight;
-  }, [open, shown.length]);
+    if (visible && el) el.scrollTop = el.scrollHeight;
+  }, [visible, shown.length]);
 
   return (
     <section className="card log">
       <div className="log__header">
-        <button className="log__toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-          <span className={`chevron ${open ? "chevron--open" : ""}`} aria-hidden="true" />
-          Actividad
-          {problems > 0 && <span className="badge">{problems === 1 ? "1 aviso" : `${problems} avisos`}</span>}
-        </button>
-        {open && (
-          <label className="check">
-            <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
-            Solo avisos y errores
-          </label>
-        )}
+        <h3>Actividad</h3>
+        <label className="check">
+          <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
+          Solo avisos y errores
+        </label>
       </div>
-      {open && (
-        <ol className="log__list" ref={listRef}>
-          {shown.length === 0 && <li className="muted">Sin actividad.</li>}
-          {shown.slice(-500).map((l, i) => (
-            <li key={i} className={`log__line log__line--${l.level}`}>
-              {l.time && <time>{l.time}</time>}
-              <span>{l.text}</span>
-            </li>
-          ))}
-        </ol>
-      )}
+      <ol className="log__list" ref={listRef}>
+        {shown.length === 0 && <li className="muted">Sin actividad.</li>}
+        {shown.slice(-500).map((l, i) => (
+          <li key={i} className={`log__line log__line--${l.level}`}>
+            {l.time && <time>{l.time}</time>}
+            <span>{l.text}</span>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

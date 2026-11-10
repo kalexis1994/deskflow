@@ -91,6 +91,13 @@
   padding: 10px 14px;
 }
 
+.sec__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
 .badge--ok {
   background: var(--ok-soft);
   color: var(--ok);
