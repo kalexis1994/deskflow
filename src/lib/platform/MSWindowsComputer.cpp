@@ -350,6 +350,23 @@ bool MSWindowsComputer::setClipboard(ClipboardID, const IClipboard *src)
   }
 }
 
+std::vector<deskflow::Monitor> MSWindowsComputer::getMonitors() const
+{
+  std::vector<deskflow::Monitor> monitors;
+  EnumDisplayMonitors(
+      nullptr, nullptr,
+      [](HMONITOR, HDC, LPRECT rect, LPARAM data) -> BOOL {
+        auto *list = reinterpret_cast<std::vector<deskflow::Monitor> *>(data);
+        list->push_back({rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top});
+        return TRUE;
+      },
+      reinterpret_cast<LPARAM>(&monitors)
+  );
+  if (monitors.empty())
+    return PlatformComputer::getMonitors();
+  return monitors;
+}
+
 bool MSWindowsComputer::isMouseCaptured() const
 {
   return m_desks->isMouseCaptured();

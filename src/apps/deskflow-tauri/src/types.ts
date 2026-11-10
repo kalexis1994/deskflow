@@ -42,6 +42,8 @@ export interface CoreState {
   missingLayouts: string | null;
   /** The computer whose game has the mouse, while the server follows it. */
   gameMode?: string | null;
+  /** Each computer's monitors (x, y, width, height in pixels) as the server last heard. */
+  monitors?: Record<string, [number, number, number, number][]>;
   coreVersion: string | null;
   lastError: string | null;
   /** Recent shared clipboard activity, newest first. */

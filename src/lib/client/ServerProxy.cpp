@@ -376,6 +376,11 @@ void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard
   StreamChunker::sendClipboard(data, data.size(), id, m_seqNum, m_events, this);
 }
 
+void ServerProxy::sendMonitors(const std::string &monitors)
+{
+  ProtocolUtil::writef(m_stream, kMsgDMonitors, &monitors);
+}
+
 void ServerProxy::sendMouseCapture(bool captured)
 {
   ProtocolUtil::writef(m_stream, kMsgCMouseCapture, captured ? 1 : 0);

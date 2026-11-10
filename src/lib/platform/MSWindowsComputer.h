@@ -115,6 +115,7 @@ public:
   bool setClipboard(ClipboardID, const IClipboard *) override;
   bool canShareFiles() const override;
   bool isMouseCaptured() const override;
+  std::vector<deskflow::Monitor> getMonitors() const override;
   std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const override;
   bool setClipboardFiles(const std::vector<std::filesystem::path> &files) override;
   void checkClipboards() override;

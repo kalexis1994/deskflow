@@ -85,6 +85,8 @@ const core: CoreState = {
   retryAt: null,
   missingLayouts: null,
   gameMode: null,
+  // a 1080p monitor and a taller 1440p one to its right, lower; a laptop of one
+  monitors: { escritorio: [[0, 0, 1920, 1080], [1920, -180, 2560, 1440]], laptop: [[0, 0, 1920, 1200]] },
   coreVersion: "1.27.0.5 · 3aec96d5",
   lastError: null,
   // ?progress: a copy of files on its way

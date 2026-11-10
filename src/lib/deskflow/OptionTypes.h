@@ -62,6 +62,9 @@ static const OptionID kOptionFileClipboard = OPTION_CODE("FCLP");
 //! The server follows games that take the mouse: a client that can tell answers
 //! with kMsgCMouseCapture whenever a program takes or lets go of its mouse
 static const OptionID kOptionMouseCapture = OPTION_CODE("MCAP");
+//! The server draws each computer's monitors in the screen layout: a client that can
+//! tell answers with kMsgDMonitors, and again whenever they change
+static const OptionID kOptionMonitors = OPTION_CODE("MONS");
 //@}
 
 //! @name Computer switch corner masks

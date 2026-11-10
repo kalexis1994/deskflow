@@ -10,6 +10,7 @@
 #include "deskflow/ClipboardTypes.h"
 #include "deskflow/IComputer.h"
 #include "deskflow/KeyTypes.h"
+#include "deskflow/Monitors.h"
 #include "deskflow/MouseTypes.h"
 #include "deskflow/OptionTypes.h"
 
@@ -100,6 +101,7 @@ public:
   std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const;
   bool setClipboardFiles(const std::vector<std::filesystem::path> &files);
   bool isMouseCaptured() const;
+  std::vector<deskflow::Monitor> getMonitors() const;
 
   //! Grab clipboard
   /*!

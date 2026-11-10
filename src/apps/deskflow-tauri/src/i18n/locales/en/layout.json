@@ -95,5 +95,9 @@
   "corners.topRight": "Top-right corner",
   "corners.bottomLeft": "Bottom-left corner",
   "corners.bottomRight": "Bottom-right corner",
-  "corners.size": "Size"
+  "corners.size": "Size",
+  "monitors.real_one": "Proportion of its monitor: {width} × {height}.",
+  "monitors.real_other": "Proportion of its {count} monitors together: {width} × {height}. The cursor only crosses where there is a monitor.",
+  "monitors.updated_one": "Took the monitors of {names}: save so the crossings follow them.",
+  "monitors.updated_other": "Took the monitors of {names}: save so the crossings follow them."
 }

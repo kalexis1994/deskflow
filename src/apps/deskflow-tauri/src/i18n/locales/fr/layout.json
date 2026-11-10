@@ -95,5 +95,9 @@
   "corners.topRight": "Coin supérieur droit",
   "corners.bottomLeft": "Coin inférieur gauche",
   "corners.bottomRight": "Coin inférieur droit",
-  "corners.size": "Taille"
+  "corners.size": "Taille",
+  "monitors.real_one": "Proportions de son écran : {width} × {height}.",
+  "monitors.real_other": "Proportions de ses {count} écrans ensemble : {width} × {height}. Le curseur ne passe que là où il y a un écran.",
+  "monitors.updated_one": "Écrans de {names} pris en compte : enregistrez pour que les passages les suivent.",
+  "monitors.updated_other": "Écrans de {names} pris en compte : enregistrez pour que les passages les suivent."
 }

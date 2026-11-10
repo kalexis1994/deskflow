@@ -13,6 +13,7 @@
 #include "deskflow/IKeyState.h"
 #include "deskflow/IPrimaryComputer.h"
 #include "deskflow/ISecondaryComputer.h"
+#include "deskflow/Monitors.h"
 #include "deskflow/OptionTypes.h"
 
 #include <filesystem>
@@ -103,6 +104,18 @@ public:
   virtual bool isMouseCaptured() const
   {
     return false;
+  }
+
+  //! The monitors, in the coordinates of the whole desktop; one, the whole of it, if
+  //! the system can't tell
+  virtual std::vector<deskflow::Monitor> getMonitors() const
+  {
+    int32_t x;
+    int32_t y;
+    int32_t w;
+    int32_t h;
+    getShape(x, y, w, h);
+    return {{x, y, w, h}};
   }
 
   //! Check clipboard owner

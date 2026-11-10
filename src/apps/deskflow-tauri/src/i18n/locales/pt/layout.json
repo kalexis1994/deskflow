@@ -95,5 +95,9 @@
   "corners.topRight": "Canto superior direito",
   "corners.bottomLeft": "Canto inferior esquerdo",
   "corners.bottomRight": "Canto inferior direito",
-  "corners.size": "Tamanho"
+  "corners.size": "Tamanho",
+  "monitors.real_one": "Proporção do monitor: {width} × {height}.",
+  "monitors.real_other": "Proporção dos {count} monitores juntos: {width} × {height}. O cursor só passa onde há um monitor.",
+  "monitors.updated_one": "Os monitores de {names} foram considerados: salve para que as passagens os respeitem.",
+  "monitors.updated_other": "Os monitores de {names} foram considerados: salve para que as passagens os respeitem."
 }

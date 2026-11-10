@@ -68,6 +68,8 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   KeyTypes.cpp
   KeyTypes.h
   KeyMap.cpp
+  Monitors.cpp
+  Monitors.h
   KeyMap.h
   KeyState.cpp
   KeyState.h

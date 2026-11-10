@@ -83,6 +83,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
   const [renameFocus, setRenameFocus] = useState(0);
+  const [loads, setLoads] = useState(0);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -91,6 +92,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
       hist.reset(toEdit(v.screens));
       setMeta({ serverName: v.serverName, foreignConfig: v.foreignConfig, imported: v.imported });
       setNeedsFit(true);
+      setLoads((n) => n + 1);
     } catch (e) {
       setMessage({ tone: "danger", text: () => String(e) });
     }
@@ -99,6 +101,26 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // The monitors each computer reported: a screen takes them, and their proportion, as a
+  // change to save, so the links on disk follow them too. Only when they change or the
+  // layout loads, so undo can still take a merge back.
+  const reported = core.monitors;
+  const reportedKey = JSON.stringify(reported ?? {});
+  useEffect(() => {
+    if (!reported || !screens.length) return;
+    const changed: string[] = [];
+    const next = screens.map((s) => {
+      const m = reported[s.name];
+      if (!m?.length || JSON.stringify(m) === JSON.stringify(s.monitors ?? [])) return s;
+      changed.push(s.name);
+      return g.withMonitors(s, m);
+    });
+    if (!changed.length) return;
+    hist.commit(next);
+    setMessage({ tone: "warn", text: () => tn("layout.monitors.updated", changed.length, { names: changed.join(", ") }) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportedKey, loads]);
 
   useLayoutEffect(() => {
     const el = canvasRef.current;
@@ -216,7 +238,7 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
       const renames = screens.filter((s) => s.orig && s.orig !== s.name).map((s) => ({ from: s.orig!, to: s.name }));
       const selName = sel?.name;
       const v = await invoke<LayoutView>("save_layout", {
-        screens: screens.map(({ name, x, y, w, h, options }) => ({ name, x, y, w, h, options })),
+        screens: screens.map(({ name, x, y, w, h, monitors, options }) => ({ name, x, y, w, h, monitors: monitors ?? [], options })),
         renames,
       });
       const fresh = toEdit(v.screens);
@@ -286,7 +308,8 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
       const moved = drag.moved || Math.hypot(dx, dy) * view.scale > 3;
       setDrag({ ...drag, rect: { ...drag.start, x: snapped.x, y: snapped.y }, guides: snapped.guides, moved });
     } else {
-      const r = g.resize(drag.start, drag.handle, dx, dy, others, e.shiftKey, threshold);
+      const resized = screens.find((s) => s.id === drag.id);
+      const r = g.resize(drag.start, drag.handle, dx, dy, others, e.shiftKey, threshold, resized ? g.realRatio(resized) : null);
       setDrag({ ...drag, rect: r.rect, guides: r.guides });
     }
   };
@@ -443,6 +466,14 @@ export function LayoutEditor({ core, address, port, onSaved }: Props) {
               .join(" ");
             return (
               <div key={s.id} className={cls} style={px(s)} onPointerDown={(e) => onTileDown(e, s)}>
+                {(s.monitors?.length ?? 0) > 1 &&
+                  g.monitorRects(s).map((m, i) => (
+                    <span
+                      key={i}
+                      className="le__monitor"
+                      style={{ left: `${m.x * 100}%`, top: `${m.y * 100}%`, width: `${m.w * 100}%`, height: `${m.h * 100}%` }}
+                    />
+                  ))}
                 <div className="le__screen-inner">
                   <span className="le__name">{s.name}</span>
                   <span className="le__sub">
@@ -596,6 +627,10 @@ function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, o
 
   const links = g.neighbours(screens, screen.name);
   const ratio = screen.w / screen.h;
+  const real = g.monitorBounds(screen.monitors);
+  // known monitors fix the proportion: one side follows the other
+  const setWidth = (w: number) => onRect({ ...screen, w, h: real ? Math.round(w / (real.w / real.h)) : screen.h });
+  const setHeight = (h: number) => onRect({ ...screen, h, w: real ? Math.round(h * (real.w / real.h)) : screen.w });
 
   return (
     <>
@@ -620,10 +655,15 @@ function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, o
       {!isServer && !error && <p className="muted small">{t("layout.screen.nameHint")}</p>}
 
       <div className="le__row">
-        <NumberField label={t("layout.screen.width")} value={screen.w} onCommit={(w) => onRect({ ...screen, w })} />
-        <NumberField label={t("layout.screen.height")} value={screen.h} onCommit={(h) => onRect({ ...screen, h })} />
+        <NumberField label={t("layout.screen.width")} value={screen.w} onCommit={setWidth} />
+        <NumberField label={t("layout.screen.height")} value={screen.h} onCommit={setHeight} />
       </div>
 
+      {real ? (
+        <p className="muted small">
+          {tn("layout.monitors.real", screen.monitors!.length, { width: real.w, height: real.h })}
+        </p>
+      ) : (
       <div className="le__chips" role="group" aria-label={t("layout.screen.aspect")}>
         {ASPECTS.map(([label, r]) => (
           <button
@@ -638,6 +678,7 @@ function ScreenPanel({ screen, isServer, screens, lost, renameFocus, onRename, o
           ⟲ {t("layout.screen.rotate")}
         </button>
       </div>
+      )}
 
       <div className="le__links">
         <span className="field__label">{t("layout.screen.linksTitle")}</span>

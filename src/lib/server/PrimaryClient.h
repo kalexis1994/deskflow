@@ -8,6 +8,7 @@
 #pragma once
 
 #include "deskflow/ClipboardUtil.h"
+#include "deskflow/Monitors.h"
 #include "server/BaseClientProxy.h"
 
 #include <filesystem>
@@ -117,6 +118,8 @@ public:
   void *getEventTarget() const override;
   bool getClipboard(ClipboardID id, IClipboard *) const override;
   void getShape(int32_t &x, int32_t &y, int32_t &width, int32_t &height) const override;
+  //! The server's own monitors
+  std::vector<deskflow::Monitor> getMonitors() const;
   void getCursorPos(int32_t &x, int32_t &y) const override;
 
   // IClient overrides

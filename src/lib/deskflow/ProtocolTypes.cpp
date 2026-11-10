@@ -48,6 +48,7 @@ const char *const kMsgDFileTransfer = "DFTR%1i%s";
 const char *const kMsgDDragInfo = "DDRG%2i%s";
 const char *const kMsgCFileClipboard = "CFCL%4i";
 const char *const kMsgCMouseCapture = "CMCP%1i";
+const char *const kMsgDMonitors = "DMON%s";
 const char *const kMsgDFileList = "DFLS%s%s";
 const char *const kMsgDFileChunk = "DFCH%s%4i%s";
 const char *const kMsgDFileDone = "DFDN%s%4i%s";

@@ -1144,6 +1144,20 @@ extern const char *const kMsgCFileClipboard;
 extern const char *const kMsgCMouseCapture;
 
 /**
+ * @brief The client's monitors
+ *
+ * **Message Code**: `"DMON"`
+ * **Direction**: Secondary → Primary
+ * **Format**: `"DMON%s"`
+ * **Parameters**:
+ * - `$1`: `x,y,w,h` for each monitor, separated by `;`, in the coordinates of the
+ *   client's whole desktop (see deskflow/Monitors.h)
+ *
+ * Sent only to a server that offered the `MONS` option, then whenever they change.
+ */
+extern const char *const kMsgDMonitors;
+
+/**
  * @brief The files and folders of a copy
  *
  * **Message Code**: `"DFLS"`

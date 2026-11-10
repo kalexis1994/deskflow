@@ -55,6 +55,7 @@ function same(a: EditScreen[], b: EditScreen[]): boolean {
       s.y === t.y &&
       s.w === t.w &&
       s.h === t.h &&
+      JSON.stringify(s.monitors ?? []) === JSON.stringify(t.monitors ?? []) &&
       (s.options === t.options || JSON.stringify(s.options) === JSON.stringify(t.options))
     );
   });

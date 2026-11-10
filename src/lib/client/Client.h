@@ -222,6 +222,7 @@ private:
   //! Looks for a game taking the mouse while the cursor is here, or stops looking
   void watchMouseCapture(bool watch);
   void checkMouseCapture();
+  void sendMonitors();
   //! Tells the GUI about clipboard activity (only the clipboard, not the X11 selection)
   void reportClipboard(ClipboardID id, const deskflow::clipboard::Activity &activity) const;
   void sendEvent(deskflow::EventTypes);
@@ -273,6 +274,8 @@ private:
   int m_clipboardRetries = 0;
   //! The server follows games that take the mouse (kOptionMouseCapture)
   bool m_watchMouseCapture = false;
+  //! The server draws this computer's monitors (kOptionMonitors)
+  bool m_sendMonitors = false;
   //! What the server was last told about the mouse being taken
   bool m_mouseCaptured = false;
   EventQueueTimer *m_mouseCaptureTimer = nullptr;

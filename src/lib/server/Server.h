@@ -15,6 +15,7 @@
 #include "deskflow/ClipboardTypes.h"
 #include "deskflow/ClipboardUtil.h"
 #include "deskflow/KeyTypes.h"
+#include "deskflow/Monitors.h"
 #include "deskflow/MouseTypes.h"
 #include "server/Config.h"
 
@@ -211,6 +212,9 @@ public:
   //! A program on \p client took the mouse (a first-person game), or let go of it
   void mouseCaptured(BaseClientProxy *client, bool captured);
 
+  //! A client's monitors, for the screen layout
+  void clientMonitors(BaseClientProxy *client, std::vector<deskflow::Monitor> monitors);
+
   //! The computers a key goes to
   /*!
   Keys a hotkey sends name the computers it is for (`computers`, or "*" for any). They
@@ -387,6 +391,8 @@ private:
   void syncAbsolutePosition();
   //! Tells the app which computer is in game mode, or none
   void reportGameMode() const;
+  //! Tells the app every computer's monitors, this one's included
+  void reportMonitors() const;
   std::vector<BaseClientProxy *> keyClients(const char *computers) const;
   void onKeyRepeat(KeyID, KeyModifierMask, int32_t, KeyButton, const std::string &);
   void onMouseDown(ButtonID);
@@ -482,6 +488,9 @@ private:
   //! relative motion it replaces the accelerated one, until it stops coming
   bool m_rawMotionWorks = false;
   int m_motionsWithoutRaw = 0;
+
+  //! The monitors each client said it has, by name
+  std::map<std::string, std::vector<deskflow::Monitor>> m_clientMonitors;
 
   //! The client whose game has the mouse, if any
   BaseClientProxy *m_mouseCapturedBy = nullptr;

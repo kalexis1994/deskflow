@@ -1,6 +1,6 @@
 //! Tracks the running Deskflow core: live state over IPC, its log, and start/stop.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -67,6 +67,9 @@ pub struct CoreState {
     pub missing_layouts: Option<String>,
     /// The computer whose game has the mouse, while the server follows it.
     pub game_mode: Option<String>,
+    /// Each computer's monitors (`[x, y, w, h]` in pixels) as the server last heard;
+    /// kept for computers that left, which the layout still shows.
+    pub monitors: BTreeMap<String, Vec<[i32; 4]>>,
     pub core_version: Option<String>,
     pub last_error: Option<String>,
     /// Recent shared clipboard activity, newest first (kept while the app runs).
@@ -409,6 +412,13 @@ impl Hub {
             }
             "missingKeyboardLayouts" => s.missing_layouts = Some(args),
             "gameMode" => s.game_mode = (!args.is_empty()).then_some(args),
+            "monitors" => {
+                if let Ok(computers) =
+                    serde_json::from_str::<BTreeMap<String, Vec<[i32; 4]>>>(&args)
+                {
+                    s.monitors.extend(computers);
+                }
+            }
             "clipboard" => {
                 clipboard::push(&mut s.clipboard, &args, now_ms());
             }

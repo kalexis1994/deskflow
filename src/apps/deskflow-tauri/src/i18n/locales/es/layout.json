@@ -95,5 +95,9 @@
   "corners.topRight": "Esquina arriba a la derecha",
   "corners.bottomLeft": "Esquina abajo a la izquierda",
   "corners.bottomRight": "Esquina abajo a la derecha",
-  "corners.size": "Tamaño"
+  "corners.size": "Tamaño",
+  "monitors.real_one": "Proporción de su monitor: {width} × {height}.",
+  "monitors.real_other": "Proporción de sus {count} monitores juntos: {width} × {height}. El cursor solo pasa por donde hay un monitor.",
+  "monitors.updated_one": "Se tomaron los monitores de {names}: guardá para que los pasos los respeten.",
+  "monitors.updated_other": "Se tomaron los monitores de {names}: guardá para que los pasos los respeten."
 }

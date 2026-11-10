@@ -360,6 +360,7 @@ void Client::resetOptions()
 {
   m_relativeMouseMoves = false;
   m_watchMouseCapture = false;
+  m_sendMonitors = false;
   watchMouseCapture(false);
   m_hasRelativeRestorePosition = false;
   m_computer->resetOptions();
@@ -378,6 +379,12 @@ void Client::setOptions(const OptionsList &options)
       index++;
       if (index != options.end() && *index > 0) {
         enableFiles(static_cast<uint64_t>(*index) * 1024 * 1024);
+      }
+    } else if (id == kOptionMonitors) {
+      index++;
+      if (index != options.end()) {
+        m_sendMonitors = *index != 0;
+        sendMonitors();
       }
     } else if (id == kOptionMouseCapture) {
       index++;
@@ -949,6 +956,16 @@ void Client::handleShapeChanged()
 {
   LOG_DEBUG("resolution changed");
   m_server->onInfoChanged();
+  sendMonitors();
+}
+
+void Client::sendMonitors()
+{
+  if (!m_sendMonitors || m_server == nullptr)
+    return;
+  const auto monitors = m_computer->getMonitors();
+  LOG_DEBUG("%zu monitors: %s", monitors.size(), deskflow::formatMonitors(monitors).c_str());
+  m_server->sendMonitors(deskflow::formatMonitors(monitors));
 }
 
 void Client::handleClipboardGrabbed(const Event &event)

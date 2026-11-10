@@ -95,5 +95,9 @@
   "corners.topRight": "Ecke oben rechts",
   "corners.bottomLeft": "Ecke unten links",
   "corners.bottomRight": "Ecke unten rechts",
-  "corners.size": "Größe"
+  "corners.size": "Größe",
+  "monitors.real_one": "Seitenverhältnis seines Monitors: {width} × {height}.",
+  "monitors.real_other": "Seitenverhältnis seiner {count} Monitore zusammen: {width} × {height}. Der Mauszeiger wechselt nur dort, wo ein Monitor ist.",
+  "monitors.updated_one": "Monitore von {names} übernommen: Speichern Sie, damit die Übergänge ihnen folgen.",
+  "monitors.updated_other": "Monitore von {names} übernommen: Speichern Sie, damit die Übergänge ihnen folgen."
 }

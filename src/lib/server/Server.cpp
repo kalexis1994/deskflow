@@ -161,6 +161,7 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Com
 
   // add connection
   addClient(m_primaryClient);
+  reportMonitors();
 
   // set initial configuration
   setConfig(config);
@@ -1102,6 +1103,20 @@ void Server::mouseCaptured(BaseClientProxy *client, bool captured)
   reportGameMode();
 }
 
+void Server::clientMonitors(BaseClientProxy *client, std::vector<deskflow::Monitor> monitors)
+{
+  LOG_DEBUG("computer \"%s\" has %zu monitors", getName(client).c_str(), monitors.size());
+  m_clientMonitors[getName(client)] = std::move(monitors);
+  reportMonitors();
+}
+
+void Server::reportMonitors() const
+{
+  auto computers = m_clientMonitors;
+  computers[getName(m_primaryClient)] = m_primaryClient->getMonitors();
+  ipcSendToClient("monitors", deskflow::monitorsJson(computers), true);
+}
+
 bool Server::isRelativeNow() const
 {
   return m_active != m_primaryClient && ((m_relativeMoves && isLockedToComputerServer()) || isGameMode());
@@ -1199,6 +1214,12 @@ void Server::sendOptions(BaseClientProxy *client) const
     }
   }
 
+  // draw the client's monitors in the layout; classic clients ignore the option
+  if (client != m_primaryClient) {
+    optionsList.push_back(kOptionMonitors);
+    optionsList.push_back(1);
+  }
+
   // follow games that take the mouse; classic clients ignore the option
   if (client != m_primaryClient && CoreSettings::value(CoreSettings::Server::AutoGameMode).toBool()) {
     optionsList.push_back(kOptionMouseCapture);
@@ -1274,6 +1295,9 @@ void Server::handleShapeChanged(BaseClientProxy *client)
   }
 
   LOG_DEBUG("computer \"%s\" shape changed", getName(client).c_str());
+  if (client == m_primaryClient) {
+    reportMonitors();
+  }
 
   // update jump coordinate
   int32_t x;
@@ -2356,6 +2380,9 @@ bool Server::removeClient(BaseClientProxy *client)
   m_events->removeHandler(ComputerShapeChanged, client->getEventTarget());
   m_events->removeHandler(ClipboardGrabbed, client->getEventTarget());
   m_events->removeHandler(ClipboardChanged, client->getEventTarget());
+
+  // the app keeps what it knew of a computer that left: the layout still shows it
+  m_clientMonitors.erase(getName(client));
 
   if (m_mouseCapturedBy == client) {
     const bool wasGameMode = isGameMode();

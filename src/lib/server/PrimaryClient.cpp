@@ -90,6 +90,11 @@ bool PrimaryClient::getClipboard(ClipboardID id, IClipboard *clipboard) const
   return m_computer->getClipboard(id, clipboard);
 }
 
+std::vector<deskflow::Monitor> PrimaryClient::getMonitors() const
+{
+  return m_computer->getMonitors();
+}
+
 void PrimaryClient::getShape(int32_t &x, int32_t &y, int32_t &width, int32_t &height) const
 {
   m_computer->getShape(x, y, width, height);

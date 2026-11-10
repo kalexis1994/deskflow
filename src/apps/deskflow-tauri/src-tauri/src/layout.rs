@@ -32,6 +32,11 @@ pub struct Screen {
     pub y: f64,
     pub w: f64,
     pub h: f64,
+    /// The computer's monitors, `[x, y, w, h]` in pixels in the coordinates of its whole
+    /// desktop, as it last reported them; empty if never known. Its rectangle stands for
+    /// the box around them all, and links only join edges where a monitor is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub monitors: Vec<[i32; 4]>,
     /// Per-computer options. Live in the settings file, not in the layout file:
     /// filled in on load, written to `[computer_<name>]` on save.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -93,6 +98,97 @@ pub struct Link {
     pub to_end: f64,
 }
 
+impl Side {
+    fn opposite(self) -> Side {
+        match self {
+            Side::Right => Side::Left,
+            Side::Left => Side::Right,
+            Side::Up => Side::Down,
+            Side::Down => Side::Up,
+        }
+    }
+
+    fn vertical(self) -> bool {
+        matches!(self, Side::Right | Side::Left)
+    }
+}
+
+/// The parts of a side that have a monitor on them, along the side in canvas units
+/// (y for right and left, x for up and down). All of it when the monitors aren't known.
+fn covered(s: &Screen, side: Side) -> Vec<(f64, f64)> {
+    let whole = if side.vertical() {
+        (s.y, s.bottom())
+    } else {
+        (s.x, s.right())
+    };
+    let [first, ..] = s.monitors.as_slice() else {
+        return vec![whole];
+    };
+    let mut bx0 = first[0];
+    let mut by0 = first[1];
+    let mut bx1 = first[0] + first[2];
+    let mut by1 = first[1] + first[3];
+    for m in &s.monitors {
+        bx0 = bx0.min(m[0]);
+        by0 = by0.min(m[1]);
+        bx1 = bx1.max(m[0] + m[2]);
+        by1 = by1.max(m[1] + m[3]);
+    }
+    if bx1 <= bx0 || by1 <= by0 {
+        return vec![whole];
+    }
+    let (sx, sy) = (s.w / f64::from(bx1 - bx0), s.h / f64::from(by1 - by0));
+
+    let mut parts: Vec<(f64, f64)> = s
+        .monitors
+        .iter()
+        .filter(|m| match side {
+            Side::Right => m[0] + m[2] == bx1,
+            Side::Left => m[0] == bx0,
+            Side::Down => m[1] + m[3] == by1,
+            Side::Up => m[1] == by0,
+        })
+        .map(|m| {
+            if side.vertical() {
+                (
+                    s.y + f64::from(m[1] - by0) * sy,
+                    s.y + f64::from(m[1] + m[3] - by0) * sy,
+                )
+            } else {
+                (
+                    s.x + f64::from(m[0] - bx0) * sx,
+                    s.x + f64::from(m[0] + m[2] - bx0) * sx,
+                )
+            }
+        })
+        .collect();
+    // monitors stacked along the side make one stretch
+    parts.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut merged: Vec<(f64, f64)> = Vec::new();
+    for (lo, hi) in parts {
+        match merged.last_mut() {
+            Some(last) if lo <= last.1 + EPS => last.1 = last.1.max(hi),
+            _ => merged.push((lo, hi)),
+        }
+    }
+    merged
+}
+
+/// Where both stretch lists overlap, within `[lo, hi]`.
+fn intersect(lo: f64, hi: f64, a: &[(f64, f64)], b: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    let mut out = Vec::new();
+    for &(a0, a1) in a {
+        for &(b0, b1) in b {
+            let (s, e) = (lo.max(a0).max(b0), hi.min(a1).min(b1));
+            if e - s > EPS {
+                out.push((s, e));
+            }
+        }
+    }
+    out.sort_by(|x, y| x.0.total_cmp(&y.0));
+    out
+}
+
 pub fn links(screens: &[Screen]) -> Vec<Link> {
     let mut out = Vec::new();
     for a in screens {
@@ -100,36 +196,30 @@ pub fn links(screens: &[Screen]) -> Vec<Link> {
             if a.name == b.name {
                 continue;
             }
-            // vertical edges: overlap along y
-            let (lo, hi) = (a.y.max(b.y), a.bottom().min(b.bottom()));
-            if hi - lo > EPS {
-                let ranges = (
-                    (lo - a.y) / a.h,
-                    (hi - a.y) / a.h,
-                    (lo - b.y) / b.h,
-                    (hi - b.y) / b.h,
-                );
-                if (a.right() - b.x).abs() < EPS {
-                    out.push(link(a, Side::Right, ranges, b));
+            for side in [Side::Right, Side::Left, Side::Down, Side::Up] {
+                let touching = match side {
+                    Side::Right => (a.right() - b.x).abs() < EPS,
+                    Side::Left => (a.x - b.right()).abs() < EPS,
+                    Side::Down => (a.bottom() - b.y).abs() < EPS,
+                    Side::Up => (a.y - b.bottom()).abs() < EPS,
+                };
+                if !touching {
+                    continue;
                 }
-                if (a.x - b.right()).abs() < EPS {
-                    out.push(link(a, Side::Left, ranges, b));
-                }
-            }
-            // horizontal edges: overlap along x
-            let (lo, hi) = (a.x.max(b.x), a.right().min(b.right()));
-            if hi - lo > EPS {
-                let ranges = (
-                    (lo - a.x) / a.w,
-                    (hi - a.x) / a.w,
-                    (lo - b.x) / b.w,
-                    (hi - b.x) / b.w,
-                );
-                if (a.bottom() - b.y).abs() < EPS {
-                    out.push(link(a, Side::Down, ranges, b));
-                }
-                if (a.y - b.bottom()).abs() < EPS {
-                    out.push(link(a, Side::Up, ranges, b));
+                // the shared part of the edge, where both have a monitor
+                let (lo, hi, a0, a_len, b0, b_len) = if side.vertical() {
+                    (a.y.max(b.y), a.bottom().min(b.bottom()), a.y, a.h, b.y, b.h)
+                } else {
+                    (a.x.max(b.x), a.right().min(b.right()), a.x, a.w, b.x, b.w)
+                };
+                for (s, e) in intersect(lo, hi, &covered(a, side), &covered(b, side.opposite())) {
+                    let ranges = (
+                        (s - a0) / a_len,
+                        (e - a0) / a_len,
+                        (s - b0) / b_len,
+                        (e - b0) / b_len,
+                    );
+                    out.push(link(a, side, ranges, b));
                 }
             }
         }
@@ -335,6 +425,7 @@ fn import_grid(ini: &IniFile, server: &str) -> Vec<Screen> {
         let i = index - 1;
         screens.push(Screen {
             options: None,
+            monitors: Vec::new(),
             name,
             x: (i % width) as f64 * DEFAULT_W,
             y: (i / width) as f64 * DEFAULT_H,
@@ -358,6 +449,7 @@ fn place_new(screens: &mut Vec<Screen>, name: &str) {
         y,
         w: DEFAULT_W,
         h: DEFAULT_H,
+        monitors: Vec::new(),
         options: None,
     });
 }
@@ -627,8 +719,78 @@ mod tests {
             y,
             w,
             h,
+            monitors: Vec::new(),
             options: None,
         }
+    }
+
+    fn with_monitors(screen: Screen, monitors: &[[i32; 4]]) -> Screen {
+        Screen {
+            monitors: monitors.to_vec(),
+            ..screen
+        }
+    }
+
+    #[test]
+    fn links_only_where_both_have_a_monitor() {
+        // the server: a 1080p monitor, and a 1440p one to its right, taller and lower
+        let server = with_monitors(
+            s("server", 0.0, 0.0, 200.0, 100.0),
+            &[[0, 0, 1920, 1080], [1920, 360, 1920, 1440]],
+        );
+        // the laptop, to the right of the box: only the tall monitor reaches that edge
+        let laptop = s("laptop", 200.0, 0.0, 160.0, 100.0);
+        let links = links(&[server.clone(), laptop.clone()]);
+        let right: Vec<_> = links.iter().filter(|l| l.from == "server").collect();
+        assert_eq!(right.len(), 1);
+        // the tall monitor covers 360..1800 of 1800 pixels: from 20% to 100% of the side
+        assert!((right[0].from_start - 0.2).abs() < 1e-9);
+        assert!((right[0].from_end - 1.0).abs() < 1e-9);
+        assert!((right[0].to_start - 0.2).abs() < 1e-9);
+        // and back the same way
+        let left: Vec<_> = links.iter().filter(|l| l.from == "laptop").collect();
+        assert_eq!(left.len(), 1);
+        assert!((left[0].from_start - 0.2).abs() < 1e-9);
+    }
+
+    #[test]
+    fn monitors_side_by_side_make_one_stretch() {
+        // two monitors one above the other, both on the right edge
+        let server = with_monitors(
+            s("server", 0.0, 0.0, 100.0, 200.0),
+            &[[0, 0, 1920, 1080], [0, 1080, 1920, 1080]],
+        );
+        let laptop = s("laptop", 100.0, 0.0, 100.0, 200.0);
+        let links = links(&[server, laptop]);
+        assert_eq!(links.iter().filter(|l| l.from == "server").count(), 1);
+    }
+
+    #[test]
+    fn a_gap_on_both_sides_leaves_two_links() {
+        // an L of monitors on each side, with the gap in the middle of the shared edge
+        let left = with_monitors(
+            s("a", 0.0, 0.0, 100.0, 300.0),
+            &[[0, 0, 100, 100], [0, 200, 100, 100], [-100, 100, 100, 100]],
+        );
+        let right = s("b", 100.0, 0.0, 100.0, 300.0);
+        let from_a: Vec<_> = links(&[left, right])
+            .into_iter()
+            .filter(|l| l.from == "a")
+            .collect();
+        assert_eq!(from_a.len(), 2);
+        assert!((from_a[0].from_end - 1.0 / 3.0).abs() < 1e-9);
+        assert!((from_a[1].from_start - 2.0 / 3.0).abs() < 1e-9);
+        let text = config_text(
+            &[
+                with_monitors(
+                    s("a", 0.0, 0.0, 100.0, 300.0),
+                    &[[0, 0, 100, 100], [0, 200, 100, 100], [-100, 100, 100, 100]],
+                ),
+                s("b", 100.0, 0.0, 100.0, 300.0),
+            ],
+            "",
+        );
+        assert_eq!(text.matches("\t\tright(").count(), 2, "{text}");
     }
 
     #[test]
@@ -782,6 +944,7 @@ mod tests {
             .iter()
             .map(|x| Screen {
                 options: None,
+                monitors: Vec::new(),
                 ..x.clone()
             })
             .collect();

@@ -40,6 +40,12 @@ bool ClientProxy1_6::parseMessage(const uint8_t *code)
     recvFileClipboard();
     return true;
   }
+  if (memcmp(code, kMsgDMonitors, 4) == 0) {
+    std::string monitors;
+    ProtocolUtil::readf(getStream(), kMsgDMonitors + 4, &monitors);
+    m_server->clientMonitors(this, deskflow::parseMonitors(monitors));
+    return true;
+  }
   if (memcmp(code, kMsgCMouseCapture, 4) == 0) {
     uint8_t captured = 0;
     ProtocolUtil::readf(getStream(), kMsgCMouseCapture + 4, &captured);

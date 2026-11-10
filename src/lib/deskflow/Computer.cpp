@@ -310,6 +310,11 @@ bool Computer::setClipboard(ClipboardID id, const IClipboard *clipboard)
   return m_computer->setClipboard(id, clipboard);
 }
 
+std::vector<deskflow::Monitor> Computer::getMonitors() const
+{
+  return m_computer->getMonitors();
+}
+
 bool Computer::isMouseCaptured() const
 {
   return m_computer->isMouseCaptured();
