@@ -16,4 +16,6 @@ private Q_SLOTS:
   void positionsBeforeTheWarpAreDropped();
   void fastCursorBehindTheEdgeIsDropped();
   void monitorsOffCenter();
+  void aGameTakesTheMouse();
+  void hiddenOrConfinedAloneIsNotAGame();
 };

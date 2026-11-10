@@ -40,6 +40,8 @@ export interface CoreState {
   refusal: ConnectionRefusal | null;
   retryAt: number | null;
   missingLayouts: string | null;
+  /** The computer whose game has the mouse, while the server follows it. */
+  gameMode?: string | null;
   coreVersion: string | null;
   lastError: string | null;
   /** Recent shared clipboard activity, newest first. */

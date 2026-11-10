@@ -376,6 +376,11 @@ void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard
   StreamChunker::sendClipboard(data, data.size(), id, m_seqNum, m_events, this);
 }
 
+void ServerProxy::sendMouseCapture(bool captured)
+{
+  ProtocolUtil::writef(m_stream, kMsgCMouseCapture, captured ? 1 : 0);
+}
+
 void ServerProxy::sendFileClipboard(uint32_t maxMegabytes)
 {
   LOG_DEBUG("taking part in copying files, up to %u MB", maxMegabytes);

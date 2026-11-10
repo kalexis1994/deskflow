@@ -59,5 +59,6 @@
   "client.port": "Porta {port}. Você a encontra na tela principal do Deskflow no outro computador.",
   "activity.title": "Atividade",
   "activity.onlyProblems": "Somente avisos e erros",
-  "activity.empty": "Sem atividade."
+  "activity.empty": "Sem atividade.",
+  "status.gameMode": "Modo jogo em {name}: um jogo tomou o mouse, então ele fica lá. Scroll Lock o libera."
 }

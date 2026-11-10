@@ -36,6 +36,7 @@ if(WIN32)
     MSWindowsClipboardFiles.cpp
     MSWindowsClipboardFiles.h
     MSWindowsMotion.h
+    MSWindowsMouseCapture.h
     MSWindowsClipboardHTMLConverter.cpp
     MSWindowsClipboardHTMLConverter.h
     MSWindowsClipboardPNGConverter.cpp

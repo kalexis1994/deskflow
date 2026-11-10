@@ -18,7 +18,7 @@
   "lockKey.hint": "Útil para juegos o programas a pantalla completa.",
   "startLocked.label": "Empezar con el mouse fijado",
   "relativeMoves.label": "Movimientos relativos del mouse",
-  "relativeMoves.hint": "Para juegos en 3D que capturan el mouse.",
+  "relativeMoves.hint": "Con el mouse fijado en una pantalla, para juegos que el modo automático no detecta.",
   "group.connection": "Conexión",
   "heartbeat.label": "Comprobar que las computadoras sigan conectadas",
   "heartbeat.hint": "Reconecta antes si una deja de responder.",
@@ -33,5 +33,7 @@
   "saving": "Guardando…",
   "saveApply": "Guardar y aplicar",
   "saved.running": "Guardado. Deskflow se reinició para aplicarlo.",
-  "saved.stopped": "Guardado. Se aplica la próxima vez que inicies Deskflow."
+  "saved.stopped": "Guardado. Se aplica la próxima vez que inicies Deskflow.",
+  "autoGameMode.label": "Modo juego automático",
+  "autoGameMode.hint": "Cuando un juego toma el mouse en otra computadora, el mouse queda ahí y mueve la cámara como un mouse propio. Bloq Despl lo suelta."
 }

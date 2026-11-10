@@ -18,7 +18,7 @@
   "lockKey.hint": "Utile pour les jeux ou les programmes en plein écran.",
   "startLocked.label": "Démarrer avec la souris verrouillée",
   "relativeMoves.label": "Mouvements relatifs de la souris",
-  "relativeMoves.hint": "Pour les jeux 3D qui capturent la souris.",
+  "relativeMoves.hint": "Quand la souris est verrouillée sur un écran, pour les jeux que le mode automatique ne détecte pas.",
   "group.connection": "Connexion",
   "heartbeat.label": "Vérifier que les ordinateurs sont toujours connectés",
   "heartbeat.hint": "Reconnecte plus vite si l’un d’eux ne répond plus.",
@@ -33,5 +33,7 @@
   "saving": "Enregistrement…",
   "saveApply": "Enregistrer et appliquer",
   "saved.running": "Enregistré. Deskflow a redémarré pour l’appliquer.",
-  "saved.stopped": "Enregistré. Prend effet au prochain démarrage de Deskflow."
+  "saved.stopped": "Enregistré. Prend effet au prochain démarrage de Deskflow.",
+  "autoGameMode.label": "Mode jeu automatique",
+  "autoGameMode.hint": "Quand un jeu prend la souris sur un autre ordinateur, la souris y reste et tourne la caméra comme une souris branchée dessus. Arrêt défil la libère."
 }

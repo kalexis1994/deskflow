@@ -7,6 +7,7 @@
 #include "MSWindowsMotionTests.h"
 
 #include "platform/MSWindowsMotion.h"
+#include "platform/MSWindowsMouseCapture.h"
 
 namespace {
 
@@ -58,6 +59,39 @@ void MSWindowsMotionTests::monitorsOffCenter()
   QVERIFY(!twoMonitors(-1000));
   QVERIFY(twoMonitors(900));
   QVERIFY(twoMonitors(-2850));
+}
+
+namespace {
+
+// two monitors side by side, the left one primary
+constexpr long kLeft = 0, kTop = 0, kRight = 3840, kBottom = 1080;
+
+bool captured(long left, long top, long right, long bottom, bool shown)
+{
+  return isMouseCaptured(left, top, right, bottom, kLeft, kTop, kRight, kBottom, shown);
+}
+
+} // namespace
+
+void MSWindowsMotionTests::aGameTakesTheMouse()
+{
+  // a full-screen game on the first monitor, and one that keeps the cursor in a dot
+  QVERIFY(captured(0, 0, 1920, 1080, false));
+  QVERIFY(captured(960, 540, 961, 541, false));
+  // a game in a window on the second monitor
+  QVERIFY(captured(2200, 100, 3600, 900, false));
+}
+
+void MSWindowsMotionTests::hiddenOrConfinedAloneIsNotAGame()
+{
+  // a video player hiding an idle cursor: nothing confines it
+  QVERIFY(!captured(kLeft, kTop, kRight, kBottom, false));
+  // a strategy game in a window confines a cursor it shows
+  QVERIFY(!captured(0, 0, 1920, 1080, true));
+  // nothing at all
+  QVERIFY(!captured(kLeft, kTop, kRight, kBottom, true));
+  // an empty confinement says nothing
+  QVERIFY(!captured(500, 500, 500, 500, false));
 }
 
 QTEST_MAIN(MSWindowsMotionTests)

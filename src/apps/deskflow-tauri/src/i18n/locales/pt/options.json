@@ -18,7 +18,7 @@
   "lockKey.hint": "Útil para jogos ou programas em tela cheia.",
   "startLocked.label": "Começar com o mouse travado",
   "relativeMoves.label": "Movimentos relativos do mouse",
-  "relativeMoves.hint": "Para jogos em 3D que capturam o mouse.",
+  "relativeMoves.hint": "Com o mouse travado em uma tela, para jogos que o modo automático não detecta.",
   "group.connection": "Conexão",
   "heartbeat.label": "Verificar se os computadores continuam conectados",
   "heartbeat.hint": "Reconecta mais cedo se algum parar de responder.",
@@ -33,5 +33,7 @@
   "saving": "Salvando…",
   "saveApply": "Salvar e aplicar",
   "saved.running": "Salvo. O Deskflow foi reiniciado para aplicar.",
-  "saved.stopped": "Salvo. Vale a partir da próxima vez que você iniciar o Deskflow."
+  "saved.stopped": "Salvo. Vale a partir da próxima vez que você iniciar o Deskflow.",
+  "autoGameMode.label": "Modo jogo automático",
+  "autoGameMode.hint": "Quando um jogo toma o mouse em outro computador, o mouse fica lá e gira a câmera como um mouse próprio. Scroll Lock o libera."
 }

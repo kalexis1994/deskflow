@@ -181,6 +181,13 @@ enum class EventTypes : uint32_t
   */
   PrimaryComputerMotionOnSecondary,
 
+  /** This event is sent when the mouse moves on a client, with the device's own motion:
+      what it measured, before the system's pointer acceleration. Only some systems send
+      it, alongside PrimaryComputerMotionOnSecondary. Event data is a pointer to
+      MotionInfo, the values are relative motion deltas.
+  */
+  PrimaryComputerRawMotionOnSecondary,
+
   /// This event is sent when mouse wheel is rotated. Event data is a pointer to WheelInfo.
   PrimaryComputerWheel,
 

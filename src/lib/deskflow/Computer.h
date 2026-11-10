@@ -99,6 +99,7 @@ public:
   bool canShareFiles() const;
   std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const;
   bool setClipboardFiles(const std::vector<std::filesystem::path> &files);
+  bool isMouseCaptured() const;
 
   //! Grab clipboard
   /*!

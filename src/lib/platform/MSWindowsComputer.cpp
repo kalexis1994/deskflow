@@ -203,6 +203,12 @@ void MSWindowsComputer::enable()
 
     // watch jump zones
     m_hook.setMode(kHOOK_WATCH_JUMP_ZONE);
+
+    // the mouse's own motion, for games on other computers (Server::onRawMouseMoveSecondary)
+    RAWINPUTDEVICE mouse = {0x01, 0x02, RIDEV_INPUTSINK, m_window}; // generic desktop, mouse
+    if (!RegisterRawInputDevices(&mouse, 1, sizeof(mouse))) {
+      LOG_DEBUG("no raw mouse input: %d", GetLastError());
+    }
   }
 }
 
@@ -215,6 +221,9 @@ void MSWindowsComputer::disable()
   m_desks->disable();
 
   if (m_isPrimary) {
+    RAWINPUTDEVICE mouse = {0x01, 0x02, RIDEV_REMOVE, nullptr};
+    RegisterRawInputDevices(&mouse, 1, sizeof(mouse));
+
     // disable hooks
     m_hook.setMode(kHOOK_DISABLE);
 
@@ -339,6 +348,11 @@ bool MSWindowsComputer::setClipboard(ClipboardID, const IClipboard *src)
     dst.close();
     return true;
   }
+}
+
+bool MSWindowsComputer::isMouseCaptured() const
+{
+  return m_desks->isMouseCaptured();
 }
 
 bool MSWindowsComputer::canShareFiles() const
@@ -1012,6 +1026,12 @@ bool MSWindowsComputer::onEvent(HWND, UINT msg, WPARAM wParam, LPARAM lParam, LR
   case WM_DISPLAYCHANGE:
     return onDisplayChange();
 
+  case WM_INPUT:
+    if (m_isPrimary && !m_isOnComputer) {
+      onRawInput(reinterpret_cast<HRAWINPUT>(lParam));
+    }
+    return false; // the system cleans up after the default procedure
+
   /* On windows 10 we don't receive WM_POWERBROADCAST after sleep.
    We receive only WM_TIMECHANGE hence this message is used to resume.*/
   case WM_TIMECHANGE:
@@ -1327,6 +1347,23 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
   }
 
   return true;
+}
+
+void MSWindowsComputer::onRawInput(HRAWINPUT handle)
+{
+  RAWINPUT input;
+  UINT size = sizeof(input);
+  if (GetRawInputData(handle, RID_INPUT, &input, &size, sizeof(RAWINPUTHEADER)) == static_cast<UINT>(-1) ||
+      input.header.dwType != RIM_TYPEMOUSE) {
+    return;
+  }
+  const auto &mouse = input.data.mouse;
+  // a device of its own (not input a program made up), moving relatively, as a mouse does
+  if (input.header.hDevice == nullptr || (mouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0 ||
+      (mouse.lLastX == 0 && mouse.lLastY == 0)) {
+    return;
+  }
+  sendEvent(EventTypes::PrimaryComputerRawMotionOnSecondary, MotionInfo::alloc(mouse.lLastX, mouse.lLastY));
 }
 
 bool MSWindowsComputer::onMouseWheel(int32_t xDelta, int32_t yDelta)

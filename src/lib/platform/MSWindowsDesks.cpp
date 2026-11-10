@@ -20,6 +20,7 @@
 #include "mt/Thread.h"
 #include "platform/MSWindowsComputer.h"
 #include "platform/MSWindowsHook.h"
+#include "platform/MSWindowsMouseCapture.h"
 
 #include <malloc.h>
 
@@ -80,6 +81,8 @@
 #define DESKFLOW_MSG_FAKE_REL_MOVE DESKFLOW_HOOK_LAST_MSG + 11
 // enable; <unused>
 #define DESKFLOW_MSG_FAKE_INPUT DESKFLOW_HOOK_LAST_MSG + 12
+// bool*; <unused>
+#define DESKFLOW_MSG_MOUSE_CAPTURED DESKFLOW_HOOK_LAST_MSG + 13
 
 static void send_keyboard_input(WORD wVk, WORD wScan, DWORD dwFlags)
 {
@@ -241,6 +244,14 @@ void MSWindowsDesks::getCursorPos(int32_t &x, int32_t &y) const
   sendMessage(DESKFLOW_MSG_CURSOR_POS, reinterpret_cast<WPARAM>(&pos), 0);
   x = pos.x;
   y = pos.y;
+}
+
+bool MSWindowsDesks::isMouseCaptured() const
+{
+  // asked of the desk's thread, which is on the desktop the game runs on
+  bool captured = false;
+  sendMessage(DESKFLOW_MSG_MOUSE_CAPTURED, reinterpret_cast<WPARAM>(&captured), 0);
+  return captured;
 }
 
 void MSWindowsDesks::fakeKeyEvent(WORD virtualKey, WORD scanCode, DWORD flags, bool /*isAutoRepeat*/) const
@@ -757,6 +768,21 @@ void MSWindowsDesks::deskThread(const void *vdesk)
       if (!GetCursorPos(pos)) {
         pos->x = m_xCenter;
         pos->y = m_yCenter;
+      }
+      break;
+    }
+
+    case DESKFLOW_MSG_MOUSE_CAPTURED: {
+      auto *captured = reinterpret_cast<bool *>(msg.wParam);
+      RECT clip;
+      CURSORINFO cursor = {sizeof(cursor)};
+      if (GetClipCursor(&clip) && GetCursorInfo(&cursor)) {
+        const long left = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        const long top = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        *captured = ::isMouseCaptured(
+            clip.left, clip.top, clip.right, clip.bottom, left, top, left + GetSystemMetrics(SM_CXVIRTUALSCREEN),
+            top + GetSystemMetrics(SM_CYVIRTUALSCREEN), (cursor.flags & CURSOR_SHOWING) != 0
+        );
       }
       break;
     }

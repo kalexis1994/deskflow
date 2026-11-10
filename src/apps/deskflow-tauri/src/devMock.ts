@@ -84,6 +84,7 @@ const core: CoreState = {
   refusal: null,
   retryAt: null,
   missingLayouts: null,
+  gameMode: null,
   coreVersion: "1.27.0.5 · 3aec96d5",
   lastError: null,
   // ?progress: a copy of files on its way

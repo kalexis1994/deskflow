@@ -208,6 +208,9 @@ public:
   */
   void getClients(std::vector<std::string> &list) const;
 
+  //! A program on \p client took the mouse (a first-person game), or let go of it
+  void mouseCaptured(BaseClientProxy *client, bool captured);
+
   //! The computers a key goes to
   /*!
   Keys a hotkey sends name the computers it is for (`computers`, or "*" for any). They
@@ -376,12 +379,24 @@ private:
   void onScreensaver(bool activated);
   void onKeyDown(KeyID, KeyModifierMask, KeyButton, const std::string &, const char *computers);
   void onKeyUp(KeyID, KeyModifierMask, KeyButton, const char *computers);
+
+  //! Whether a game on the active computer has the mouse: then the cursor stays there
+  //! and moves as relative motion, which is all such a game reads
+  bool isGameMode() const;
+  //! Puts a client's cursor back where the server thinks it is, after relative motion
+  void syncAbsolutePosition();
+  //! Tells the app which computer is in game mode, or none
+  void reportGameMode() const;
   std::vector<BaseClientProxy *> keyClients(const char *computers) const;
   void onKeyRepeat(KeyID, KeyModifierMask, int32_t, KeyButton, const std::string &);
   void onMouseDown(ButtonID);
   void onMouseUp(ButtonID);
   bool onMouseMovePrimary(int32_t x, int32_t y);
   void onMouseMoveSecondary(int32_t dx, int32_t dy);
+  void onRawMouseMoveSecondary(int32_t dx, int32_t dy);
+  //! Whether the active client gets relative motion: a game has the mouse, or the
+  //! cursor is locked there with relative moves on
+  bool isRelativeNow() const;
   void onMouseWheel(int32_t xDelta, int32_t yDelta);
 
   // add client to list and attach event handlers for client
@@ -462,6 +477,16 @@ private:
 
   // Name of computer broadcasting the keyboard events
   std::string m_keyboardBroadcastingComputers;
+
+  //! The primary sends the mouse's own motion (PrimaryComputerRawMotionOnSecondary): in
+  //! relative motion it replaces the accelerated one, until it stops coming
+  bool m_rawMotionWorks = false;
+  int m_motionsWithoutRaw = 0;
+
+  //! The client whose game has the mouse, if any
+  BaseClientProxy *m_mouseCapturedBy = nullptr;
+  //! The person let go of the mouse by hand while the game held it, until it lets go too
+  bool m_mouseCaptureReleased = false;
 
   // all clients (including the primary client) indexed by name
   using ClientList = std::map<std::string, BaseClientProxy *>;

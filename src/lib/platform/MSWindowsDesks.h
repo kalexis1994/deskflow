@@ -143,6 +143,9 @@ public:
   */
   void getCursorPos(int32_t &x, int32_t &y) const;
 
+  //! Whether a program on the input desktop has taken the mouse (MSWindowsMouseCapture.h)
+  bool isMouseCaptured() const;
+
   //! Fake key press/release
   /*!
   Synthesize a press or release of key \c button.

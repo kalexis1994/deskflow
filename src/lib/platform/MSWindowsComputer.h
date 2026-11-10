@@ -114,6 +114,7 @@ public:
   void leave() override;
   bool setClipboard(ClipboardID, const IClipboard *) override;
   bool canShareFiles() const override;
+  bool isMouseCaptured() const override;
   std::optional<std::vector<std::filesystem::path>> getClipboardFiles() const override;
   bool setClipboardFiles(const std::vector<std::filesystem::path> &files) override;
   void checkClipboards() override;
@@ -175,6 +176,8 @@ private: // HACK
   bool onMouseButton(WPARAM, LPARAM);
   bool onMouseMove(int32_t x, int32_t y);
   bool onMouseWheel(int32_t xDelta, int32_t yDelta);
+  //! The mouse's own motion, while the cursor is on another computer
+  void onRawInput(HRAWINPUT input);
   bool onScreensaver(bool activated);
   bool onDisplayChange();
   void onClipboardChange();

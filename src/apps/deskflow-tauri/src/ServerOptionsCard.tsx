@@ -14,6 +14,7 @@ export interface ServerOptions {
   lockKey: boolean;
   startLocked: boolean;
   relativeMoves: boolean;
+  autoGameMode: boolean;
   heartbeat: boolean;
   heartbeatMs: number;
   protocol: "barrier" | "synergy";
@@ -30,6 +31,7 @@ export const DEFAULT_SERVER_OPTIONS: ServerOptions = {
   lockKey: true,
   startLocked: false,
   relativeMoves: false,
+  autoGameMode: true,
   heartbeat: false,
   heartbeatMs: 5000,
   protocol: "barrier",
@@ -132,6 +134,12 @@ export function ServerOptionsCard({ running }: { running: boolean }) {
             onChange={(v) => set({ lockKey: v })}
           />
           <Switch label={t("options.startLocked.label")} on={draft.startLocked} onChange={(v) => set({ startLocked: v })} />
+          <Switch
+            label={t("options.autoGameMode.label")}
+            hint={t("options.autoGameMode.hint")}
+            on={draft.autoGameMode}
+            onChange={(v) => set({ autoGameMode: v })}
+          />
           <Switch
             label={t("options.relativeMoves.label")}
             hint={t("options.relativeMoves.hint")}

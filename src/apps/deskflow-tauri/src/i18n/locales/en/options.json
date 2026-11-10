@@ -18,7 +18,7 @@
   "lockKey.hint": "Useful for games or full-screen programs.",
   "startLocked.label": "Start with the mouse locked",
   "relativeMoves.label": "Relative mouse movement",
-  "relativeMoves.hint": "For 3D games that capture the mouse.",
+  "relativeMoves.hint": "While the mouse is locked to a screen, for games the automatic mode doesn't notice.",
   "group.connection": "Connection",
   "heartbeat.label": "Check that the computers are still connected",
   "heartbeat.hint": "Reconnects sooner if one stops responding.",
@@ -33,5 +33,7 @@
   "saving": "Saving…",
   "saveApply": "Save and apply",
   "saved.running": "Saved. Deskflow restarted to apply it.",
-  "saved.stopped": "Saved. It takes effect the next time you start Deskflow."
+  "saved.stopped": "Saved. It takes effect the next time you start Deskflow.",
+  "autoGameMode.label": "Automatic game mode",
+  "autoGameMode.hint": "When a game takes the mouse on another computer, the mouse stays there and turns the camera like a mouse of its own. Scroll Lock lets it go."
 }

@@ -59,6 +59,9 @@ static const OptionID kOptionClipboardSharing = OPTION_CODE("CLPS");
 static const OptionID kOptionClipboardSharingSize = OPTION_CODE("CLSZ");
 //! The server copies files (docs/dev/file-clipboard.md); the value is the largest copy it accepts, in MiB
 static const OptionID kOptionFileClipboard = OPTION_CODE("FCLP");
+//! The server follows games that take the mouse: a client that can tell answers
+//! with kMsgCMouseCapture whenever a program takes or lets go of its mouse
+static const OptionID kOptionMouseCapture = OPTION_CODE("MCAP");
 //@}
 
 //! @name Computer switch corner masks

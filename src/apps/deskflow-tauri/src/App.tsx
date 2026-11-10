@@ -249,6 +249,7 @@ function StatusCard({ core, ov, retryIn, address, busy, onStart, onStop, autosta
             )}
           </p>
         )}
+        {core.gameMode && <p className="status__game">{t("app.status.gameMode", { name: core.gameMode })}</p>}
         {autostart?.supported && (
           <p className={`status__autostart ${autostart.enabled ? "" : "status__autostart--off"}`}>
             {autostart.enabled ? t("app.status.autostart.on") : t("app.status.autostart.off")}

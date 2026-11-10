@@ -54,6 +54,8 @@ public:
   //! @name copying files (docs/dev/file-clipboard.md)
   //@{
   void sendFileClipboard(uint32_t maxMegabytes);
+  //! Tells the server a program here took the mouse, or let go of it (kMsgCMouseCapture)
+  void sendMouseCapture(bool captured);
   void sendFileList(const std::string &id, const std::string &list);
   void sendFileChunk(const std::string &id, uint32_t index, const std::string &data);
   void sendFileDone(const std::string &id, uint32_t index, const std::string &digest);

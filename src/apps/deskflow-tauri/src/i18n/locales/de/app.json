@@ -59,5 +59,6 @@
   "client.port": "Port {port}. Sie finden ihn im Hauptfenster von Deskflow auf dem anderen Computer.",
   "activity.title": "Aktivität",
   "activity.onlyProblems": "Nur Warnungen und Fehler",
-  "activity.empty": "Keine Aktivität."
+  "activity.empty": "Keine Aktivität.",
+  "status.gameMode": "Spielmodus auf {name}: Ein Spiel hat die Maus übernommen, sie bleibt also dort. Rollen gibt sie frei."
 }

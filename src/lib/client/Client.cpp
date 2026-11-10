@@ -79,6 +79,7 @@ Client::~Client()
 
   cleanupTimer();
   cleanupClipboardRetry();
+  watchMouseCapture(false);
   cleanupComputer();
   cleanupConnecting();
   cleanupConnection();
@@ -227,6 +228,7 @@ void Client::enter(int32_t xAbs, int32_t yAbs, uint32_t, KeyModifierMask mask, b
   }
   m_computer->mouseMove(xAbs, yAbs);
   m_computer->enter(mask);
+  watchMouseCapture(m_watchMouseCapture);
 }
 
 bool Client::leave()
@@ -235,6 +237,7 @@ bool Client::leave()
     saveRelativeRestorePosition();
   }
   m_active = false;
+  watchMouseCapture(false);
 
   m_computer->leave();
 
@@ -356,6 +359,8 @@ void Client::screensaver(bool activate)
 void Client::resetOptions()
 {
   m_relativeMouseMoves = false;
+  m_watchMouseCapture = false;
+  watchMouseCapture(false);
   m_hasRelativeRestorePosition = false;
   m_computer->resetOptions();
 }
@@ -373,6 +378,12 @@ void Client::setOptions(const OptionsList &options)
       index++;
       if (index != options.end() && *index > 0) {
         enableFiles(static_cast<uint64_t>(*index) * 1024 * 1024);
+      }
+    } else if (id == kOptionMouseCapture) {
+      index++;
+      if (index != options.end()) {
+        m_watchMouseCapture = *index != 0;
+        watchMouseCapture(m_watchMouseCapture && m_active);
       }
     } else if (id == kOptionClipboardSharing) {
       index++;
@@ -660,6 +671,37 @@ void Client::reportClipboard(ClipboardID id, const deskflow::clipboard::Activity
     deskflow::clipboard::reportActivity(activity);
 }
 
+void Client::watchMouseCapture(bool watch)
+{
+  if (watch && m_mouseCaptureTimer == nullptr) {
+    // a game takes the mouse as it starts or comes back into focus: a quarter of a
+    // second is soon enough, and asking costs next to nothing
+    m_mouseCaptureTimer = m_events->newTimer(0.25, nullptr);
+    m_events->addHandler(EventTypes::Timer, m_mouseCaptureTimer, [this](const auto &) { checkMouseCapture(); });
+    checkMouseCapture();
+  } else if (!watch && m_mouseCaptureTimer != nullptr) {
+    m_events->removeHandler(EventTypes::Timer, m_mouseCaptureTimer);
+    m_events->deleteTimer(m_mouseCaptureTimer);
+    m_mouseCaptureTimer = nullptr;
+    // the server only follows the computer the cursor is on; start over next time
+    if (m_mouseCaptured && m_server != nullptr)
+      m_server->sendMouseCapture(false);
+    m_mouseCaptured = false;
+  }
+}
+
+void Client::checkMouseCapture()
+{
+  if (m_server == nullptr || !m_active)
+    return;
+  const bool captured = m_computer->isMouseCaptured();
+  if (captured == m_mouseCaptured)
+    return;
+  m_mouseCaptured = captured;
+  LOG_INFO("%s", captured ? "a program took the mouse: asking for relative motion" : "the program let go of the mouse");
+  m_server->sendMouseCapture(captured);
+}
+
 void Client::cleanupClipboardRetry()
 {
   if (m_clipboardRetryTimer != nullptr) {
@@ -799,6 +841,7 @@ void Client::cleanupConnection()
 
 void Client::cleanupComputer()
 {
+  watchMouseCapture(false);
   if (m_server != nullptr) {
     if (m_ready) {
       m_computer->disable();

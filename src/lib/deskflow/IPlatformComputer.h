@@ -99,6 +99,12 @@ public:
     return false;
   }
 
+  //! Whether a program (a first-person game) has taken the mouse for itself
+  virtual bool isMouseCaptured() const
+  {
+    return false;
+  }
+
   //! Check clipboard owner
   /*!
   Check ownership of all clipboards and post grab events for any that

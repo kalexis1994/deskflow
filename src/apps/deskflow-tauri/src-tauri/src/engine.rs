@@ -65,6 +65,8 @@ pub struct CoreState {
     /// Unix time in ms at which the client will retry the connection.
     pub retry_at: Option<u64>,
     pub missing_layouts: Option<String>,
+    /// The computer whose game has the mouse, while the server follows it.
+    pub game_mode: Option<String>,
     pub core_version: Option<String>,
     pub last_error: Option<String>,
     /// Recent shared clipboard activity, newest first (kept while the app runs).
@@ -406,6 +408,7 @@ impl Hub {
                 }
             }
             "missingKeyboardLayouts" => s.missing_layouts = Some(args),
+            "gameMode" => s.game_mode = (!args.is_empty()).then_some(args),
             "clipboard" => {
                 clipboard::push(&mut s.clipboard, &args, now_ms());
             }
@@ -500,6 +503,7 @@ impl Hub {
             s.fingerprint_prompt = None;
             s.unrecognised_client = None;
             s.missing_layouts = None;
+            s.game_mode = None;
         });
 
         let result = match ov.process_mode {

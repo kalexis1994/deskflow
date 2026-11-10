@@ -310,6 +310,11 @@ bool Computer::setClipboard(ClipboardID id, const IClipboard *clipboard)
   return m_computer->setClipboard(id, clipboard);
 }
 
+bool Computer::isMouseCaptured() const
+{
+  return m_computer->isMouseCaptured();
+}
+
 bool Computer::canShareFiles() const
 {
   return m_computer->canShareFiles();

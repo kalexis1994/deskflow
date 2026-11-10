@@ -119,6 +119,13 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Com
       EventTypes::PrimaryComputerMotionOnSecondary, m_primaryClient->getEventTarget(),
       [this](const auto &e) { handleMotionSecondaryEvent(e); }
   );
+  m_events->addHandler(
+      EventTypes::PrimaryComputerRawMotionOnSecondary, m_primaryClient->getEventTarget(),
+      [this](const auto &e) {
+        const auto *info = static_cast<IPlatformComputer::MotionInfo *>(e.getData());
+        onRawMouseMoveSecondary(info->m_x, info->m_y);
+      }
+  );
   m_events->addHandler(EventTypes::PrimaryComputerWheel, m_primaryClient->getEventTarget(), [this](const auto &e) {
     handleWheelEvent(e);
   });
@@ -193,6 +200,7 @@ Server::~Server()
   m_events->removeHandler(PrimaryComputerButtonUp, m_inputFilter);
   m_events->removeHandler(PrimaryComputerMotionOnPrimary, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryComputerMotionOnSecondary, m_primaryClient->getEventTarget());
+  m_events->removeHandler(PrimaryComputerRawMotionOnSecondary, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryComputerWheel, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryScreenSaverActivated, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryScreenSaverDeactivated, m_primaryClient->getEventTarget());
@@ -400,6 +408,11 @@ bool Server::isLockedToComputerServer() const
 
 bool Server::isLockedToComputer() const
 {
+  // a game that took the mouse keeps it, whatever the lock settings
+  if (isGameMode()) {
+    return true;
+  }
+
   if (m_disableLockToComputer) {
     return false;
   }
@@ -1067,6 +1080,79 @@ uint32_t Server::getCorner(const BaseClientProxy *client, int32_t x, int32_t y, 
   return s_noCornerMask;
 }
 
+void Server::mouseCaptured(BaseClientProxy *client, bool captured)
+{
+  const bool wasGameMode = isGameMode();
+  if (captured) {
+    m_mouseCapturedBy = client;
+    m_mouseCaptureReleased = false;
+  } else if (m_mouseCapturedBy == client) {
+    m_mouseCapturedBy = nullptr;
+    m_mouseCaptureReleased = false;
+  }
+  if (isGameMode() != wasGameMode) {
+    if (isGameMode()) {
+      LOG_INFO("game mode on \"%s\": a program took the mouse", getName(client).c_str());
+    } else {
+      LOG_INFO("game mode off on \"%s\"", getName(client).c_str());
+      syncAbsolutePosition();
+    }
+  }
+  // also after a switch away by a hotkey, which the app hasn't heard of
+  reportGameMode();
+}
+
+bool Server::isRelativeNow() const
+{
+  return m_active != m_primaryClient && ((m_relativeMoves && isLockedToComputerServer()) || isGameMode());
+}
+
+void Server::onRawMouseMoveSecondary(int32_t dx, int32_t dy)
+{
+  if (m_active == m_primaryClient) {
+    return;
+  }
+  if (!m_rawMotionWorks) {
+    LOG_DEBUG("relative motion uses the mouse's own motion");
+  }
+  m_rawMotionWorks = true;
+  m_motionsWithoutRaw = 0;
+  if (isRelativeNow()) {
+    LOG_VERBOSE("raw relative move on %s by %d,%d", getName(m_active).c_str(), dx, dy);
+    m_active->mouseRelativeMove(dx, dy);
+  }
+}
+
+bool Server::isGameMode() const
+{
+  return m_mouseCapturedBy != nullptr && m_mouseCapturedBy == m_active && m_active != m_primaryClient &&
+         !m_mouseCaptureReleased;
+}
+
+void Server::reportGameMode() const
+{
+  ipcSendToClient("gameMode", isGameMode() ? getName(m_active) : std::string());
+}
+
+void Server::syncAbsolutePosition()
+{
+  if (m_active == m_primaryClient)
+    return;
+  // relative motion left the cursor wherever the program put it: back to the center
+  int32_t ax;
+  int32_t ay;
+  int32_t aw;
+  int32_t ah;
+  m_active->getShape(ax, ay, aw, ah);
+  m_x = ax + (aw >> 1);
+  m_y = ay + (ah >> 1);
+  m_xDelta = 0;
+  m_yDelta = 0;
+  m_xDelta2 = 0;
+  m_yDelta2 = 0;
+  m_active->mouseMove(m_x, m_y);
+}
+
 void Server::stopRelativeMoves()
 {
   if (m_relativeMoves && m_active != m_primaryClient) {
@@ -1111,6 +1197,12 @@ void Server::sendOptions(BaseClientProxy *client) const
       optionsList.push_back(optionId);
       optionsList.push_back(static_cast<uint32_t>(optionValue));
     }
+  }
+
+  // follow games that take the mouse; classic clients ignore the option
+  if (client != m_primaryClient && CoreSettings::value(CoreSettings::Server::AutoGameMode).toBool()) {
+    optionsList.push_back(kOptionMouseCapture);
+    optionsList.push_back(1);
   }
 
   // offer copying files; classic clients ignore an option they don't know
@@ -1463,6 +1555,15 @@ void Server::handleKeyboardBroadcastEvent(const Event &event)
 void Server::handleLockCursorToComputerEvent(const Event &event)
 {
   const auto *info = static_cast<LockCursorToComputerInfo *>(event.getData());
+
+  // the way out of a game that keeps the mouse: until it lets go and takes it again
+  if (isGameMode() && info->m_state != LockCursorToComputerInfo::kOn) {
+    m_mouseCaptureReleased = true;
+    LOG_INFO("game mode released by hand on \"%s\"", getName(m_active).c_str());
+    syncAbsolutePosition();
+    reportGameMode();
+    return;
+  }
 
   // choose new state
   bool newState;
@@ -2045,7 +2146,19 @@ void Server::onMouseMoveSecondary(int32_t dx, int32_t dy)
   // the mouse isn't actually moving because we're expecting some
   // program on the secondary computer to warp the mouse on us, so we
   // have no idea where it really is.
-  if (m_relativeMoves && isLockedToComputerServer()) {
+  if (isRelativeNow()) {
+    // A game wants what the mouse measured, not Windows' acceleration: the raw motion goes
+    // instead when the primary sends it, as each event from the hook comes with one. If
+    // a few come without, it stopped (the hook can keep it from the system), and the
+    // accelerated motion goes again.
+    constexpr int kMotionsWithoutRaw = 8;
+    if (m_rawMotionWorks && ++m_motionsWithoutRaw < kMotionsWithoutRaw) {
+      return;
+    }
+    if (m_rawMotionWorks) {
+      LOG_DEBUG("the mouse's own motion stopped coming, sending the accelerated one");
+      m_rawMotionWorks = false;
+    }
     LOG_VERBOSE("relative move on %s by %d,%d", getName(m_active).c_str(), dx, dy);
     m_active->mouseRelativeMove(dx, dy);
     return;
@@ -2243,6 +2356,14 @@ bool Server::removeClient(BaseClientProxy *client)
   m_events->removeHandler(ComputerShapeChanged, client->getEventTarget());
   m_events->removeHandler(ClipboardGrabbed, client->getEventTarget());
   m_events->removeHandler(ClipboardChanged, client->getEventTarget());
+
+  if (m_mouseCapturedBy == client) {
+    const bool wasGameMode = isGameMode();
+    m_mouseCapturedBy = nullptr;
+    m_mouseCaptureReleased = false;
+    if (wasGameMode)
+      reportGameMode();
+  }
 
   if (m_fileHub) {
     m_fileHub->disconnected(getName(client));

@@ -1128,6 +1128,22 @@ extern const char *const kMsgDDragInfo;
 extern const char *const kMsgCFileClipboard;
 
 /**
+ * @brief A program on the client took the mouse, or let go of it
+ *
+ * **Message Code**: `"CMCP"`
+ * **Direction**: Secondary → Primary
+ * **Format**: `"CMCP%1i"`
+ * **Parameters**:
+ * - `$1`: 1 when a program (a first-person game) hides the cursor and confines it, 0
+ *   when it lets go
+ *
+ * Sent only to a server that offered the `MCAP` option, and only while the cursor is
+ * on the client. The server then keeps the cursor there and sends relative motion
+ * (kMsgDMouseRelMove), which is all such a game reads.
+ */
+extern const char *const kMsgCMouseCapture;
+
+/**
  * @brief The files and folders of a copy
  *
  * **Message Code**: `"DFLS"`

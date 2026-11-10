@@ -59,5 +59,6 @@
   "client.port": "Puerto {port}. Lo encontrás en la pantalla principal de Deskflow en la otra computadora.",
   "activity.title": "Actividad",
   "activity.onlyProblems": "Solo avisos y errores",
-  "activity.empty": "Sin actividad."
+  "activity.empty": "Sin actividad.",
+  "status.gameMode": "Modo juego en {name}: un juego tomó el mouse, así que queda ahí. Bloq Despl lo suelta."
 }

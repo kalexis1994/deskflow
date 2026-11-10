@@ -82,6 +82,7 @@ public:
     static constexpr std::string_view ClipboardSize = "server/clipboardSize";
     static constexpr std::string_view DefaultLockToComputerState = "server/defaultLockToComputerState";
     static constexpr std::string_view DisableLockToComputer = "server/disableLockToComputer";
+    static constexpr std::string_view AutoGameMode = "server/autoGameMode";
     static constexpr std::string_view EnableClipboard = "server/enableClipboard";
     static constexpr std::string_view EnableHeartbeat = "server/enableHeartbeat";
     static constexpr std::string_view EnableSwitchDelay = "server/enableSwitchDelay";

@@ -18,7 +18,7 @@
   "lockKey.hint": "Nützlich für Spiele oder Programme im Vollbild.",
   "startLocked.label": "Mit festgehaltener Maus starten",
   "relativeMoves.label": "Relative Mausbewegungen",
-  "relativeMoves.hint": "Für 3D-Spiele, die die Maus einfangen.",
+  "relativeMoves.hint": "Solange die Maus auf einem Bildschirm festgehalten wird, für Spiele, die der automatische Modus nicht erkennt.",
   "group.connection": "Verbindung",
   "heartbeat.label": "Prüfen, ob die Computer noch verbunden sind",
   "heartbeat.hint": "Verbindet schneller neu, wenn einer nicht mehr antwortet.",
@@ -33,5 +33,7 @@
   "saving": "Wird gespeichert…",
   "saveApply": "Speichern und anwenden",
   "saved.running": "Gespeichert. Deskflow wurde neu gestartet, um es anzuwenden.",
-  "saved.stopped": "Gespeichert. Gilt ab dem nächsten Start von Deskflow."
+  "saved.stopped": "Gespeichert. Gilt ab dem nächsten Start von Deskflow.",
+  "autoGameMode.label": "Automatischer Spielmodus",
+  "autoGameMode.hint": "Wenn ein Spiel auf einem anderen Computer die Maus übernimmt, bleibt die Maus dort und dreht die Kamera wie eine eigene Maus. Rollen gibt sie frei."
 }
