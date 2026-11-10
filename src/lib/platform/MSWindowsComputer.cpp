@@ -1339,13 +1339,19 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
     return true;
   }
 
-  // save position to compute delta of next motion
-  saveMousePosition(mx, my);
-
   if (m_isOnComputer) {
+    // save position to compute delta of next motion
+    saveMousePosition(mx, my);
+
     // motion on primary computer
     sendEvent(EventTypes::PrimaryComputerMotionOnPrimary, MotionInfo::alloc(m_xCursor, m_yCursor));
   } else {
+    // The hook swallows every motion while the cursor is on another computer, so this
+    // one's cursor never left the center it was warped to: each motion is measured from
+    // there, and that stays the reference. Taking the position this motion would have
+    // reached instead measured motions waiting together, as they do while switching,
+    // from each other: their differences, often backwards, took the cursor straight
+    // back over the edge it had just crossed.
     // the motion is on the secondary computer, so we warp mouse back to
     // center on the server computer. if we don't do this, then the mouse
     // will always try to return to the original entry point on the
