@@ -113,8 +113,11 @@ button {
   margin: 0 -20px;
   padding: 0 20px;
   background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  /* the line under the tabs, painted under them: a border would need the active tab to
+     reach 1px past the bar to cover it, and that pixel made the bar scroll vertically */
+  box-shadow: inset 0 -1px 0 var(--border);
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
 }
 
@@ -127,7 +130,6 @@ button {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
   color: var(--text-2);
   font-weight: 500;
   cursor: pointer;
