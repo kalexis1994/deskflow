@@ -112,7 +112,7 @@ jobs:
       - name: Stage the core
         working-directory: ${{ env.APP }}
         env:
-          DESKFLOW_BUILD_DIR: ${{ github.workspace }}uildin
+          DESKFLOW_BUILD_DIR: ${{ github.workspace }}/build/bin
         run: node scripts/stage-core.mjs
 
       - name: Test the app
