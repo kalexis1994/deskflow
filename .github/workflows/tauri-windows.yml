@@ -82,8 +82,9 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$PWD\build\vcpkg_installed\x64-windows\bin;$PWD\build\bin;$env:PATH"
-          # MSWindowsClipboardTests writes to the real clipboard
-          ctest --test-dir build/src/unittests --output-on-failure -j 4 -E "^MSWindowsClipboardTests$"
+          # MSWindowsClipboardTests writes to the real clipboard; ArchNetworkTests listens on
+          # IPv6 loopback (::1), which GitHub's runners don't offer (it passes on a real PC)
+          ctest --test-dir build/src/unittests --output-on-failure -j 4 -E "^(MSWindowsClipboardTests|ArchNetworkTests)$"
 
       - uses: pnpm/action-setup@v4
         with:
