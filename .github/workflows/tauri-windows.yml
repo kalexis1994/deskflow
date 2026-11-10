@@ -108,6 +108,13 @@ jobs:
         working-directory: ${{ env.APP }}
         run: pnpm install --frozen-lockfile
 
+      # the bundle's resources (core-bin/*) have to exist before anything builds the app
+      - name: Stage the core
+        working-directory: ${{ env.APP }}
+        env:
+          DESKFLOW_BUILD_DIR: ${{ github.workspace }}uildin
+        run: node scripts/stage-core.mjs
+
       - name: Test the app
         working-directory: ${{ env.APP }}
         shell: pwsh
