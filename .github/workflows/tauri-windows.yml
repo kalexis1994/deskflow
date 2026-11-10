@@ -72,7 +72,7 @@ jobs:
       - name: Configure the core
         shell: pwsh
         run: >
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_INSTALLER=OFF
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_INSTALLER=OFF -DSKIP_BUILD_TESTS=ON
           "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
 
       - name: Build the core
