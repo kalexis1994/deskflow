@@ -1,0 +1,167 @@
+# Builds Deskflow Tauri for Windows (core, daemon and app), runs every test, and can
+# publish the installer as an update (docs/dev/updates.md).
+#
+#   every push to core-no-qt   build and test; the installer is kept as an artifact
+#   Run workflow, publish ...  alpha     publish this version as a pre-release (Alpha)
+#                              estable   publish it as the stable release
+#                              promover  turn this version's alpha into the stable one
+#
+# Publishing signs the installer with the updater key in the TAURI_UPDATER_KEY secret.
+
+name: Tauri Windows
+
+on:
+  push:
+    branches: [core-no-qt]
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publicar lo compilado
+        type: choice
+        options: [nada, alpha, estable, promover]
+        default: nada
+      notes:
+        description: Notas de la versión (las ven al actualizar)
+        type: string
+        default: ""
+
+concurrency:
+  group: tauri-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_dispatch' || inputs.publish != 'promover'
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache
+      APP: src/apps/deskflow-tauri
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the core's version counts commits
+          fetch-depth: 0
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+
+      # the core no longer needs Qt, but the classic GUI and the tests still do
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.8.3"
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: vcpkg cache folder
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}\.vcpkg-cache
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('cmake/vcpkg.json.in') }}
+
+      - name: Configure the core
+        shell: pwsh
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_INSTALLER=OFF
+          "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
+
+      - name: Build the core
+        run: cmake --build build
+
+      - name: Test the core
+        shell: pwsh
+        run: |
+          $env:PATH = "$PWD\build\vcpkg_installed\x64-windows\bin;$PWD\build\bin;$env:PATH"
+          # MSWindowsClipboardTests writes to the real clipboard
+          ctest --test-dir build/src/unittests --output-on-failure -j 4 -E "^MSWindowsClipboardTests$"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: ${{ env.APP }}/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.APP }}/src-tauri
+
+      - name: App dependencies
+        working-directory: ${{ env.APP }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Test the app
+        working-directory: ${{ env.APP }}
+        shell: pwsh
+        run: |
+          pnpm exec tsc --noEmit
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          pnpm exec vitest run
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cd src-tauri
+          cargo fmt --check
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo clippy --quiet -- -D warnings
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo test --lib --quiet
+
+      - name: Build the installer
+        working-directory: ${{ env.APP }}
+        env:
+          DESKFLOW_BUILD_DIR: ${{ github.workspace }}\build\bin
+        run: pnpm tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: ${{ env.APP }}/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Publish
+        if: github.event_name == 'workflow_dispatch' && (inputs.publish == 'alpha' || inputs.publish == 'estable')
+        working-directory: ${{ env.APP }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATER_KEY: ${{ secrets.TAURI_UPDATER_KEY }}
+          DESKFLOW_RELEASE_REMOTE: origin
+          CHANNEL: ${{ inputs.publish }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          if (-not $env:UPDATER_KEY) { throw "the TAURI_UPDATER_KEY secret is missing: see docs/dev/updates.md" }
+          $env:DESKFLOW_UPDATER_KEY = Join-Path $env:RUNNER_TEMP "updater.key"
+          Set-Content -Path $env:DESKFLOW_UPDATER_KEY -Value $env:UPDATER_KEY -NoNewline -Encoding ascii
+          $channel = @()
+          if ($env:CHANNEL -eq "alpha") { $channel = @("--alpha") }
+          node scripts/release.mjs @channel --notes "$env:NOTES"
+          $code = $LASTEXITCODE
+          Remove-Item $env:DESKFLOW_UPDATER_KEY -Force
+          exit $code
+
+  promote:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == 'promover'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Promote this version's alpha to stable
+        working-directory: src/apps/deskflow-tauri
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.mjs --promote

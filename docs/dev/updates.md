@@ -49,6 +49,25 @@ times. So:
 
 ## Publishing
 
+### On GitHub Actions
+
+`.github/workflows/tauri-windows.yml` builds the core, the daemon and the app on a
+clean Windows runner, runs every test, and keeps the installer as an artifact, on every
+push to `core-no-qt`. To publish, run it by hand (**Actions → Tauri Windows → Run
+workflow**, or `gh workflow run tauri-windows.yml -f publish=alpha -f notes="..."`):
+
+- `alpha` publishes the version in `tauri.conf.json` as a pre-release,
+- `estable` publishes it as the stable release,
+- `promover` turns that version's alpha into the stable release, without building.
+
+It signs with the updater key in the repository secret `TAURI_UPDATER_KEY`, the
+contents of `~/.tauri/deskflow-updater.key`; set it once with
+`gh secret set TAURI_UPDATER_KEY -R kalexis1994/deskflow < ~/.tauri/deskflow-updater.key`.
+The script waits until the public `latest.json` offers the new version, which GitHub's
+cache can take a minute or two to do.
+
+### By hand
+
 ```bash
 pnpm tauri build
 node scripts/release.mjs --alpha --notes "what to try"

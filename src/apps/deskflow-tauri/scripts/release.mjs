@@ -11,7 +11,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = "kalexis1994/deskflow";
-const REMOTE = "fork";
+// the remote that has to hold the commit: "fork" here, "origin" on GitHub Actions
+const REMOTE = process.env.DESKFLOW_RELEASE_REMOTE ?? "fork";
 // a pre-release whose only asset is the newest alpha's latest.json
 const ALPHA_TAG = "alpha-channel";
 
@@ -109,5 +110,27 @@ if (alpha) {
     run("gh", ["release", "create", ALPHA_TAG, "--repo", REPO, "--target", commit, "--prerelease", "--title", "Canal alpha", "--notes", about]);
   }
   run("gh", ["release", "upload", ALPHA_TAG, feed, "--repo", REPO, "--clobber"]);
+  await waitForFeed(`https://github.com/${REPO}/releases/download/${ALPHA_TAG}/latest.json`);
   console.log(`the alpha channel now offers ${version}`);
+} else {
+  await waitForFeed(`https://github.com/${REPO}/releases/latest/download/latest.json`);
+  console.log(`the stable channel now offers ${version}`);
+}
+
+/**
+ * GitHub's download links keep serving the previous latest.json for a minute or two;
+ * until they don't, "Buscar actualizaciones" answers that there is nothing new.
+ */
+async function waitForFeed(address) {
+  for (let attempt = 0; attempt < 40; ++attempt) {
+    try {
+      // the very address apps ask: a cache-busting query would see it before they do
+      const response = await fetch(address, { cache: "no-store" });
+      if (response.ok && (await response.json()).version === version) return;
+    } catch {
+      // not there yet
+    }
+    await new Promise((done) => setTimeout(done, 10_000));
+  }
+  console.warn(`release: ${address} doesn't offer ${version} yet; apps will see it when GitHub's cache expires`);
 }
