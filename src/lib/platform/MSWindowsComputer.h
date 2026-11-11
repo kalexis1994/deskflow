@@ -13,6 +13,7 @@
 #include "platform/MSWindowsHook.h"
 #include "platform/MSWindowsPowerManager.h"
 
+#include <chrono>
 #include <map>
 #include <string>
 
@@ -180,6 +181,25 @@ private: // HACK
   bool onMouseDelta(int32_t dx, int32_t dy);
   //! Moves this computer's cursor in a way the hook doesn't take for a motion to relay
   void warpUnrelayed(int32_t x, int32_t y) const;
+
+  //! The hook relayed a motion (or one of nothing): it is alive; reports what it saw
+  void noteRelayedMotion();
+
+  //! What the mouse does while relayed to another computer, for the log: the mouse
+  //! froze once on a client while the keyboard kept working (docs/dev/server-log.md)
+  struct RelayWatch
+  {
+    std::chrono::steady_clock::time_point lastMotion{};
+    std::chrono::steady_clock::time_point windowStart{};
+    //! raw input motions since the hook's last one
+    int rawSinceMotion = 0;
+    int recenters = 0;
+    int dropped = 0;
+    POINT lastWander{};
+    bool fallbackReported = false;
+    bool stallReported = false;
+  };
+  RelayWatch m_relayWatch;
   bool onMouseWheel(int32_t xDelta, int32_t yDelta);
   //! The mouse's own motion, while the cursor is on another computer
   void onRawInput(HRAWINPUT input);

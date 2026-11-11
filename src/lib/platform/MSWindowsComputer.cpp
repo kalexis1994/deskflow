@@ -312,6 +312,8 @@ void MSWindowsComputer::leave()
     // edge, visible. What the hook relays meanwhile comes before the mark set below, and
     // is ignored.
     m_hook.setMode(kHOOK_RELAY_EVENTS);
+    m_relayWatch = {};
+    m_relayWatch.lastMotion = m_relayWatch.windowStart = std::chrono::steady_clock::now();
 
     LOG_VERBOSE("centering cursor on leave: %+d, %+d", m_xCenter, m_yCenter);
     warpCursor(m_xCenter, m_yCenter);
@@ -1356,6 +1358,11 @@ bool MSWindowsComputer::onMouseMove(int32_t mx, int32_t my)
     sendEvent(EventTypes::PrimaryComputerMotionOnPrimary, MotionInfo::alloc(m_xCursor, m_yCursor));
   } else {
     // only when the hook can't measure the motion itself (onMouseDelta)
+    noteRelayedMotion();
+    if (!m_relayWatch.fallbackReported) {
+      LOG_WARN("the mouse hook can't tell where the cursor is: measuring its motions the old way");
+      m_relayWatch.fallbackReported = true;
+    }
     // the motion is on the secondary computer, so we warp mouse back to
     // center on the server computer. if we don't do this, then the mouse
     // will always try to return to the original entry point on the
@@ -1402,6 +1409,7 @@ bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
   if (ignore() || m_isOnComputer) {
     return true;
   }
+  noteRelayedMotion();
 
   // The cursor must stay at the center, where a blank window hides it: anywhere else it
   // shows, as a cursor stuck at the edge just crossed. A motion the system worked out
@@ -1411,6 +1419,8 @@ bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
   // off by that little; far, they are large and dropped as from before the warp.
   if (POINT pos; getThisCursorPos(&pos) && (std::abs(pos.x - m_xCenter) > 2 || std::abs(pos.y - m_yCenter) > 2)) {
     LOG_DEBUG("cursor wandered to %d,%d, back to the center", pos.x, pos.y);
+    ++m_relayWatch.recenters;
+    m_relayWatch.lastWander = pos;
     warpUnrelayed(m_xCenter, m_yCenter);
   }
 
@@ -1421,10 +1431,68 @@ bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
   // a large one is an event from before the warp to the center, measured from it
   if (isPreWarpMotion(dx, dy, m_x, m_y, m_w, m_h, m_xCenter, m_yCenter)) {
     LOG_DEBUG("dropped bogus delta motion: %+d,%+d", dx, dy);
+    ++m_relayWatch.dropped;
     return true;
   }
   sendEvent(EventTypes::PrimaryComputerMotionOnSecondary, MotionInfo::alloc(dx, dy));
   return true;
+}
+
+namespace {
+
+//! The desktop that gets input now ("Default", or "Winlogon" for the lock screen, the
+//! Ctrl+Alt+Del screen and permission prompts)
+std::string inputDesktopName()
+{
+  HDESK desk = OpenInputDesktop(0, FALSE, DESKTOP_READOBJECTS);
+  if (desk == nullptr) {
+    return "inaccessible";
+  }
+  wchar_t name[256] = {};
+  const bool got = GetUserObjectInformationW(desk, UOI_NAME, name, sizeof(name), nullptr) != FALSE;
+  CloseDesktop(desk);
+  if (!got) {
+    return "unknown";
+  }
+  std::string text;
+  for (const wchar_t *c = name; *c != L'\0'; ++c) {
+    text += *c < 0x80 ? static_cast<char>(*c) : '?';
+  }
+  return text;
+}
+
+} // namespace
+
+void MSWindowsComputer::noteRelayedMotion()
+{
+  using namespace std::chrono;
+  const auto now = steady_clock::now();
+  if (m_relayWatch.stallReported) {
+    LOG_INFO(
+        "the mouse hook relays motions again, after %.1f s", duration<double>(now - m_relayWatch.lastMotion).count()
+    );
+    m_relayWatch.stallReported = false;
+  }
+  m_relayWatch.lastMotion = now;
+  m_relayWatch.rawSinceMotion = 0;
+
+  // a summary every 10 seconds, only of what is out of the ordinary
+  if (now - m_relayWatch.windowStart < seconds(10)) {
+    return;
+  }
+  const auto span = duration<double>(now - m_relayWatch.windowStart).count();
+  if (m_relayWatch.recenters > 20) {
+    LOG_WARN(
+        "the hidden cursor left the center %d times in %.0f s (last at %d,%d): something keeps moving it",
+        m_relayWatch.recenters, span, m_relayWatch.lastWander.x, m_relayWatch.lastWander.y
+    );
+  }
+  if (m_relayWatch.dropped > 0) {
+    LOG_INFO("dropped %d motions in %.0f s as from before a warp to the center", m_relayWatch.dropped, span);
+  }
+  m_relayWatch.windowStart = now;
+  m_relayWatch.recenters = 0;
+  m_relayWatch.dropped = 0;
 }
 
 void MSWindowsComputer::onRawInput(HRAWINPUT handle)
@@ -1440,6 +1508,18 @@ void MSWindowsComputer::onRawInput(HRAWINPUT handle)
   if (input.header.hDevice == nullptr || (mouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0 ||
       (mouse.lLastX == 0 && mouse.lLastY == 0)) {
     return;
+  }
+  // The mouse moving, as raw input sees it, while the hook relays nothing means the hook
+  // stopped: Windows removes a low-level hook that is too slow to answer. A burst of raw
+  // motions with nothing from the hook, not just the first of a motion, says so.
+  if (!m_isOnComputer && !m_relayWatch.stallReported && ++m_relayWatch.rawSinceMotion >= 50 &&
+      std::chrono::steady_clock::now() - m_relayWatch.lastMotion > std::chrono::seconds(1)) {
+    LOG_WARN(
+        "the mouse moves but its hook has relayed nothing for %.1f s; input desktop: %s",
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - m_relayWatch.lastMotion).count(),
+        inputDesktopName().c_str()
+    );
+    m_relayWatch.stallReported = true;
   }
   sendEvent(EventTypes::PrimaryComputerRawMotionOnSecondary, MotionInfo::alloc(mouse.lLastX, mouse.lLastY));
 }
