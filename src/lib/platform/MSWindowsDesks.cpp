@@ -544,8 +544,9 @@ void setCursorVisibility(bool visible)
 
 void MSWindowsDesks::deskEnter(Desk *desk)
 {
+  // the cursor is this computer's again (see deskLeave)
+  ReleaseCapture();
   if (!m_isPrimary) {
-    ReleaseCapture();
     if (m_relativeMouseMoves) {
       restoreRelativeCursorPosition(desk);
     }
@@ -633,6 +634,15 @@ void MSWindowsDesks::deskLeave(Desk *desk, HKL keyLayout)
         AttachThreadInput(thatThread, thisThread, FALSE);
       }
     }
+
+    // Hide the cursor where it is, at the edge, before it goes to the center. The
+    // hider window at the center takes the cursor only once the system works out what lies
+    // under it, a moment after the warp, so the cursor flashed at the center
+    // meanwhile; and the hook, relaying, eats the warp's own motion that would make
+    // the system look. Captured, the cursor belongs to this thread, which hides it,
+    // wherever it is; deskEnter releases it.
+    SetCapture(desk->m_window);
+    SetCursor(m_cursor);
   } else {
     // move hider window under the cursor center, raise, and show it
     SetWindowPos(desk->m_window, HWND_TOP, m_xCenter, m_yCenter, 1, 1, SWP_NOACTIVATE | SWP_SHOWWINDOW);

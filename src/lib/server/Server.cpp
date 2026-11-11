@@ -508,9 +508,19 @@ void Server::switchComputer(BaseClientProxy *dst, int32_t x, int32_t y, bool for
   if (m_active != dst) {
     // leave active computer
     if (!m_active->leave()) {
-      // cannot leave computer
-      LOG_WARN("can't leave computer");
+      // cannot leave computer: once, not on every motion against the edge (the lock and
+      // the login screen keep the cursor here)
+      if (!m_cantLeaveReported) {
+        LOG_WARN("can't leave computer");
+        m_cantLeaveReported = true;
+      } else {
+        LOG_DEBUG("can't leave computer");
+      }
       return;
+    }
+    if (m_cantLeaveReported) {
+      LOG_INFO("could leave the computer again");
+      m_cantLeaveReported = false;
     }
 
     // update the primary client's clipboards if we're leaving the

@@ -496,6 +496,8 @@ private:
   Stopwatch m_switchTwoTapTimer;
   //! The computer the cursor came from on the last switch, and since when it is here
   const BaseClientProxy *m_cameFrom = nullptr;
+  //! leaving failed and said so: it fails on every motion at the edge until it can
+  bool m_cantLeaveReported = false;
   Stopwatch m_sinceArrival;
 
   // Name of computer broadcasting the keyboard events
