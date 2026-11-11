@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "base/Stopwatch.h"
 #include "common/Enums.h"
 #include "deskflow/ClipboardChunk.h"
 #include "deskflow/ClipboardTypes.h"
@@ -147,6 +148,8 @@ private:
 
   double m_keepAliveAlarm = 0.0;
   EventQueueTimer *m_keepAliveAlarmTimer = nullptr;
+  //! since the last message from the server, of any kind: for the log when it seems dead
+  Stopwatch m_sinceMessage;
 
   MessageParser m_parser = &ServerProxy::parseHandshakeMessage;
   IEventQueue *m_events = nullptr;

@@ -9,6 +9,7 @@
 #include "platform/MSWindowsClipboard.h"
 
 #include "base/Log.h"
+#include "base/StallWatch.h"
 #include "platform/MSWindowsClipboardBitmapConverter.h"
 #include "platform/MSWindowsClipboardFacade.h"
 #include "platform/MSWindowsClipboardHTMLConverter.h"
@@ -59,6 +60,7 @@ bool MSWindowsClipboard::emptyUnowned()
   m_wroteBitmap = false;
 
   // empty the clipboard (and take ownership)
+  const deskflow::stall::Step step("emptying the clipboard (Windows asks its owner first)");
   if (!EmptyClipboard()) {
     // unable to cause this in integ tests, but this error has never
     // actually been reported by users.
@@ -88,6 +90,7 @@ bool MSWindowsClipboard::empty()
 
 void MSWindowsClipboard::add(Format format, const std::string &data)
 {
+  const deskflow::stall::Step step("putting data on the clipboard");
   // exit early if there is no data to prevent spurious "failed to convert clipboard data" errors
   if (data.empty()) {
     LOG_DEBUG("not adding 0 bytes to clipboard format: %d", format);

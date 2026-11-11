@@ -12,6 +12,7 @@
 #include "arch/Arch.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
+#include "base/StallWatch.h"
 #include "client/ServerProxy.h"
 #include "client/ServerProxy1_7.h"
 #include "client/ServerProxy1_8.h"
@@ -276,6 +277,7 @@ void Client::setClipboard(ClipboardID id, const IClipboard *clipboard)
   if (writeClipboard(id, data)) {
     m_pendingWrite[id].reset();
     LOG_INFO("clipboard %d updated from the server", id);
+    const deskflow::stall::Step step("telling the app what the clipboard got");
     reportClipboard(id, {.event = "received", .marshalled = data});
   } else {
     LOG_WARN("could not write clipboard %d (another program has it open), retrying", id);
@@ -286,6 +288,7 @@ void Client::setClipboard(ClipboardID id, const IClipboard *clipboard)
 
 bool Client::writeClipboard(ClipboardID id, const std::string &marshalled)
 {
+  const deskflow::stall::Step step("writing the clipboard from the server");
   Clipboard clipboard;
   clipboard.unmarshall(marshalled, 0);
   if (!m_computer->setClipboard(id, &clipboard))

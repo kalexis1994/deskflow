@@ -14,6 +14,7 @@
 #include "arch/win32/XArchWindows.h"
 #include "base/IEventQueue.h"
 #include "base/Log.h"
+#include "base/StallWatch.h"
 #include "base/TMethodJob.h"
 #include "client/Client.h"
 #include "common/Constants.h"
@@ -1597,6 +1598,7 @@ bool MSWindowsComputer::onDisplayChange()
 
 void MSWindowsComputer::onClipboardChange()
 {
+  const deskflow::stall::Step step("looking at a change of the clipboard");
   // Deskflow's own writes carry its ownership format: nothing to tell anyone.
   if (MSWindowsClipboard::isOwnedByDeskflow()) {
     if (!m_ownClipboard) {

@@ -13,11 +13,13 @@
 #include "base/EventQueueTimer.h"
 #include "base/Log.h"
 #include "base/SimpleEventQueueBuffer.h"
+#include "base/StallWatch.h"
 #include "common/ExitCodes.h"
 #include "mt/Lock.h"
 #include "mt/Mutex.h"
 
 #include <stdexcept>
+#include <thread>
 
 #if defined(__APPLE__)
 #include "base/OSXAutoReleasePool.h"
@@ -66,11 +68,16 @@ int EventQueue::loop()
     m_pending.pop();
   }
 
+  // says in the log when one event holds the loop up (base/StallWatch.h)
+  std::jthread watcher([](const std::stop_token &stop) { deskflow::stall::watch(stop); });
+
   Event event;
   getEvent(event);
   while (event.getType() != EventTypes::Quit) {
+    deskflow::stall::busy();
     dispatchEvent(event);
     Event::deleteData(event);
+    deskflow::stall::done();
     getEvent(event);
   }
   int exitCode = s_exitSuccess;

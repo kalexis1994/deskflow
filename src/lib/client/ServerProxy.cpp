@@ -11,6 +11,7 @@
 
 #include "base/IEventQueue.h"
 #include "base/Log.h"
+#include "base/StallWatch.h"
 #include "client/Client.h"
 #include "deskflow/Clipboard.h"
 #include "deskflow/ClipboardChunk.h"
@@ -93,6 +94,7 @@ void ServerProxy::handleData()
 
     // parse message
     LOG_VERBOSE("msg from server: %c%c%c%c", code[0], code[1], code[2], code[3]);
+    m_sinceMessage.reset();
     try {
       switch ((this->*m_parser)(code)) {
         using enum ConnectionResult;
@@ -338,7 +340,12 @@ ServerProxy::ConnectionResult ServerProxy::parseMessage(const uint8_t *code)
 
 void ServerProxy::handleKeepAliveAlarm()
 {
-  LOG_INFO("server is dead");
+  // Nothing came for a while, or it came and waits unread: the log says which (a client
+  // once stopped reading the server right after taking the clipboard)
+  LOG_INFO(
+      "server is dead: its last message came %.1f s ago, %u bytes of it wait unread", m_sinceMessage.getTime(),
+      m_stream->getSize()
+  );
   requestDisconnect("server is not responding");
 }
 
@@ -627,6 +634,8 @@ void ServerProxy::leave()
 
 void ServerProxy::setClipboard()
 {
+  const deskflow::stall::Step step("receiving the clipboard from the server");
+
   // parse
   ClipboardID id;
   uint32_t seq;
