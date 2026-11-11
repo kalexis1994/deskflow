@@ -61,6 +61,8 @@ public:
   void secureConnect();
   void secureAccept();
   int secureRead(void *buffer, int size, int &read);
+  //! TLS holds input already read from the socket (and so not announced by it again)
+  bool hasPendingInput();
   int secureWrite(const void *buffer, int size, int &wrote);
   JobResult doRead() override;
   JobResult doWrite() override;

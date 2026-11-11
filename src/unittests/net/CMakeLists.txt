@@ -38,3 +38,12 @@ create_test(
 )
 
 
+
+create_test(
+  NAME SocketTransferTests
+  DEPENDS net
+  LIBS base arch mt io common ${extra_libs}
+  SOURCE SocketTransferTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/net"
+)
+set_tests_properties(SocketTransferTests PROPERTIES TIMEOUT 180)

@@ -147,7 +147,12 @@ TCPSocket::JobResult SecureSocket::doRead()
     do {
       m_inputBuffer.write(buffer, bytesRead);
 
-      if (m_inputBuffer.getSize() > s_maxInputBufferSize) {
+      // Enough for now, but only once TLS holds nothing already read from the socket:
+      // the socket says there is more to read only when more arrives, so what TLS kept
+      // would wait for that. A screenshot on the server's clipboard (tens of MB at once)
+      // stopped a client this way at 1 MB, for good: everything after it, keepalives
+      // too, waited behind it.
+      if (m_inputBuffer.getSize() > s_maxInputBufferSize && !hasPendingInput()) {
         break;
       }
 
@@ -251,6 +256,12 @@ int SecureSocket::secureRead(void *buffer, int size, int &read)
   // not have an error code from SSL_get_error(). If this happens, it is
   // itself an error. Let the parent handle the case
   return read;
+}
+
+bool SecureSocket::hasPendingInput()
+{
+  std::scoped_lock ssl_lock{ssl_mutex_};
+  return m_ssl && m_ssl->m_ssl != nullptr && SSL_has_pending(m_ssl->m_ssl) == 1;
 }
 
 int SecureSocket::secureWrite(const void *buffer, int size, int &wrote)
