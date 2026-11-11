@@ -9,6 +9,7 @@
   "tray.connecting": "Verbindung wird gesucht…",
   "tray.disconnected": "Getrennt",
   "tray.update": "Aktualisieren",
+  "tray.updateAvailable": "Version {version} verfügbar",
   "tray.updateTo": "Auf Version {version} aktualisieren…",
   "tray.open": "Deskflow öffnen",
   "tray.quit": "Beenden",

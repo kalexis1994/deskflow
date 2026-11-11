@@ -129,8 +129,6 @@ struct Inner {
     found: Option<Update>,
     /// The version the person said "not now" to: a newer one asks again.
     dismissed: Option<String>,
-    /// The version that already brought the window up, so it does it only once.
-    announced: Option<String>,
 }
 
 impl Inner {
@@ -164,7 +162,6 @@ impl Updates {
                 phase: Phase::Idle,
                 found: None,
                 dismissed: None,
-                announced: None,
             }),
         })
     }
@@ -198,8 +195,10 @@ impl Updates {
             self.change(app, |_| {});
         }
 
+        // What it finds goes to the tray icon (its tooltip and menu) and to the window if
+        // open, never bringing the window up: that got in the way of whatever the person
+        // was doing.
         let result = search(app, channel).await;
-        let mut announce = false;
         self.change(app, |inner| {
             // started installing while this was searching, or changed channel
             if inner.channel != channel
@@ -212,12 +211,8 @@ impl Updates {
             }
             match result {
                 Ok(Some(update)) => {
-                    let version = update.version.clone();
-                    announce = inner.announced.as_ref() != Some(&version)
-                        && inner.dismissed.as_ref() != Some(&version);
-                    inner.announced = Some(version.clone());
                     inner.phase = Phase::Available {
-                        version,
+                        version: update.version.clone(),
                         notes: update.body.clone(),
                         error: None,
                     };
@@ -244,10 +239,6 @@ impl Updates {
                 }
             }
         });
-        if announce {
-            // the app lives hidden: the question has to reach the person
-            tray::show_window(app);
-        }
     }
 }
 
@@ -338,7 +329,6 @@ pub async fn set_update_channel(
         inner.channel = channel;
         inner.found = None;
         inner.dismissed = None;
-        inner.announced = None;
         inner.phase = Phase::Idle;
     });
     updates.check(&app, true).await;
@@ -505,7 +495,6 @@ mod tests {
             phase,
             found: None,
             dismissed: dismissed.map(Into::into),
-            announced: None,
         }
     }
 

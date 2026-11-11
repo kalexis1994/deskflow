@@ -169,6 +169,18 @@ pub fn show_update(app: &AppHandle, version: Option<&str>) {
         }
     }
     shown.update = version.map(Into::into);
+    set_tooltip(&tray, &shown);
+}
+
+/// The state, and a new version when there is one: the tray icon is where an update
+/// shows up, as the window doesn't open for it
+fn set_tooltip(tray: &Tray, shown: &Shown) {
+    let mut text = format!("Deskflow: {}", shown.status);
+    if let Some(version) = &shown.update {
+        text.push('\n');
+        text.push_str(&i18n::tf("tray.updateAvailable", &[("version", version)]));
+    }
+    let _ = tray.icon.set_tooltip(Some(text.as_str()));
 }
 
 /// Says everything again in the language just chosen.
@@ -210,9 +222,7 @@ pub fn refresh(app: &AppHandle, core: &CoreState) {
     };
     if status_changed {
         let _ = tray.status.set_text(&status);
-        let _ = tray
-            .icon
-            .set_tooltip(Some(format!("Deskflow: {status}").as_str()));
+        set_tooltip(&tray, &tray.shown.lock().unwrap());
     }
     if newly_waiting {
         show_window(app);
