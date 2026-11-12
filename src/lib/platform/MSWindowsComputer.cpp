@@ -1862,7 +1862,14 @@ void MSWindowsComputer::setupMouseKeys()
 
   // this is the case when there is some kind of a mouse (real or simulated by mouse keys).
   m_hasMouse = (GetSystemMetrics(SM_MOUSEPRESENT) != 0);
-  if (m_hasMouse) {
+
+  m_mouseKeys.cbSize = sizeof(m_mouseKeys);
+  m_gotMouseKeys = (SystemParametersInfo(SPI_GETMOUSEKEYS, m_mouseKeys.cbSize, &m_mouseKeys, 0) != 0);
+  if (!m_gotMouseKeys) {
+    LOG_ERR("unable to get old mouse keys settings, error: %d", GetLastError());
+    return;
+  }
+  if (!mouseKeysNeedSetting()) {
     // silent return to avoid noise.
     return;
   }
@@ -1875,19 +1882,20 @@ void MSWindowsComputer::setupMouseKeys()
     return;
   }
 
-  m_mouseKeys.cbSize = sizeof(m_mouseKeys);
-  m_gotMouseKeys = (SystemParametersInfo(SPI_GETMOUSEKEYS, m_mouseKeys.cbSize, &m_mouseKeys, 0) != 0);
-  if (!m_gotMouseKeys) {
-    LOG_ERR("unable to get old mouse keys settings, error: %d", GetLastError());
-    return;
-  }
-
   updateMouseKeys();
+}
+
+bool MSWindowsComputer::mouseKeysNeedSetting() const
+{
+  // No mouse: the cursor needs mouse keys to show. With one, mouse keys may still be as an
+  // older version left them, which took the number pad from whoever sits at this computer
+  // (mouse keys counts as a mouse, so the first case doesn't see it).
+  return !m_hasMouse || m_mouseKeys.dwFlags == kOldMouseKeysFlags;
 }
 
 void MSWindowsComputer::updateMouseKeys()
 {
-  if (m_hasMouse || !m_gotMouseKeys || m_isPrimary) {
+  if (!m_gotMouseKeys || m_isPrimary || !mouseKeysNeedSetting()) {
     // silent return to avoid noise.
     return;
   }
@@ -1898,15 +1906,14 @@ void MSWindowsComputer::updateMouseKeys()
   // this is referred to as 'MouseKeys' in the docs.
   // makes the mouse cursor visible if there is no real mouse.
   //
-  // historically, we would only set the `MKF_REPLACENUMBERS` flag when num lock is on.
-  // however, this was a strange hidden feature that the user will most likely not expect;
-  // it's probably more sensible to always set the `MKF_REPLACENUMBERS` flag, so that when the
-  // mouse keys feature is left on after the program exits, the num pad on a local keyboard still
-  // types numbers instead of moving the mouse cursor around (which would surprise most users).
+  // Without MKF_REPLACENUMBERS: the number pad moves the cursor only with Num Lock off, and
+  // types numbers with it on, as anyone at this computer's own keyboard expects. With it, as
+  // set before, Num Lock on moved the cursor and off gave arrows: no numbers at all, and a
+  // beep at each press of Num Lock (which switches mouse keys).
   //
   // by default, windows 11 shows the mouse keys status in the system tray, but turning this on
   // might actually cause confusion for users who are not familiar with the mouse keys feature.
-  m_mouseKeys.dwFlags = MKF_AVAILABLE | MKF_MOUSEKEYSON | MKF_REPLACENUMBERS;
+  m_mouseKeys.dwFlags = kMouseKeysFlags;
 
   // only update the mouse keys settings if different to avoid noise.
   if (oldFlags == m_mouseKeys.dwFlags) {
@@ -1918,7 +1925,11 @@ void MSWindowsComputer::updateMouseKeys()
   // causes the mouse cursor to be come stuck in an invisible state even when there is a real mouse.
   // we may want to reintroduce it (restore old mouse keys flags) as a user option in the future,
   // e.g. for users who use periodically use their windows client directly and use the numpad for cursor keys.
-  LOG_INFO("enabling mouse keys for cursor visibility");
+  if (oldFlags == kOldMouseKeysFlags) {
+    LOG_INFO("mouse keys no longer take the number pad while Num Lock is on");
+  } else {
+    LOG_INFO("enabling mouse keys for cursor visibility");
+  }
   LOG_DEBUG("setting mouse keys flags: 0x%08x", m_mouseKeys.dwFlags);
   const auto ok = SystemParametersInfo(SPI_SETMOUSEKEYS, m_mouseKeys.cbSize, &m_mouseKeys, SPIF_SENDCHANGE);
   if (!ok) {

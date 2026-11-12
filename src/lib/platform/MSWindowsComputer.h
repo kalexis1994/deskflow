@@ -245,6 +245,9 @@ private: // HACK
   // so we shouldn't risk doing that.
   void setupMouseKeys();
 
+  //! no mouse, or mouse keys as an older version set them (the number pad taken)
+  bool mouseKeysNeedSetting() const;
+
   // enables the mouse keys accessibility feature to to ensure the
   // mouse cursor can be shown.
   void updateMouseKeys();
@@ -368,6 +371,12 @@ private:
 
   bool m_gotMouseKeys = false;
   MOUSEKEYS m_mouseKeys;
+  //! what is set for the cursor to show without a mouse: the number pad moves it only with
+  //! Num Lock off
+  static constexpr DWORD kMouseKeysFlags = MKF_AVAILABLE | MKF_MOUSEKEYSON;
+  //! what versions up to 0.1.29 set, which Windows' own settings never do (they keep the hot
+  //! key): the number pad moved the cursor with Num Lock on, and never typed numbers
+  static constexpr DWORD kOldMouseKeysFlags = MKF_AVAILABLE | MKF_MOUSEKEYSON | MKF_REPLACENUMBERS;
 
   MSWindowsHook m_hook;
 
