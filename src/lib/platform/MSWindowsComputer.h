@@ -184,6 +184,9 @@ private: // HACK
 
   //! The hook relayed a motion (or one of nothing): it is alive; reports what it saw
   void noteRelayedMotion();
+  //! A motion was dropped as from before the warp to the center; too many in a row and
+  //! the cursor comes back here
+  void noteDroppedMotion(int32_t dx, int32_t dy);
 
   //! What the mouse does while relayed to another computer, for the log: the mouse
   //! froze once on a client while the keyboard kept working (docs/dev/server-log.md)
@@ -195,6 +198,11 @@ private: // HACK
     int rawSinceMotion = 0;
     int recenters = 0;
     int dropped = 0;
+    //! motions dropped with none relayed between, since the first of them
+    int droppedInARow = 0;
+    std::chrono::steady_clock::time_point firstDropInARow{};
+    //! the server was asked to bring the cursor back
+    bool cursorLost = false;
     POINT lastWander{};
     bool fallbackReported = false;
     bool stallReported = false;

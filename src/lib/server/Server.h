@@ -413,6 +413,8 @@ private:
   bool onMouseMovePrimary(int32_t x, int32_t y);
   void onMouseMoveSecondary(int32_t dx, int32_t dy);
   void onRawMouseMoveSecondary(int32_t dx, int32_t dy);
+  //! The primary can't measure the mouse while on a client: the cursor comes back to it
+  void handleCursorLost();
   //! Whether the active client gets relative motion: a game has the mouse, or the
   //! cursor is locked there with relative moves on
   bool isRelativeNow() const;

@@ -191,6 +191,12 @@ enum class EventTypes : uint32_t
   */
   PrimaryComputerRawMotionOnSecondary,
 
+  /** This event is sent when the primary can no longer measure the mouse while the cursor
+      is on a client (every motion comes out wrong, as on Windows' secure desktop), so the
+      cursor should come back to it. No event data.
+  */
+  PrimaryComputerCursorLost,
+
   /// This event is sent when mouse wheel is rotated. Event data is a pointer to WheelInfo.
   PrimaryComputerWheel,
 

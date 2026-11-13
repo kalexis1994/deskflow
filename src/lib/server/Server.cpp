@@ -126,6 +126,9 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Com
         onRawMouseMoveSecondary(info->m_x, info->m_y);
       }
   );
+  m_events->addHandler(EventTypes::PrimaryComputerCursorLost, m_primaryClient->getEventTarget(), [this](const auto &) {
+    handleCursorLost();
+  });
   m_events->addHandler(EventTypes::PrimaryComputerWheel, m_primaryClient->getEventTarget(), [this](const auto &e) {
     handleWheelEvent(e);
   });
@@ -202,6 +205,7 @@ Server::~Server()
   m_events->removeHandler(PrimaryComputerMotionOnPrimary, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryComputerMotionOnSecondary, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryComputerRawMotionOnSecondary, m_primaryClient->getEventTarget());
+  m_events->removeHandler(PrimaryComputerCursorLost, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryComputerWheel, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryScreenSaverActivated, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryScreenSaverDeactivated, m_primaryClient->getEventTarget());
@@ -1163,6 +1167,21 @@ void Server::onRawMouseMoveSecondary(int32_t dx, int32_t dy)
     LOG_VERBOSE("raw relative move on %s by %d,%d", getName(m_active).c_str(), dx, dy);
     m_active->mouseRelativeMove(dx, dy);
   }
+}
+
+void Server::handleCursorLost()
+{
+  // The primary can't tell where the mouse goes: the cursor would stay where it is on the
+  // client, moving neither there nor back. On the primary at least the mouse works, and
+  // what took it there (a permission prompt, the lock screen) waits for the person there.
+  if (m_active == m_primaryClient) {
+    return;
+  }
+  LOG_WARN(
+      "\"%s\" can't measure the mouse while the cursor is on \"%s\": bringing it back",
+      getName(m_primaryClient).c_str(), getName(m_active).c_str()
+  );
+  jumpToComputer(m_primaryClient);
 }
 
 bool Server::isGameMode() const

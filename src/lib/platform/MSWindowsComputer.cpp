@@ -1433,8 +1433,10 @@ bool MSWindowsComputer::onMouseDelta(int32_t dx, int32_t dy)
   if (isPreWarpMotion(dx, dy, m_x, m_y, m_w, m_h, m_xCenter, m_yCenter)) {
     LOG_DEBUG("dropped bogus delta motion: %+d,%+d", dx, dy);
     ++m_relayWatch.dropped;
+    noteDroppedMotion(dx, dy);
     return true;
   }
+  m_relayWatch.droppedInARow = 0;
   sendEvent(EventTypes::PrimaryComputerMotionOnSecondary, MotionInfo::alloc(dx, dy));
   return true;
 }
@@ -1463,6 +1465,34 @@ std::string inputDesktopName()
 }
 
 } // namespace
+
+void MSWindowsComputer::noteDroppedMotion(int32_t dx, int32_t dy)
+{
+  // A motion from before the warp comes alone, or a few right after it. All of them
+  // dropped for a while means they are measured wrong: once, with the secure desktop up
+  // here (a permission prompt), every motion was, for a minute, and the cursor sat at the
+  // edge of a client, moving neither there nor back. Back here it can at least be used.
+  using namespace std::chrono;
+  constexpr int kInARow = 30;
+  constexpr auto kFor = milliseconds(500);
+  const auto now = steady_clock::now();
+  if (m_relayWatch.droppedInARow++ == 0) {
+    m_relayWatch.firstDropInARow = now;
+  }
+  if (m_relayWatch.cursorLost || m_relayWatch.droppedInARow < kInARow || now - m_relayWatch.firstDropInARow < kFor) {
+    return;
+  }
+  m_relayWatch.cursorLost = true;
+  POINT pos{};
+  const bool gotPos = GetCursorPos(&pos) != FALSE;
+  LOG_WARN(
+      "every motion of the mouse for %.1f s measured too large to be one (the last %+d,%+d; cursor %s %d,%d; input "
+      "desktop: %s): bringing the cursor back here",
+      duration<double>(now - m_relayWatch.firstDropInARow).count(), dx, dy, gotPos ? "at" : "not found, last", pos.x,
+      pos.y, inputDesktopName().c_str()
+  );
+  sendEvent(EventTypes::PrimaryComputerCursorLost);
+}
 
 void MSWindowsComputer::noteRelayedMotion()
 {
