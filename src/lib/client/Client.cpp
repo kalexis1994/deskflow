@@ -707,6 +707,7 @@ void Client::watchMouseCapture(bool watch)
     if (m_mouseCaptured && m_server != nullptr)
       m_server->sendMouseCapture(false);
     m_mouseCaptured = false;
+    m_captureChecks = 0;
   }
 }
 
@@ -714,12 +715,25 @@ void Client::checkMouseCapture()
 {
   if (m_server == nullptr || !m_active)
     return;
-  const bool captured = m_computer->isMouseCaptured();
-  if (captured == m_mouseCaptured)
+  const auto program = m_computer->mouseCapturedBy();
+  if (!program) {
+    m_captureChecks = 0;
+    if (m_mouseCaptured) {
+      m_mouseCaptured = false;
+      LOG_INFO("the program let go of the mouse");
+      m_server->sendMouseCapture(false);
+    }
     return;
-  m_mouseCaptured = captured;
-  LOG_INFO("%s", captured ? "a program took the mouse: asking for relative motion" : "the program let go of the mouse");
-  m_server->sendMouseCapture(captured);
+  }
+
+  // A game holds the mouse as long as it is played: held for a second, it is taken. Some
+  // programs hold it for a moment, and the mouse then stayed on a computer nobody played on.
+  constexpr int kChecksHeld = 5; // the first and four more, a quarter of a second apart
+  if (m_mouseCaptured || ++m_captureChecks < kChecksHeld)
+    return;
+  m_mouseCaptured = true;
+  LOG_INFO("a program took the mouse: %s; asking for relative motion", program->c_str());
+  m_server->sendMouseCapture(true);
 }
 
 void Client::cleanupClipboardRetry()

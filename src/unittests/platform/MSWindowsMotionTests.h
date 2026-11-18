@@ -18,4 +18,5 @@ private Q_SLOTS:
   void monitorsOffCenter();
   void aGameTakesTheMouse();
   void hiddenOrConfinedAloneIsNotAGame();
+  void confinedOutsideTheWindowInFrontIsNotAGame();
 };

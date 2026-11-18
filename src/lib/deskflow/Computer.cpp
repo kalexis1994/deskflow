@@ -315,9 +315,9 @@ std::vector<deskflow::Monitor> Computer::getMonitors() const
   return m_computer->getMonitors();
 }
 
-bool Computer::isMouseCaptured() const
+std::optional<std::string> Computer::mouseCapturedBy() const
 {
-  return m_computer->isMouseCaptured();
+  return m_computer->mouseCapturedBy();
 }
 
 bool Computer::canShareFiles() const

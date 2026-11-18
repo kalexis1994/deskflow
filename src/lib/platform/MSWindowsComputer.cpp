@@ -376,9 +376,9 @@ std::vector<deskflow::Monitor> MSWindowsComputer::getMonitors() const
   return monitors;
 }
 
-bool MSWindowsComputer::isMouseCaptured() const
+std::optional<std::string> MSWindowsComputer::mouseCapturedBy() const
 {
-  return m_desks->isMouseCaptured();
+  return m_desks->mouseCapturedBy();
 }
 
 bool MSWindowsComputer::canShareFiles() const

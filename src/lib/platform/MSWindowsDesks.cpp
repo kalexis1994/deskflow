@@ -9,6 +9,7 @@
 #include "platform/MSWindowsDesks.h"
 
 #include "arch/Arch.h"
+#include "arch/Utf8.h"
 #include "base/IEventQueue.h"
 #include "base/IJob.h"
 #include "base/Log.h"
@@ -22,7 +23,10 @@
 #include "platform/MSWindowsHook.h"
 #include "platform/MSWindowsMouseCapture.h"
 
+#include <format>
+#include <iterator>
 #include <malloc.h>
+#include <string_view>
 
 // these are only defined when WINVER >= 0x0500
 #if !defined(SPI_GETMOUSESPEED)
@@ -246,12 +250,12 @@ void MSWindowsDesks::getCursorPos(int32_t &x, int32_t &y) const
   y = pos.y;
 }
 
-bool MSWindowsDesks::isMouseCaptured() const
+std::optional<std::string> MSWindowsDesks::mouseCapturedBy() const
 {
   // asked of the desk's thread, which is on the desktop the game runs on
-  bool captured = false;
-  sendMessage(DESKFLOW_MSG_MOUSE_CAPTURED, reinterpret_cast<WPARAM>(&captured), 0);
-  return captured;
+  std::optional<std::string> program;
+  sendMessage(DESKFLOW_MSG_MOUSE_CAPTURED, reinterpret_cast<WPARAM>(&program), 0);
+  return program;
 }
 
 void MSWindowsDesks::fakeKeyEvent(WORD virtualKey, WORD scanCode, DWORD flags, bool /*isAutoRepeat*/) const
@@ -667,6 +671,32 @@ void MSWindowsDesks::deskLeave(Desk *desk, HKL keyLayout)
   }
 }
 
+namespace {
+
+//! What took the mouse, for the log: its program, its window and where the cursor is held
+std::string describeCapture(HWND window, const RECT &clip)
+{
+  DWORD pid = 0;
+  GetWindowThreadProcessId(window, &pid);
+  std::string exe = "?";
+  if (HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid); process != nullptr) {
+    wchar_t path[MAX_PATH] = {};
+    if (DWORD size = MAX_PATH; QueryFullProcessImageNameW(process, 0, path, &size)) {
+      const std::wstring_view full(path, size);
+      exe = deskflow::wideToUtf8(full.substr(full.find_last_of(L"\\/") + 1));
+    }
+    CloseHandle(process);
+  }
+  wchar_t title[256] = {};
+  GetWindowTextW(window, title, static_cast<int>(std::size(title)));
+  return std::format(
+      "{} (\"{}\"), the cursor held in {},{} to {},{}", exe, deskflow::wideToUtf8(title), clip.left, clip.top,
+      clip.right, clip.bottom
+  );
+}
+
+} // namespace
+
 void MSWindowsDesks::deskThread(const void *vdesk)
 {
   MSG msg;
@@ -783,16 +813,25 @@ void MSWindowsDesks::deskThread(const void *vdesk)
     }
 
     case DESKFLOW_MSG_MOUSE_CAPTURED: {
-      auto *captured = reinterpret_cast<bool *>(msg.wParam);
+      auto *program = reinterpret_cast<std::optional<std::string> *>(msg.wParam);
       RECT clip;
       CURSORINFO cursor = {sizeof(cursor)};
       if (GetClipCursor(&clip) && GetCursorInfo(&cursor)) {
         const long left = GetSystemMetrics(SM_XVIRTUALSCREEN);
         const long top = GetSystemMetrics(SM_YVIRTUALSCREEN);
-        *captured = ::isMouseCaptured(
-            clip.left, clip.top, clip.right, clip.bottom, left, top, left + GetSystemMetrics(SM_CXVIRTUALSCREEN),
-            top + GetSystemMetrics(SM_CYVIRTUALSCREEN), (cursor.flags & CURSOR_SHOWING) != 0
-        );
+        const CaptureRect screen{
+            left, top, left + GetSystemMetrics(SM_CXVIRTUALSCREEN), top + GetSystemMetrics(SM_CYVIRTUALSCREEN)
+        };
+        const HWND front = GetForegroundWindow();
+        RECT frontRect;
+        std::optional<CaptureRect> window;
+        if (front != nullptr && GetWindowRect(front, &frontRect)) {
+          window = CaptureRect{frontRect.left, frontRect.top, frontRect.right, frontRect.bottom};
+        }
+        const CaptureRect confined{clip.left, clip.top, clip.right, clip.bottom};
+        if (::isMouseCaptured(confined, screen, window ? &*window : nullptr, (cursor.flags & CURSOR_SHOWING) != 0)) {
+          *program = describeCapture(front, clip);
+        }
       }
       break;
     }

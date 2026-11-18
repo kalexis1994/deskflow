@@ -14,6 +14,7 @@
 #include "mt/Mutex.h"
 
 #include <map>
+#include <optional>
 #include <string>
 
 #define WIN32_LEAN_AND_MEAN
@@ -143,8 +144,9 @@ public:
   */
   void getCursorPos(int32_t &x, int32_t &y) const;
 
-  //! Whether a program on the input desktop has taken the mouse (MSWindowsMouseCapture.h)
-  bool isMouseCaptured() const;
+  //! The program on the input desktop that has taken the mouse, if one has
+  //! (MSWindowsMouseCapture.h): its executable, window title and where it confines the cursor
+  std::optional<std::string> mouseCapturedBy() const;
 
   //! Fake key press/release
   /*!

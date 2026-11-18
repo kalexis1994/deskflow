@@ -287,6 +287,8 @@ private:
   bool m_serverLogAvailable = false;
   //! What the server was last told about the mouse being taken
   bool m_mouseCaptured = false;
+  //! checks in a row that found the mouse taken, before the server hears of it
+  int m_captureChecks = 0;
   EventQueueTimer *m_mouseCaptureTimer = nullptr;
   IEventQueue *m_events = nullptr;
   bool m_useSecureNetwork = false;

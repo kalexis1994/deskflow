@@ -66,9 +66,12 @@ namespace {
 // two monitors side by side, the left one primary
 constexpr long kLeft = 0, kTop = 0, kRight = 3840, kBottom = 1080;
 
-bool captured(long left, long top, long right, long bottom, bool shown)
+// the window in front: a game full screen on the first monitor
+constexpr CaptureRect kGame{0, 0, 1920, 1080};
+
+bool captured(long left, long top, long right, long bottom, bool shown, const CaptureRect *window = &kGame)
 {
-  return isMouseCaptured(left, top, right, bottom, kLeft, kTop, kRight, kBottom, shown);
+  return isMouseCaptured({left, top, right, bottom}, {kLeft, kTop, kRight, kBottom}, window, shown);
 }
 
 } // namespace
@@ -78,8 +81,9 @@ void MSWindowsMotionTests::aGameTakesTheMouse()
   // a full-screen game on the first monitor, and one that keeps the cursor in a dot
   QVERIFY(captured(0, 0, 1920, 1080, false));
   QVERIFY(captured(960, 540, 961, 541, false));
-  // a game in a window on the second monitor
-  QVERIFY(captured(2200, 100, 3600, 900, false));
+  // a game in a window on the second monitor, its frame a little past where it holds the cursor
+  constexpr CaptureRect windowed{2192, 69, 3608, 908};
+  QVERIFY(captured(2200, 100, 3600, 900, false, &windowed));
 }
 
 void MSWindowsMotionTests::hiddenOrConfinedAloneIsNotAGame()
@@ -92,6 +96,18 @@ void MSWindowsMotionTests::hiddenOrConfinedAloneIsNotAGame()
   QVERIFY(!captured(kLeft, kTop, kRight, kBottom, true));
   // an empty confinement says nothing
   QVERIFY(!captured(500, 500, 500, 500, false));
+}
+
+void MSWindowsMotionTests::confinedOutsideTheWindowInFrontIsNotAGame()
+{
+  // hidden and confined, but by something else: the window in front is elsewhere
+  constexpr CaptureRect elsewhere{2200, 100, 3600, 900};
+  QVERIFY(!captured(0, 0, 1920, 1080, false, &elsewhere));
+  // or held to the first monitor while a small window is in front
+  constexpr CaptureRect small{100, 100, 900, 700};
+  QVERIFY(!captured(0, 0, 1920, 1040, false, &small));
+  // nothing in front at all
+  QVERIFY(!captured(0, 0, 1920, 1080, false, nullptr));
 }
 
 QTEST_MAIN(MSWindowsMotionTests)

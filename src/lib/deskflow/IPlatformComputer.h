@@ -18,6 +18,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <vector>
 
 class IClipboard;
@@ -100,10 +101,11 @@ public:
     return false;
   }
 
-  //! Whether a program (a first-person game) has taken the mouse for itself
-  virtual bool isMouseCaptured() const
+  //! The program (a first-person game) that has taken the mouse for itself, as the log
+  //! should name it; none: nullopt
+  virtual std::optional<std::string> mouseCapturedBy() const
   {
-    return false;
+    return std::nullopt;
   }
 
   //! The monitors, in the coordinates of the whole desktop; one, the whole of it, if
